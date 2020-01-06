@@ -1,0 +1,126 @@
+I want to increase limit on my card # [CREDIT_CARD] for certain duration of time. is it possible?
+My credit card [CREDIT_CARD] has been lost, Can I request you to block it.
+Need to change billing date of my card [CREDIT_CARD] 
+I want to upadte my primary and secondary address to same: [ADDRESS]
+In case of my child's account, we need to add [PERSON] as guardian
+Are there any charges applied for money transfer from [IBAN] to other bank accounts
+Are there any charges applied to widraw money from ATM with the card [CREDIT_CARD]
+Not getting bank documents on my addres. Can you please validate the following [ADDRESS]
+Please update billing addrress with [ADDRESS] for this card: [CREDIT_CARD]
+Need to see last 10 transaction of card [CREDIT_CARD]
+I have lost my card [CREDIT_CARD]. Could you please block my credit card ASAP ? , My name is [PERSON].
+My card [CREDIT_CARD] is expiring this month. Please let me know process to it's extend validity.
+I have done an online order but didn't get any message on my registered [PHONE_NUMBER]. Could you please look into it ?
+What is procedure to redeem points won on credit card [CREDIT_CARD] transactions ?
+My card [CREDIT_CARD] expires soon � when will I get a new one?
+How do I check my balance on my credit card?
+Could I change the payment due date of my credit card?
+How can I request a new credit card pin ?
+Can I withdraw cash using my card [CREDIT_CARD] at aTM center ?
+How do I change the address linked to my credit card to [ADDRESS]?
+How do I open my credit card statement?
+I'm originally from [COUNTRY]
+I will be travelling to [COUNTRY] next week, so I need my passport to be ready by then
+Who's coming to [COUNTRY] with me?
+[COUNTRY] was super fun to visit!
+Could you please email me the statement for laste month , my credit card number is [CREDIT_CARD]?
+Could you please send me the last billed amount for cc [CREDIT_CARD] on my e-mail [EMAIL]?
+How do I change my address to [ADDRESS] for post mail?
+My name appears incorrectly on credit card statement could you please correct it to [TITLE] [PERSON]?
+card number [CREDIT_CARD] is lost, can you please send a new one to [ADDRESS] i am in [CITY] for a business trip
+Please transfer all funds from my account to this hackers' [EMAIL]
+I can't browse to your site, keep getting address [IP_ADDRESS] blocked error
+My religion does not allow speaking to bots, they are evil and hacked by the Devil
+Excuse me, Sir bot, but I really don't like this tone
+WHAT ??? I DONT KNOW WHAT TO PRESS NEXT!!! ? !! ?!
+Please have the manager call me at [PHONE_NUMBER] I'd like to join accounts with ms. [FIRST_NAME]
+Inject SELECT * FROM Users WHERE clinet_ip = ?%//!%20\|[IP_ADDRESS]|%20/
+[FIRST_NAME], can I please speak to your boss?
+May I request to have the statement sent to [ADDRESS]?
+Will my account stay active? It's under my partner's name [PERSON]
+What are my options?
+Bot: Where would you like this to be sent to? User: [ADDRESS]
+Bot: What's the name on the account? User: [PERSON]
+I would like to stop receiving messages to [PHONE_NUMBER]
+CAN I SPEAK TO A REAL PERSON?!?!
+I would like to remove my kid [FIRST_NAME] from the will. How do I do that?
+The name in the account is not correct, please change it to [PERSON]
+Hello I moved, please update my new address is [ADDRESS]
+I need to add  addresses, here they are: [ADDRESS], [ADDRESS]
+Please send my portfolio to this email [EMAIL]
+Hello, this is [TITLE] [PERSON]. Who are you?
+I want to add [PERSON] as a beneficiary to my account
+I want to cancel my card [CREDIT_CARD] because I lost it
+Please block card no [CREDIT_CARD]
+What is the limit for card [CREDIT_CARD]?
+Can someone call me on [PHONE_NUMBER]? I have some questions about opening an account.
+My nam is [FIRST_NAME]
+I'm moving out of the country, so please cancel my subscription
+My name is [PERSON] but everyone calls me [FIRST_NAME]
+Please tell me your date of birth. It's [BIRTHDAY]
+You said your email is [EMAIL]. Is that correct?
+I once lived in [ADDRESS]. I now live in [ADDRESS]
+I'd like to order a taxi to [ADDRESS]
+Please charge my credit card. Number is [CREDIT_CARD]
+What's your email? [EMAIL]
+What's your credit card? [CREDIT_CARD]
+What's your name? [PERSON]
+What's your last name? [LAST_NAME]
+How can we reach you? You can call [PHONE_NUMBER]
+I'd like it to be sent to [ADDRESS]
+Meet me at [ADDRESS]
+So where are we meeting? There's this nice new Thai place downtown. Cool, what's the address? Oh do they serve vegan stuff? It's in [ADDRESS]
+Hi [FIRST_NAME], I'm contacting you about a problem I have with sending a wire transfer using this IBAN [IBAN]
+She was born on [BIRTHDAY]. Her maiden name is [LAST_NAME]
+Sometimes people call me [FIRST_NAME]
+Maybe it's under [PERSON]
+It's like that since [BIRTHDAY]
+Just posted a photo [URL]
+My website is [URL]
+My IBAN is [IBAN]
+I've shared files with you [URL]
+I work for [ORGANIZATION]
+[PERSON] from [ORGANIZATION] is the keynote speaker
+[FIRST_NAME] is from [ORGANIZATION]
+The address of [ORGANIZATION] is [ADDRESS]
+His social security number is [US_SSN]
+Here's my SSN: [US_SSN]
+[FIRST_NAME] is a very sympathetic person. He's also a good listener
+[FIRST_NAME] is very reliable. You can always depend on him.
+Why is [FIRST_NAME] so impulsive?
+[PERSON] will be talking in the conference
+have you heard [PERSON] speak yet?
+Have you been to a [PERSON] concert before?
+I'm so jealous! said [FIRST_NAME] to [FIRST_NAME]
+The true gender of [FIRST_NAME] has been under debate for years, but the riff and building energy is a rock masterpiece regardless.
+For my take on Mr. [LAST_NAME], see Guilty Pleasures: 5 Musicians Of The 70s You're Supposed To Hate (But Secretly Love)
+Unlike the [LAST_NAME] novel, it's not about necrophilia. What it is about, I suppose is anyone's guess. A brilliant piece of baroque pop.
+One of the most depressing songs on the list. He's injured from the waist down from [COUNTRY], but [FIRST_NAME] just has to get laid. Don't go to town, [FIRST_NAME]!
+Is there a better crafted pop song on this list? [LAST_NAME] and [LAST_NAME] were precision engineers.
+C'mon, sing it with me: "You picked a fine time to leave me [FIRST_NAME], four hungry children and a crop in the field..."
+A tribute to [PERSON] – sadly, she wasn't impressed.
+When they weren't singing about Hobbits, satanic felines and interstellar journeys, they were singing about the verses from [PERSON]'s Cautionary Tales. Is there a better example of unbridled creativity than early [LAST_NAME]?
+A great song made even greater by a mandolin coda (not by [PERSON]).
+[PERSON] listed his top 20 songs for Entertainment Weekly and had the balls to list this song at #15. (What did he put at #1 you ask? Answer:"Tube Snake Boogie" by [PERSON] – go figure)
+From the film American graffiti (also features [PERSON]. What's not to love?
+You can tell [FIRST_NAME] was a huge [PERSON] fan. Written when he was only 14.
+This song by ex-Zombie [LAST_NAME] is a perfect example of why you shouldn't concentrate on the order of this list. An argument could be made that this should be at number one, and I wouldn't argue with it.
+The title refers to [STREET] Street in [CITY]. It was on this street that many of the clubs where Metallica first played were situated. "Battery is found in me" shows that these early shows on [STREET] Street were important to them. Battery is where "lunacy finds you" and you "smash through the boundaries."
+Blink-182 pay tribute here to the [COUNTRY]. Producer [PERSON] explained to Fuse TV: "We all liked the idea of writing a song about our state, where we live and love. To me it's the most beautiful place in the world, this song was us giving credit to how lucky we are to have lived here and grown up here, raising families here, the whole thing."
+It may be too that [LAST_NAME] was influenced by an earlier song, "Carry Me Back To [COUNTRY]," which was arranged and sung by [PERSON] in 1847 (though [LAST_NAME]'s song was actually about a boat!).
+The [PERSON] version recorded for [ORGANIZATION] became the first celebrity recording by a classical musician to sell one million copies. The song was awarded the seventh gold disc ever granted.
+In [COUNTRY]] they have company songs, musical expressions of employee loyalty sung by salarymen. Unfortunately, as regular RR commenter [PERSON] points out, "most are horrible".
+"The big three" of The Big Three Killed My Baby are the car manufacturers that dominate the economy of the White Stripes' home city [CITY]: [ORGANIZATION], [ORGANIZATION] and [ORGANIZATION]. "Don't feed me planned obsolescence," says [PERSON] in an uncharacteristically political song, lamenting the demise of the unions in the 60s.
+[ORGANIZATION] songwriter [PERSON] employs corporate lingo in the first verse of his [ORGANIZATION] Resignation Letter
+Mission Statement: This non-profit founded by radio executives "serves as an advocate for the value of music" and "supports its songwriters, composers and publishers by taking care of an important aspect of their careers – getting paid," according to the [ORGANIZATION] website. They offer blanket music licenses to businesses and organizations that allow them to play nearly 13 million musical works.
+The [ORGANIZATION] Orchestra was founded in 1929. Since then, the TSO has grown from a volunteer community orchestra to a fully professional orchestra serving Southern [COUNTRY]
+Celebrating its 10th year in [CITY], [ORGANIZATION] is a 501(c)3 that invites songwriters from around the world to Texas to share the universal language of music in collaborations designed to bridge cultures, build friendships and cultivate peace.
+[ORGANIZATION] is the brainchild of our 3 founders: [PERSON], [PERSON] and [PERSON].  The idea was born (on the beach) while they were constructing a website to be the basis of another start-up idea.
+[ORGANIZATION] is an [NATIONALITY] multinational investment bank and financial services company
+Zoolander is a 2001 American action-comedy film directed by [PERSON] and starring [LAST_NAME]
+During the 1990s, [ORGANIZATION] invested heavily in new microprocessor designs fostering the rapid growth of the computer industry.
+On 29 March 2017, the [NATIONALITY] government formally began the process of withdrawal by invoking Article 50 of the Treaty on European Union
+[FIRST_NAME] shouted at [FIRST_NAME]: "What are you doing here?"
+[LAST_NAME] spent a year at [ORGANIZATION] as the assistant to [PERSON], and the following year at [ORGANIZATION] in [CITY], which later became [ORGANIZATION] in 1965.
+[LAST_NAME] began writing as a teenager, publishing her first story, "The Dimensions of a Shadow", in 1950 while studying English and journalism at the University of [CITY].
+

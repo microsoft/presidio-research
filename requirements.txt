@@ -1,0 +1,17 @@
+spacy
+requests==2.22.0
+numpy==1.17.2
+jupyter==1.0.0
+pandas==0.25.1
+tqdm
+haikunator
+schwifty
+faker
+sklearn
+https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-2.2.5/en_core_web_lg-2.2.5.tar.gz
+regex
+#azureml
+#azureml-sdk
+#flair
+sklearn_crfsuite
+pytest

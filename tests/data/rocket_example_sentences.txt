@@ -1,0 +1,4 @@
+My name is [FIRST_NAME] [LAST_NAME] and I fly a [ROCKET]
+I'm [ROCKET]
+The customer's name is [LAST_NAME], [FIRST_NAME] where is my [ROCKET]
+The customer's name is [FIRST_NAME] [ROCKET]
