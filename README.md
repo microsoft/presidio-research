@@ -1,4 +1,4 @@
-# Presidio-evaluator
+# Presidio-research
 This package features data-science related tasks for developing new recognizers for Presidio. 
 It is used for the evaluation of the entire system, as well as for evaluating specific PII recognizers or PII detection models
 
