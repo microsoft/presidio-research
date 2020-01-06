@@ -1,5 +1,5 @@
 # Presidio-research
-This package features data-science related tasks for developing new recognizers for Presidio. 
+This package features data-science related tasks for developing new recognizers for [Presidio](https://github.com/microsoft/presidio). 
 It is used for the evaluation of the entire system, as well as for evaluating specific PII recognizers or PII detection models
 
 ## Who should use it?
