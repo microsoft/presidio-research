@@ -1,7 +1,7 @@
 spacy
 requests==2.22.0
 numpy
-jupyter==1.0.0
+jupyter
 pandas
 tqdm
 haikunator
