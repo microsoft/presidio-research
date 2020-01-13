@@ -1,6 +1,6 @@
 spacy
 requests==2.22.0
-numpy==1.17.2
+numpy
 jupyter==1.0.0
 pandas==0.25.1
 tqdm
