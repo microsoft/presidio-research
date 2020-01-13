@@ -6,6 +6,23 @@ It is used for the evaluation of the entire system, as well as for evaluating sp
 Anyone interested in evaluating an existing Presidio instance, a specific PII recognizer or to develop new models or logic for detecting PII could leverage the preexisting work in this package.
 Additionally, anyone interested in generating new data based on previous datasets (e.g. to increase the coverage of entity values) for Named Entity Recognition models could leverage the data generator contained in this package.
 
+## Getting started
+To install the package, clone the repo and install all dependencies, preferably in a virtual environment:
+
+``` sh
+# Create conda env (optional)
+conda create --name presidio python=3.7
+activate presidio
+
+# Install package+dependencies
+pip install -r requirements.txt
+python setup.py install
+
+# Verify installation
+pytest
+```
+Note that some dependencies (such as Flair) are not installed to reduce installation complexity.
+
 
 ## What's in this package?
 
@@ -14,6 +31,8 @@ Additionally, anyone interested in generating new data based on previous dataset
 3. Multiple **Model/Recognizer evaluation** files (e.g. for Spacy, Flair, CRF, Presidio API, Presidio Analyzer python package, specific Presidio recognizers)
 4. **Training and modeling code** for multiple models
 4. Helper functions for **results analysis**
+
+
 
 ## 1. Data generation
 See [Data Generator README](/presidio_evaluator/data_generator/README.md) for more details.
