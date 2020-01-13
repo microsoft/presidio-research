@@ -25,8 +25,8 @@ setup(
     install_requires=[
         'spacy>=2.2.0',
         'requests==2.22.0',
-        'numpy==1.16.4',
-        'pandas>=0.24.2',
+        'numpy=',
+        'pandas',
         'tqdm>=4.32.1',
         'jupyter>=1.0.0',
         'pytest>=4.6.2',
