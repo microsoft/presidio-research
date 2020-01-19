@@ -143,6 +143,10 @@ trainer.train(corpus)
 
 To evaluate an existing model, see [this notebook](notebooks/models/Evaluate%20flair%20models.ipynb).
 
+# For more information
+- [Blog post on NLP approaches to data anonymization](https://towardsdatascience.com/nlp-approaches-to-data-anonymization-1fb5bde6b929)
+- [Conference talk about leveraging Presidio and utilizing NLP approaches for data anonymization](https://youtu.be/Tl773LANRwY)
+
 # Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
