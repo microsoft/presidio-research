@@ -75,8 +75,8 @@ Evaluate one specific recognizer for precision and recall. See [presidio_recogni
 ## 4. Modeling
 
 ### Conditional Random Fields
-To train a CRF on a new dataset, see [this notebook](notebooks/models/CRF).
-To evaluate a CRF model, see [this notebook](notebooks/models/CRF.ipynb) or [this class](presidio_evaluator/crf_evaluator.py).
+To train a CRF on a new dataset, see [this notebook](notebooks/models/CRF.ipynb).
+To evaluate a CRF model, see the the [same notebook](notebooks/models/CRF.ipynb) or [this class](presidio_evaluator/crf_evaluator.py).
 
 ### spaCy based models
 There are three ways of interacting with spaCy models: 
