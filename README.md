@@ -12,7 +12,7 @@ To install the package, clone the repo and install all dependencies, preferably 
 ``` sh
 # Create conda env (optional)
 conda create --name presidio python=3.7
-activate presidio
+conda activate presidio
 
 # Install package+dependencies
 pip install -r requirements.txt
