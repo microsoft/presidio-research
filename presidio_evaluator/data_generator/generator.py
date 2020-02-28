@@ -92,7 +92,7 @@ class FakeDataGenerator:
         # Remove brackets as they interfere with the process
 
         def remove_brackets(series):
-            if series.dtype == object or series.dtype == str:
+            if series.dtype == str:
                 series = series.str.replace("[", "(")
                 series = series.str.replace("]", ")")
             return series
