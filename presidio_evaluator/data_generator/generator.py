@@ -82,7 +82,7 @@ class FakeDataGenerator:
                         "Title": "TITLE", "Gender": "GENDER",
                         "City": "CITY", "ZipCode": "ZIP",
                         "CountryFull": "COUNTRY",
-                        "Occupation": "OCCUPTAION",
+                        "Occupation": "OCCUPATION",
                         "TelephoneNumber": "PHONE_NUMBER",
                         "CCNumber": "CREDIT_CARD", "Birthday": "BIRTHDAY",
                         "EmailAddress": "EMAIL",
