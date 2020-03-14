@@ -1,4 +1,5 @@
 from setuptools import setup
+from glob import glob
 import os.path
 # read the contents of the README file
 from os import path
@@ -12,6 +13,11 @@ __version__ = ""
 with open(os.path.join(this_directory, 'VERSION')) as version_file:
     __version__ = version_file.read().strip()
 
+data_files = []
+directory = 'presidio_evaluator/data_generator/raw_data/'
+files = glob(directory+'*')
+data_files.append((directory, files))
+
 setup(
     name='presidio-evaluator',
     long_description=long_description,
@@ -22,6 +28,8 @@ setup(
     url='https://www.github.com/microsoft/presidio',
     license='MIT',
     description='PII dataset generator, model evaluator for Presidio and PII data in general',
+    data_files=data_files,
+    include_package_data=True,
     install_requires=[
         'spacy>=2.2.0',
         'requests==2.22.0',
