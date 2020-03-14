@@ -33,7 +33,7 @@ setup(
     install_requires=[
         'spacy>=2.2.0',
         'requests==2.22.0',
-        'numpy=',
+        'numpy',
         'pandas',
         'tqdm>=4.32.1',
         'jupyter>=1.0.0',
