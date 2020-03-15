@@ -124,7 +124,7 @@ spacy_retrainer.run()
 ```
 
 ### Flair based models
-To train a new model, see the [FlairTrainer](presidio_evaluator/models/flair_train.py) object. 
+To train a new model, see the [FlairTrainer](https://github.com/microsoft/presidio-research/blob/master/models/flair_train.py) object. 
 For experimenting with other embedding types, change the `embeddings` object in the `train` method.
 To train a Flair model, run:
 
