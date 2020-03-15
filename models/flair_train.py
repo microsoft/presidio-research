@@ -14,7 +14,7 @@ from os import path
 class FlairTrainer:
 
     @staticmethod
-    def to_flair_row(self, text, pos, label):
+    def to_flair_row(text, pos, label):
         return "{} {} {}".format(text, pos, label)
 
     def to_flair(self, df, outfile="flair_train.txt"):
