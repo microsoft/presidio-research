@@ -22,10 +22,12 @@ setup(
     url='https://www.github.com/microsoft/presidio',
     license='MIT',
     description='PII dataset generator, model evaluator for Presidio and PII data in general',
+    data_files=[('presidio_evaluator/data_generator/raw_data', ['presidio_evaluator/data_generator/raw_data/FakeNameGenerator.com_3000.csv', 'presidio_evaluator/data_generator/raw_data/templates.txt', 'presidio_evaluator/data_generator/raw_data/organizations.csv', 'presidio_evaluator/data_generator/raw_data/nationalities.csv'])],
+    include_package_data=True,
     install_requires=[
         'spacy>=2.2.0',
         'requests==2.22.0',
-        'numpy=',
+        'numpy',
         'pandas',
         'tqdm>=4.32.1',
         'jupyter>=1.0.0',
