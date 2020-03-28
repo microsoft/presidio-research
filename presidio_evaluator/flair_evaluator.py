@@ -1,4 +1,5 @@
 from typing import List
+import regex
 
 try:
     from flair.data import Sentence, build_spacy_tokenizer
@@ -69,6 +70,13 @@ class FlairEvaluator(ModelEvaluator):
 
         new_tags = []
         for tag in tags:
-            new_tags.append("PERSON" if tag == "PER" else tag)
+            #new_tags.append("PERSON" if tag == "PER" else tag)
+            is_person = regex.compile('[A-Z]-PER\\b')
+            if is_person.match(tag):
+                tag = tag.replace("PER", "PERSON")
+            is_gpe = regex.compile('[A-Z]-LOC\\b')
+            if is_gpe.match(tag):
+                tag = tag.replace("LOC", "GPE")
+            new_tags.append(tag)
 
         return new_tags
