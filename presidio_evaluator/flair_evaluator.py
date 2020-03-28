@@ -70,7 +70,6 @@ class FlairEvaluator(ModelEvaluator):
 
         new_tags = []
         for tag in tags:
-            #new_tags.append("PERSON" if tag == "PER" else tag)
             is_person = regex.compile('[A-Z]-PER\\b')
             if is_person.match(tag):
                 tag = tag.replace("PER", "PERSON")
