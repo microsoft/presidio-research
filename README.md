@@ -3,8 +3,8 @@ This package features data-science related tasks for developing new recognizers 
 It is used for the evaluation of the entire system, as well as for evaluating specific PII recognizers or PII detection models
 
 ## Who should use it?
-- Anyone interested in developing or evaluating a PII detection model, an existing Presidio instance or a Presidio PII recognizer.
-- Anyone interested in generating new data based on previous datasets (e.g. to increase the coverage of entity values) for Named Entity Recognition models.
+- Anyone interested in **developing or evaluating a PII detection model**, an existing Presidio instance or a Presidio PII recognizer.
+- Anyone interested in **generating new data based on previous datasets** or sentence templates (e.g. to increase the coverage of entity values) for Named Entity Recognition models.
 
 ## Getting started
 To install the package, clone the repo and install all dependencies, preferably in a virtual environment:
