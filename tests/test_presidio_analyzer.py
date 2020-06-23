@@ -2,7 +2,7 @@ import pytest
 
 from presidio_evaluator import InputSample, Span
 from presidio_evaluator.data_generator import read_synth_dataset
-from presidio_evaluator.presidio_analyzer import PresidioAnalyzer
+from presidio_evaluator.presidio_analyzer_evaluator import PresidioAnalyzerEvaluator
 
 # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
 entities_mapping = {
@@ -54,7 +54,7 @@ analyzer_test_generate_text_testdata = [
 
 
 def test_analyzer_simple_input():
-    model = PresidioAnalyzer(entities_to_keep=["PERSON"])
+    model = PresidioAnalyzerEvaluator(entities_to_keep=["PERSON"])
 
     sample = InputSample(
         full_text="My name is Mike",
@@ -89,11 +89,11 @@ def test_analyzer_with_generated_text(test_input, acceptance_threshold):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     input_samples = read_synth_dataset(test_input.format(dir_path))
 
-    updated_samples = PresidioAnalyzer.align_input_samples_to_presidio_analyzer(
+    updated_samples = PresidioAnalyzerEvaluator.align_input_samples_to_presidio_analyzer(
         input_samples=input_samples, entities_mapping=entities_mapping
     )
 
-    analyzer = PresidioAnalyzer()
+    analyzer = PresidioAnalyzerEvaluator()
     evaluated_samples = analyzer.evaluate_all(updated_samples)
     scores = analyzer.calculate_score(evaluation_results=evaluated_samples)
 
