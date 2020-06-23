@@ -6,7 +6,7 @@ from presidio_evaluator import ModelEvaluator, InputSample, span_to_tag
 from presidio_evaluator.data_generator import read_synth_dataset
 
 
-class PresidioAnalyzer(ModelEvaluator):
+class PresidioAnalyzerEvaluator(ModelEvaluator):
     def __init__(
         self,
         analyzer=AnalyzerEngine(),
@@ -109,18 +109,17 @@ if __name__ == "__main__":
     )
 
     print("Evaluating samples")
-    analyzer = PresidioAnalyzer(entities_to_keep=count_per_entity.keys())
+    analyzer = PresidioAnalyzerEvaluator(entities_to_keep=count_per_entity.keys())
     evaluated_samples = analyzer.evaluate_all(updated_samples)
     #
     print("Estimating metrics")
-    (
-        precision,
-        recall,
-        entity_recall,
-        entity_precision,
-        f,
-        errors,
-    ) = analyzer.calculate_score(evaluation_results=evaluated_samples, beta=2.5)
+    score = analyzer.calculate_score(evaluation_results=evaluated_samples, beta=2.5)
+    precision = score.pii_precision
+    recall = score.pii_recall
+    entity_recall = score.entity_recall_dict
+    entity_precision = score.entity_precision_dict
+    f = score.pii_f
+    errors = score.model_errors
     #
     print("precision: {}".format(precision))
     print("Recall: {}".format(recall))
@@ -128,10 +127,10 @@ if __name__ == "__main__":
     print("Precision per entity: {}".format(entity_precision))
     print("Recall per entity: {}".format(entity_recall))
     #
-    FN_mistakes = [mistake for mistake in flatten(errors) if mistake[0:2] == "FN"]
-    FP_mistakes = [mistake for mistake in flatten(errors) if mistake[0:2] == "FP"]
+    FN_mistakes = [str(mistake) for mistake in errors if mistake.error_type == "FN"]
+    FP_mistakes = [str(mistake) for mistake in errors if mistake.error_type == "FP"]
     other_mistakes = [
-        mistake for mistake in flatten(errors) if "Wrong entity" in mistake
+        str(mistake) for mistake in errors if mistake.error_type not in ["FN", "FP"]
     ]
 
     fn = open("../data/fn_30000.txt", "w+", encoding="utf-8")
