@@ -26,6 +26,7 @@ pytest
 ```
 Note that some dependencies (such as Flair) are not installed to reduce installation complexity.
 
+
 ## What's in this package?
 
 1. **Data generator** for PII recognizers and NER models
