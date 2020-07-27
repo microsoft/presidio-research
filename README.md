@@ -18,11 +18,13 @@ conda activate presidio
 pip install -r requirements.txt
 python setup.py install
 
+# Optionally link in the local development copy of presidio-analyzer
+pip install -e [path to presidio-analyzer]
+
 # Verify installation
 pytest
 ```
 Note that some dependencies (such as Flair) are not installed to reduce installation complexity.
-
 
 ## What's in this package?
 
