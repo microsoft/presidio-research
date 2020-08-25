@@ -10,12 +10,19 @@ It is used for the evaluation of the entire system, as well as for evaluating sp
 To install the package, clone the repo and install all dependencies, preferably in a virtual environment:
 
 ``` sh
-# Create conda env (optional)
+# Option 1: Create conda env
 conda create --name presidio python=3.7
 conda activate presidio
-
-# Install package+dependencies
+# Install package
 pip install -r requirements.txt
+
+# Option 2: Create and install with poetry env
+poetry install
+```
+
+Then, install Presidio-research as a package
+```sh
+# Install Presidio-research package
 python setup.py install
 
 # Optionally link in the local development copy of presidio-analyzer
