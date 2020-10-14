@@ -534,7 +534,7 @@ class EvaluationResult(object):
         row_format = "{:>30}{:>30.2%}{:>30.2%}"
         header_format = "{:>30}" * 3
         print(header_format.format(*("Entity", "Precision", "Recall")))
-        for entity, precision, recall in zip(entities, recall, precision):
+        for entity, precision, recall in zip(entities, precision, recall):
             print(row_format.format(entity, precision, recall))
 
         print("PII F measure: {}".format(self.pii_f))
