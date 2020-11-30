@@ -1,10 +1,14 @@
 import random
+
 import pandas as pd
 from faker import Faker
 from haikunator import Haikunator
 
-from presidio_evaluator.data_generator.nationality_generator import NationalityGenerator
-from presidio_evaluator.data_generator.org_name_generator import OrgNameGenerator
+from presidio_evaluator.data_generator import (
+    NationalityGenerator,
+    OrgNameGenerator,
+    UsDriverLicenseGenerator,
+)
 
 fake = Faker()
 haikunator = Haikunator()
@@ -12,14 +16,18 @@ IP_V4_RATIO = 0.8
 
 org_name_generator = OrgNameGenerator()
 nationality_generator = NationalityGenerator()
+us_driver_license_generator = UsDriverLicenseGenerator()
+
 
 def generate_url(domain: pd.Series):
     def generate_url_postfix():
         length = random.randint(4, 8)
         delim = "/" if random.random() > 0.5 else ""
-        postfix = haikunator.haikunate(delimiter=delim,
-                                       token_chars='abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-                                       token_length=length)
+        postfix = haikunator.haikunate(
+            delimiter=delim,
+            token_chars="abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            token_length=length,
+        )
         return postfix
 
     def generate_url_prefix():
@@ -35,7 +43,9 @@ def generate_url(domain: pd.Series):
     def concat_url(prefix, domain, postfix):
         return "{}{}/{}".format(prefix, domain, postfix)
 
-    return domain.apply(lambda x: concat_url(generate_url_prefix(), x.lower(), generate_url_postfix()))
+    return domain.apply(
+        lambda x: concat_url(generate_url_prefix(), x.lower(), generate_url_postfix())
+    )
     #
     # urls = []
     # for index, value in domain.items():
@@ -56,10 +66,10 @@ def generate_iban(country: pd.Series):
             import math
 
             spec = _get_iban_spec(cntry)
-            bank_code_length = code_length(spec, 'bank_code')
-            branch_code_length = code_length(spec, 'branch_code')
+            bank_code_length = code_length(spec, "bank_code")
+            branch_code_length = code_length(spec, "branch_code")
             bank_and_branch_code_length = bank_code_length + branch_code_length
-            account_code_length = code_length(spec, 'account_code')
+            account_code_length = code_length(spec, "account_code")
 
             bank_code = random.randint(1, math.pow(10, bank_and_branch_code_length) - 1)
             account_code = random.randint(1, math.pow(10, account_code_length) - 1)
@@ -85,13 +95,26 @@ def generate_ip_addresses(length):
 
 
 def generate_title(gender=None):
-    MALE_TITLES = ['Mr.', 'Dr.', 'Professor.', 'Eng.', 'Prof.', 'Doctor.']
-    FEMALE_TITLES = ['Mrs.', 'Ms.', 'Miss', 'Dr.', 'Professor.', 'Eng.', 'Prof.', 'Doctor']
+    MALE_TITLES = ["Mr.", "Dr.", "Professor.", "Eng.", "Prof.", "Doctor."]
+    FEMALE_TITLES = [
+        "Mrs.",
+        "Ms.",
+        "Miss",
+        "Dr.",
+        "Professor.",
+        "Eng.",
+        "Prof.",
+        "Doctor",
+    ]
 
-    if gender.lower() == 'male':
-        return random.choices(MALE_TITLES, weights=[0.7, 0.1, 0.05, 0.05, 0.05, 0.05])[0]
+    if gender.lower() == "male":
+        return random.choices(MALE_TITLES, weights=[0.7, 0.1, 0.05, 0.05, 0.05, 0.05])[
+            0
+        ]
     else:
-        return random.choices(FEMALE_TITLES, weights=[0.3, 0.25, 0.20, 0.05, 0.05, 0.05, 0.05, 0.05])[0]
+        return random.choices(
+            FEMALE_TITLES, weights=[0.3, 0.25, 0.20, 0.05, 0.05, 0.05, 0.05, 0.05]
+        )[0]
 
 
 def generate_titles(gender: pd.Series):
@@ -99,14 +122,41 @@ def generate_titles(gender: pd.Series):
 
 
 def generate_roles(length):
-    roles = ['President', 'Vice-president', 'Chief of staff', 'Chief Architect', 'CEO', 'CFO', 'Engineer', 'Accountant',
-             'Attorney', 'Scientist', 'Journalist', 'Operator', 'CIO', "Chief Information Officer", "General Manager",
-             "Manager", "Chief Executive Officer", 'Actuary', 'Secretary', 'Prime minister', 'Minister', 'Director']
+    roles = [
+        "President",
+        "Vice-president",
+        "Chief of staff",
+        "Chief Architect",
+        "CEO",
+        "CFO",
+        "Engineer",
+        "Accountant",
+        "Attorney",
+        "Scientist",
+        "Journalist",
+        "Operator",
+        "CIO",
+        "Chief Information Officer",
+        "General Manager",
+        "Manager",
+        "Chief Executive Officer",
+        "Actuary",
+        "Secretary",
+        "Prime minister",
+        "Minister",
+        "Director",
+    ]
     return [random.choice(roles) for _ in range(length)]
 
 
 def generate_nationality(length):
     return [nationality_generator.get_nationality() for _ in range(length)]
+
+
+def generate_us_driver_licenses(length):
+    return [
+        us_driver_license_generator.get_driver_license_number() for _ in range(length)
+    ]
 
 
 def generate_country(length):
@@ -119,6 +169,7 @@ def generate_nation_woman(length):
 
 def generate_nation_man(length):
     return [nationality_generator.get_nation_man() for _ in range(length)]
+
 
 def generate_nation_plural(length):
     return [nationality_generator.get_nation_plural() for _ in range(length)]
