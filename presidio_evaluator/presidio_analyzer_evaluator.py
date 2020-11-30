@@ -8,13 +8,13 @@ from presidio_evaluator.data_generator import read_synth_dataset
 
 class PresidioAnalyzerEvaluator(ModelEvaluator):
     def __init__(
-        self,
-        analyzer=AnalyzerEngine(),
-        entities_to_keep: List[str] = None,
-        verbose: bool = False,
-        labeling_scheme="BIO",
-        compare_by_io=True,
-        score_threshold=0.4,
+            self,
+            analyzer=AnalyzerEngine(),
+            entities_to_keep: List[str] = None,
+            verbose: bool = False,
+            labeling_scheme="BIO",
+            compare_by_io=True,
+            score_threshold=0.4,
     ):
         """
         Evaluation wrapper for the Presidio Analyzer
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     print("Evaluating samples")
     analyzer = PresidioAnalyzerEvaluator(entities_to_keep=count_per_entity.keys())
     evaluated_samples = analyzer.evaluate_all(updated_samples)
-    #
+
     print("Estimating metrics")
     score = analyzer.calculate_score(evaluation_results=evaluated_samples, beta=2.5)
     precision = score.pii_precision
