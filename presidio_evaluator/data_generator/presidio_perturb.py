@@ -61,14 +61,14 @@ class PresidioPerturb(FakeDataGenerator):
         for resp in presidio_response:
             start = resp.start + delta
             end = resp.end + delta
-            entity_text = original_text[start:end]
+            entity_text = original_text[resp.start : resp.end]
             entity_type = resp.entity_type
             if self.entity_dict:
                 if entity_type in self.entity_dict:
                     entity_type = self.entity_dict[entity_type]
 
             text = f"{text[:start]}{{{entity_type}}}{text[end:]}"
-            delta = len(entity_type) + 2 - len(entity_text)
+            delta += len(entity_type) + 2 - len(entity_text)
         self.templates = [text]
         return [
             sample.full_text
