@@ -61,6 +61,7 @@ class PresidioPerturb(FakeDataGenerator):
         text = anonymized_result.text
         text = text.replace(">", "}").replace("<", "{")
 
+
         self.templates = [text]
         return [
             sample.full_text
