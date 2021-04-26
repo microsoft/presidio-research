@@ -1,8 +1,7 @@
 import random
-from typing import List, Optional
-
 import re
 from collections import Counter
+from typing import List, Optional, Dict
 
 import pandas as pd
 from spacy.tokens import Token
@@ -40,30 +39,30 @@ class FakeDataGenerator:
         labeling_scheme="BILOU",
     ):
         """
-         Fake data generator.
-         Attaches fake PII entities into predefined templates of structure: a b c [PII] d e f,
-         e.g. "My name is [FIRST_NAME]"
-         :param fake_pii_df:
-         A pd.DataFrame with a predefined set of PII entities as columns created using https://www.fakenamegenerator.com/
-         :param templates: A list of templates
-         with place holders for PII entities.
-         For example: "My name is [FIRST_NAME] and I live in [ADDRESS]"
-         Note that in case you have multiple entities of the same type
-         in a template, you should put a number on the second. For example:
-         "I'm changing my name from [FIRST_NAME] to [FIRST_NAME2].
-         More than two are currently not supported but extending this
-         is straightforward.
-         :param lower_case_ratio: Percentage of names that should start
-         with lower case
-         :param include_metadata: Whether to include additional
-         information in the output
-         (e.g. NameSet from which the name was taken, gender, country etc.)
-         :param dictionary_path: A path to a csv containing a vocabulary of
-         a language, to check if a token exists in the vocabulary or not.
-         :param ignore_types: set of types to ignore
-         :param span_to_tag: whether to tokenize the generated samples or not
-         :param labeling_scheme: labeling scheme (BILOU, BIO, IO)
-         """
+        Fake data generator.
+        Attaches fake PII entities into predefined templates of structure: a b c [PII] d e f,
+        e.g. "My name is [FIRST_NAME]"
+        :param fake_pii_df:
+        A pd.DataFrame with a predefined set of PII entities as columns created using https://www.fakenamegenerator.com/
+        :param templates: A list of templates
+        with place holders for PII entities.
+        For example: "My name is [FIRST_NAME] and I live in [ADDRESS]"
+        Note that in case you have multiple entities of the same type
+        in a template, you should put a number on the second. For example:
+        "I'm changing my name from [FIRST_NAME] to [FIRST_NAME2].
+        More than two are currently not supported but extending this
+        is straightforward.
+        :param lower_case_ratio: Percentage of names that should start
+        with lower case
+        :param include_metadata: Whether to include additional
+        information in the output
+        (e.g. NameSet from which the name was taken, gender, country etc.)
+        :param dictionary_path: A path to a csv containing a vocabulary of
+        a language, to check if a token exists in the vocabulary or not.
+        :param ignore_types: set of types to ignore
+        :param span_to_tag: whether to tokenize the generated samples or not
+        :param labeling_scheme: labeling scheme (BILOU, BIO, IO)
+        """
         if ignore_types is None:
             ignore_types = {}
         self.lower_case_ratio = lower_case_ratio
@@ -110,7 +109,7 @@ class FakeDataGenerator:
             "TelephoneNumber": "PHONE_NUMBER",
             "CCNumber": "CREDIT_CARD",
             "Birthday": "BIRTHDAY",
-            "EmailAddress": "EMAIL",
+            "EmailAddress": "EMAIL_ADDRESS",
             "StreetAddress": "FULL_ADDRESS",
             "Domain": "DOMAIN_NAME",
             "NameSet": "NAMESET",
@@ -143,9 +142,9 @@ class FakeDataGenerator:
             )  # replace previous country which has limited options
 
         # Copied entities
-        if "DATE" not in self.ignore_types:
+        if "DATE_TIME" not in self.ignore_types:
             if "BIRTHDAY" in df:
-                df["DATE"] = df["BIRTHDAY"]
+                df["DATE_TIME"] = df["BIRTHDAY"]
             else:
                 print("DATE is taken from the BIRTHDAY column which is missing")
 
@@ -165,7 +164,9 @@ class FakeDataGenerator:
         if "TITLE" not in self.ignore_types:
             print("Generating titles")
             if "GENDER" not in df:
-                print("Cannot generate title without a GENDER column. Generating FEMALE_TITLE and MALE_TITLE")
+                print(
+                    "Cannot generate title without a GENDER column. Generating FEMALE_TITLE and MALE_TITLE"
+                )
             else:
                 df["TITLE"] = generate_titles(df["GENDER"])
             df["FEMALE_TITLE"] = [generate_title("female") for _ in range(len(df))]
@@ -275,7 +276,9 @@ class FakeDataGenerator:
 
         return template, templates, entities_count
 
-    def sample_examples(self, count, genders:List[str]=None, namesets:List[str]=None):
+    def sample_examples(
+        self, count, genders: List[str] = None, namesets: List[str] = None
+    ):
 
         if self.fake_pii is None:
             self.fake_pii = self.prep_fake_pii(self.original_pii_df)
@@ -305,9 +308,7 @@ class FakeDataGenerator:
                     values[h] = str(fake_pii_sample_duplicated[h])
                 else:
                     print(
-                        "Warning: entity {} is in the templates but not in the PII dataset. Ignoring.".format(
-                            h
-                        )
+                        f"Warning: entity {h} is in the templates but not in the PII dataset. Ignoring."
                     )
                     values[h] = ""
 
@@ -335,7 +336,7 @@ class FakeDataGenerator:
             yield input_sample
 
     @staticmethod
-    def _consolidate_names(input_sample):
+    def _consolidate_names(input_sample: InputSample):
         locations = ("LOCATION", "CITY", "STATE", "COUNTRY", "ADDRESS", "STREET")
         names = ("FIRST_NAME", "LAST_NAME", "PERSON")
 
@@ -353,7 +354,9 @@ class FakeDataGenerator:
 
         input_sample.masked = masked
 
-    def _create_input_sample(self, original_sentence, values):
+    def _create_input_sample(
+        self, original_sentence: str, values: Dict[str, str]
+    ) -> InputSample:
         """
         Creates an InputSample out of a template sentence
         and a dict of entity names and values
@@ -417,7 +420,10 @@ class FakeDataGenerator:
 
         # Not creating tokens here since we're consolidating names afterwards
         return InputSample(
-            sentence, original_sentence, spans, create_tags_from_span=False
+            full_text=sentence,
+            spans=spans,
+            masked=original_sentence,
+            create_tags_from_span=False,
         )
 
     def _add_duplicated_entities(self, fake_pii_sample, entity_counts):

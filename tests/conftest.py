@@ -12,7 +12,7 @@ def pytest_addoption(parser):
         "--runslow", action="store_true", default=False, help="run slow tests"
     )
     parser.addoption(
-        "--runinconclusive", action="store_true", default=False, help="run slow tests"
+        "--runinconclusive", action="store_true", default=False, help="run inconclusive tests"
     )
 
 

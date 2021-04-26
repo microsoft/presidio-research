@@ -1,254 +1,139 @@
 [
     {
-        "full_text": "My full address is Avda. Alameda Sundheim 46",
+        "full_text": "I either live on 2347 Lauzon Parkway, Windsor N9A7A2 or ",
         "masked": null,
         "spans": [
             {
-                "entity_type": "FULL_ADDRESS",
-                "entity_value": "Avda. Alameda Sundheim 46",
-                "start_position": 19,
-                "end_position": 44
+                "entity_type": "LOCATION",
+                "entity_value": "2347 Lauzon Parkway, Windsor N9A7A2",
+                "start_position": 17,
+                "end_position": 52
+            },
+            {
+                "entity_type": "LOCATION",
+                "entity_value": "",
+                "start_position": 56,
+                "end_position": 56
             }
         ],
         "tokens": [
             {
-                "text": "My",
-                "idx": 0,
-                "tag_": "PRP$",
-                "pos_": "DET",
-                "dep_": "poss",
-                "lemma_": "-PRON-",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "full",
-                "idx": 3,
-                "tag_": "JJ",
-                "pos_": "ADJ",
-                "dep_": "amod",
-                "lemma_": "full",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "address",
-                "idx": 8,
-                "tag_": "NN",
-                "pos_": "NOUN",
-                "dep_": "nsubj",
-                "lemma_": "address",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "is",
-                "idx": 16,
-                "tag_": "VBZ",
-                "pos_": "AUX",
-                "dep_": "ROOT",
-                "lemma_": "be",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "Avda",
-                "idx": 19,
-                "tag_": "NNP",
-                "pos_": "PROPN",
-                "dep_": "attr",
-                "lemma_": "Avda",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": ".",
-                "idx": 23,
-                "tag_": ".",
-                "pos_": "PUNCT",
-                "dep_": "punct",
-                "lemma_": ".",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "Alameda",
-                "idx": 25,
-                "tag_": "NNP",
-                "pos_": "PROPN",
-                "dep_": "compound",
-                "lemma_": "Alameda",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "Sundheim",
-                "idx": 33,
-                "tag_": "NNP",
-                "pos_": "PROPN",
-                "dep_": "ROOT",
-                "lemma_": "Sundheim",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "46",
-                "idx": 42,
-                "tag_": "CD",
-                "pos_": "NUM",
-                "dep_": "nummod",
-                "lemma_": "46",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            }
-        ],
-        "tags": [
-            "O",
-            "O",
-            "O",
-            "O",
-            "B-FULL_ADDRESS",
-            "I-FULL_ADDRESS",
-            "I-FULL_ADDRESS",
-            "I-FULL_ADDRESS",
-            "L-FULL_ADDRESS"
-        ],
-        "template_id": null,
-        "metadata": {
-            "Gender": "male",
-            "NameSet": "Croatian",
-            "Country": "Uganda",
-            "Lowercase": false,
-            "Template#": 9
-        }
-    },
-    {
-        "full_text": "You want my credit card? No problem: 4532368231815457",
-        "masked": null,
-        "spans": [
-            {
-                "entity_type": "CREDIT_CARD",
-                "entity_value": "4532368231815457",
-                "start_position": 37,
-                "end_position": 53
-            }
-        ],
-        "tokens": [
-            {
-                "text": "You",
+                "text": "I",
                 "idx": 0,
                 "tag_": "PRP",
                 "pos_": "PRON",
                 "dep_": "nsubj",
-                "lemma_": "-PRON-",
+                "lemma_": "I",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "want",
-                "idx": 4,
+                "text": "either",
+                "idx": 2,
+                "tag_": "RB",
+                "pos_": "ADV",
+                "dep_": "advmod",
+                "lemma_": "either",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "live",
+                "idx": 9,
                 "tag_": "VBP",
                 "pos_": "VERB",
                 "dep_": "ROOT",
-                "lemma_": "want",
+                "lemma_": "live",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "my",
-                "idx": 9,
-                "tag_": "PRP$",
-                "pos_": "DET",
-                "dep_": "poss",
-                "lemma_": "-PRON-",
+                "text": "on",
+                "idx": 14,
+                "tag_": "IN",
+                "pos_": "ADP",
+                "dep_": "prep",
+                "lemma_": "on",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "credit",
-                "idx": 12,
-                "tag_": "NN",
-                "pos_": "NOUN",
-                "dep_": "compound",
-                "lemma_": "credit",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "card",
-                "idx": 19,
-                "tag_": "NN",
-                "pos_": "NOUN",
-                "dep_": "dobj",
-                "lemma_": "card",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "?",
-                "idx": 23,
-                "tag_": ".",
-                "pos_": "PUNCT",
-                "dep_": "punct",
-                "lemma_": "?",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "No",
-                "idx": 25,
-                "tag_": "DT",
-                "pos_": "DET",
-                "dep_": "det",
-                "lemma_": "no",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "problem",
-                "idx": 28,
-                "tag_": "NN",
-                "pos_": "NOUN",
-                "dep_": "ROOT",
-                "lemma_": "problem",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": ":",
-                "idx": 35,
-                "tag_": ":",
-                "pos_": "PUNCT",
-                "dep_": "punct",
-                "lemma_": ":",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "4532368231815457",
-                "idx": 37,
+                "text": "2347",
+                "idx": 17,
                 "tag_": "CD",
                 "pos_": "NUM",
+                "dep_": "nummod",
+                "lemma_": "2347",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "Lauzon",
+                "idx": 22,
+                "tag_": "NNP",
+                "pos_": "PROPN",
+                "dep_": "compound",
+                "lemma_": "Lauzon",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "Parkway",
+                "idx": 29,
+                "tag_": "NNP",
+                "pos_": "PROPN",
+                "dep_": "pobj",
+                "lemma_": "Parkway",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": ",",
+                "idx": 36,
+                "tag_": ",",
+                "pos_": "PUNCT",
+                "dep_": "punct",
+                "lemma_": ",",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "Windsor",
+                "idx": 38,
+                "tag_": "NNP",
+                "pos_": "PROPN",
+                "dep_": "compound",
+                "lemma_": "Windsor",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "N9A7A2",
+                "idx": 46,
+                "tag_": "NNP",
+                "pos_": "PROPN",
                 "dep_": "appos",
-                "lemma_": "4532368231815457",
+                "lemma_": "N9A7A2",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "or",
+                "idx": 53,
+                "tag_": "CC",
+                "pos_": "CCONJ",
+                "dep_": "cc",
+                "lemma_": "or",
                 "_": {
                     "is_in_vocabulary": false
                 }
@@ -259,37 +144,38 @@
             "O",
             "O",
             "O",
-            "O",
-            "O",
-            "O",
-            "O",
-            "O",
-            "U-CREDIT_CARD"
+            "B-LOCATION",
+            "I-LOCATION",
+            "I-LOCATION",
+            "I-LOCATION",
+            "I-LOCATION",
+            "L-LOCATION",
+            "O"
         ],
         "template_id": null,
         "metadata": {
-            "Gender": "female",
-            "NameSet": "Czech",
-            "Country": "Austria",
+            "Gender": "male",
+            "NameSet": "Polish",
+            "Country": "Croatia",
             "Lowercase": false,
-            "Template#": 7
+            "Template#": 11
         }
     },
     {
-        "full_text": "My first name is Rogelio and my last is Patrick",
+        "full_text": "My accounts are  and ",
         "masked": null,
         "spans": [
             {
-                "entity_type": "PERSON",
-                "entity_value": "Rogelio",
-                "start_position": 17,
-                "end_position": 24
+                "entity_type": "ACCOUNT_NUMBER",
+                "entity_value": "",
+                "start_position": 16,
+                "end_position": 16
             },
             {
-                "entity_type": "PERSON",
-                "entity_value": "Patrick",
-                "start_position": 40,
-                "end_position": 47
+                "entity_type": "ACCOUNT_NUMBER",
+                "entity_value": "",
+                "start_position": 21,
+                "end_position": 21
             }
         ],
         "tokens": [
@@ -297,39 +183,28 @@
                 "text": "My",
                 "idx": 0,
                 "tag_": "PRP$",
-                "pos_": "DET",
+                "pos_": "PRON",
                 "dep_": "poss",
-                "lemma_": "-PRON-",
+                "lemma_": "my",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "first",
+                "text": "accounts",
                 "idx": 3,
-                "tag_": "JJ",
-                "pos_": "ADJ",
-                "dep_": "amod",
-                "lemma_": "first",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
-            {
-                "text": "name",
-                "idx": 9,
-                "tag_": "NN",
+                "tag_": "NNS",
                 "pos_": "NOUN",
                 "dep_": "nsubj",
-                "lemma_": "name",
+                "lemma_": "account",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "is",
-                "idx": 14,
-                "tag_": "VBZ",
+                "text": "are",
+                "idx": 12,
+                "tag_": "VBP",
                 "pos_": "AUX",
                 "dep_": "ROOT",
                 "lemma_": "be",
@@ -338,19 +213,19 @@
                 }
             },
             {
-                "text": "Rogelio",
-                "idx": 17,
-                "tag_": "NNP",
-                "pos_": "PROPN",
+                "text": " ",
+                "idx": 16,
+                "tag_": "_SP",
+                "pos_": "SPACE",
                 "dep_": "attr",
-                "lemma_": "Rogelio",
+                "lemma_": " ",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
                 "text": "and",
-                "idx": 25,
+                "idx": 17,
                 "tag_": "CC",
                 "pos_": "CCONJ",
                 "dep_": "cc",
@@ -358,47 +233,76 @@
                 "_": {
                     "is_in_vocabulary": false
                 }
-            },
+            }
+        ],
+        "tags": [
+            "O",
+            "O",
+            "O",
+            "O",
+            "O"
+        ],
+        "template_id": null,
+        "metadata": {
+            "Gender": "male",
+            "NameSet": "Hispanic",
+            "Country": "Iraq",
+            "Lowercase": false,
+            "Template#": 14
+        }
+    },
+    {
+        "full_text": "I live in Uralaane",
+        "masked": null,
+        "spans": [
             {
-                "text": "my",
-                "idx": 29,
-                "tag_": "PRP$",
-                "pos_": "DET",
-                "dep_": "poss",
-                "lemma_": "-PRON-",
-                "_": {
-                    "is_in_vocabulary": false
-                }
-            },
+                "entity_type": "LOCATION",
+                "entity_value": "Uralaane",
+                "start_position": 10,
+                "end_position": 18
+            }
+        ],
+        "tokens": [
             {
-                "text": "last",
-                "idx": 32,
-                "tag_": "JJ",
-                "pos_": "ADJ",
+                "text": "I",
+                "idx": 0,
+                "tag_": "PRP",
+                "pos_": "PRON",
                 "dep_": "nsubj",
-                "lemma_": "last",
+                "lemma_": "I",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "is",
-                "idx": 37,
-                "tag_": "VBZ",
-                "pos_": "AUX",
-                "dep_": "conj",
-                "lemma_": "be",
+                "text": "live",
+                "idx": 2,
+                "tag_": "VBP",
+                "pos_": "VERB",
+                "dep_": "ROOT",
+                "lemma_": "live",
                 "_": {
                     "is_in_vocabulary": false
                 }
             },
             {
-                "text": "Patrick",
-                "idx": 40,
+                "text": "in",
+                "idx": 7,
+                "tag_": "IN",
+                "pos_": "ADP",
+                "dep_": "prep",
+                "lemma_": "in",
+                "_": {
+                    "is_in_vocabulary": false
+                }
+            },
+            {
+                "text": "Uralaane",
+                "idx": 10,
                 "tag_": "NNP",
                 "pos_": "PROPN",
-                "dep_": "attr",
-                "lemma_": "Patrick",
+                "dep_": "pobj",
+                "lemma_": "Uralaane",
                 "_": {
                     "is_in_vocabulary": false
                 }
@@ -408,21 +312,15 @@
             "O",
             "O",
             "O",
-            "O",
-            "U-PERSON",
-            "O",
-            "O",
-            "O",
-            "O",
-            "U-PERSON"
+            "U-LOCATION"
         ],
         "template_id": null,
         "metadata": {
-            "Gender": "male",
-            "NameSet": "American",
-            "Country": "California",
+            "Gender": "female",
+            "NameSet": "Chechen (Latin)",
+            "Country": "United States Of America",
             "Lowercase": false,
-            "Template#": 2
+            "Template#": 5
         }
     }
 ]

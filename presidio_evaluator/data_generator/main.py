@@ -1,5 +1,6 @@
 import datetime
 import json
+import warnings
 
 import pandas as pd
 
@@ -12,14 +13,16 @@ def read_utterances(utterances_file):
         return f.readlines()
 
 
-def generate(fake_pii_csv,
-             utterances_file,
-             output_file=None,
-             num_of_examples=1000,
-             dictionary_path=None,
-             store_masked_text=False,
-             keep_only_tagged=False,
-             **kwargs):
+def generate(
+    fake_pii_csv,
+    utterances_file,
+    output_file=None,
+    num_of_examples=1000,
+    dictionary_path=None,
+    store_masked_text=False,
+    keep_only_tagged=False,
+    **kwargs
+):
     """
 
     :param fake_pii_csv: csv containing fake PII
@@ -34,18 +37,18 @@ def generate(fake_pii_csv,
     """
 
     if not output_file:
-        raise ValueError("Please provide an output file path")
+        warnings.warn("Warning: no output_file value provided.")
 
     templates = read_utterances(utterances_file)
 
     if keep_only_tagged:
         templates = [template for template in templates if "[" in template]
 
-    df = pd.read_csv(fake_pii_csv, encoding='utf-8')
+    df = pd.read_csv(fake_pii_csv, encoding="utf-8")
 
-    generator = FakeDataGenerator(fake_pii_df=df,
-                                  dictionary_path=dictionary_path,
-                                  templates=templates, **kwargs)
+    generator = FakeDataGenerator(
+        fake_pii_df=df, dictionary_path=dictionary_path, templates=templates, **kwargs
+    )
     counter = 0
 
     examples = []
@@ -56,7 +59,7 @@ def generate(fake_pii_csv,
 
     examples_json = [example.to_dict() for example in examples]
 
-    with open("{}".format(output_file), 'w+', encoding='utf-8') as f:
+    with open("{}".format(output_file), "w+", encoding="utf-8") as f:
         json.dump(examples_json, f, ensure_ascii=False, indent=4)
 
     print("generated {} examples".format(len(examples)))
@@ -67,6 +70,7 @@ def generate(fake_pii_csv,
 
 def read_synth_dataset(filepath=None, length=None):
     import json
+
     with open(filepath, "r", encoding="utf-8") as f:
         dataset = json.load(f)
 
@@ -84,28 +88,32 @@ if __name__ == "__main__":
     EXAMPLES = 30
     PII_FILE_SIZE = 3000
     SPAN_TO_TAG = True
-    TEMPLATES_FILE = 'raw_data/templates.txt'
+    TEMPLATES_FILE = "raw_data/templates.txt"
     KEEP_ONLY_TAGGED = False
     LOWER_CASE_RATIO = 0.1
-    IGNORE_TYPES = {"IP_ADDRESS", 'US_SSN', 'URL'}
+    IGNORE_TYPES = {"IP_ADDRESS", "US_SSN", "URL"}
 
     cur_time = datetime.date.today().strftime("%B %d %Y")
     OUTPUT = "generated_size_{}_date_{}.txt".format(EXAMPLES, cur_time)
 
-    fake_pii_csv = '../../presidio_evaluator/data_generator/' \
-                   'raw_data/FakeNameGenerator.com_{}.csv'.format(PII_FILE_SIZE)
+    fake_pii_csv = (
+        "../../presidio_evaluator/data_generator/"
+        "raw_data/FakeNameGenerator.com_{}.csv".format(PII_FILE_SIZE)
+    )
     utterances_file = TEMPLATES_FILE
     dictionary_path = None
 
-    examples = generate(fake_pii_csv=fake_pii_csv,
-                        utterances_file=utterances_file,
-                        dictionary_path=dictionary_path,
-                        output_file=OUTPUT,
-                        lower_case_ratio=LOWER_CASE_RATIO,
-                        num_of_examples=EXAMPLES,
-                        ignore_types=IGNORE_TYPES,
-                        keep_only_tagged=KEEP_ONLY_TAGGED,
-                        span_to_tag=SPAN_TO_TAG)
+    examples = generate(
+        fake_pii_csv=fake_pii_csv,
+        utterances_file=utterances_file,
+        dictionary_path=dictionary_path,
+        output_file=OUTPUT,
+        lower_case_ratio=LOWER_CASE_RATIO,
+        num_of_examples=EXAMPLES,
+        ignore_types=IGNORE_TYPES,
+        keep_only_tagged=KEEP_ONLY_TAGGED,
+        span_to_tag=SPAN_TO_TAG,
+    )
 
     # sanity
     input_samples = read_synth_dataset(OUTPUT)

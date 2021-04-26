@@ -8,19 +8,16 @@ import pandas as pd
 
 
 @pytest.mark.parametrize(
+    # fmt: off
     "text, entity1, entity2, start1, end1, start2, end2",
     [
         (
             "Hi I live in South Africa and my name is Toma",
-            "LOCATION",
-            "PERSON",
-            13,
-            25,
-            41,
-            45,
+            "LOCATION", "PERSON", 13, 25, 41, 45,
         ),
         ("Africa is my continent, James", "LOCATION", "PERSON", 0, 6, 24, 29,),
     ],
+    # fmt: on
 )
 def test_presidio_perturb_two_entities(
     text, entity1, entity2, start1, end1, start2, end2
@@ -51,15 +48,13 @@ def test_entity_translation():
         RecognizerResult(entity_type="EMAIL_ADDRESS", start=12, end=27, score=0.5)
     ]
 
-    presidio_perturb = PresidioPerturb(
-        fake_pii_df=get_mock_fake_df(), entity_dict={"EMAIL_ADDRESS": "EMAIL"}
-    )
+    presidio_perturb = PresidioPerturb(fake_pii_df=get_mock_fake_df())
     fake_df = presidio_perturb.fake_pii
     perturbations = presidio_perturb.perturb(
         original_text=text, presidio_response=presidio_response, count=1
     )
 
-    assert fake_df["EMAIL"].str.lower()[0] in perturbations[0]
+    assert fake_df["EMAIL_ADDRESS"].str.lower()[0] in perturbations[0]
 
 
 def test_subset_perturbation():
@@ -76,7 +71,7 @@ def test_subset_perturbation():
             "NameSet": ["Hebrew", "English"],
         }
     )
-    ignore_types = ("DATE", "LOCATION", "ADDRESS", "GENDER")
+    ignore_types = {"DATE", "LOCATION", "ADDRESS", "GENDER"}
 
     presidio_perturb = PresidioPerturb(fake_pii_df=fake_df, ignore_types=ignore_types)
 

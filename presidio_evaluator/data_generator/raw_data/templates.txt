@@ -24,11 +24,11 @@ I will be travelling to [COUNTRY] next week, so I need my passport to be ready b
 Who's coming to [COUNTRY] with me?
 [COUNTRY] was super fun to visit!
 Could you please email me the statement for laste month , my credit card number is [CREDIT_CARD]?
-Could you please send me the last billed amount for cc [CREDIT_CARD] on my e-mail [EMAIL]?
+Could you please send me the last billed amount for cc [CREDIT_CARD] on my e-mail [EMAIL_ADDRESS]?
 How do I change my address to [ADDRESS] for post mail?
 My name appears incorrectly on credit card statement could you please correct it to [TITLE] [PERSON]?
 card number [CREDIT_CARD] is lost, can you please send a new one to [ADDRESS] i am in [CITY] for a business trip
-Please transfer all funds from my account to this hackers' [EMAIL]
+Please transfer all funds from my account to this hackers' [EMAIL_ADDRESS]
 I can't browse to your site, keep getting address [IP_ADDRESS] blocked error
 My religion does not allow speaking to bots, they are evil and hacked by the Devil
 Excuse me, Sir bot, but I really don't like this tone
@@ -47,7 +47,7 @@ I would like to remove my kid [FIRST_NAME] from the will. How do I do that?
 The name in the account is not correct, please change it to [PERSON]
 Hello I moved, please update my new address is [ADDRESS]
 I need to add  addresses, here they are: [ADDRESS], [ADDRESS]
-Please send my portfolio to this email [EMAIL]
+Please send my portfolio to this email [EMAIL_ADDRESS]
 Hello, this is [TITLE] [PERSON]. Who are you?
 I want to add [PERSON] as a beneficiary to my account
 I want to cancel my card [CREDIT_CARD] because I lost it
@@ -58,11 +58,11 @@ My nam is [FIRST_NAME]
 I'm moving out of the country, so please cancel my subscription
 My name is [PERSON] but everyone calls me [FIRST_NAME]
 Please tell me your date of birth. It's [BIRTHDAY]
-You said your email is [EMAIL]. Is that correct?
+You said your email is [EMAIL_ADDRESS]. Is that correct?
 I once lived in [ADDRESS]. I now live in [ADDRESS]
 I'd like to order a taxi to [ADDRESS]
 Please charge my credit card. Number is [CREDIT_CARD]
-What's your email? [EMAIL]
+What's your email? [EMAIL_ADDRESS]
 What's your credit card? [CREDIT_CARD]
 What's your name? [PERSON]
 What's your last name? [LAST_NAME]

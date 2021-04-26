@@ -1,14 +1,14 @@
-from collections import namedtuple
 from typing import List
 
 import spacy
+from spacy.tokens import Token
 
 loaded_spacy = {}
 
 
 def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_lg"):
     if model_version not in loaded_spacy:
-        disable = ['vectors', 'textcat', 'ner']
+        disable = ["vectors", "textcat", "ner"]
         print("loading model {}".format(model_version))
         loaded_spacy[model_version] = spacy.load(model_version, disable=disable)
     return loaded_spacy[model_version]
@@ -26,7 +26,7 @@ def _get_detailed_tags(scheme, cur_tags):
     :return:
     """
 
-    if all([tag == 'O' for tag in cur_tags]):
+    if all([tag == "O" for tag in cur_tags]):
         return cur_tags
 
     return_tags = []
@@ -52,7 +52,12 @@ def _get_detailed_tags(scheme, cur_tags):
 
 def _sort_spans(start, end, tag, score):
     if len(start) > 0:
-        tpl = [(a, b, c, d) for a, b, c, d in sorted(zip(start, end, tag, score), key=lambda pair: pair[0])]
+        tpl = [
+            (a, b, c, d)
+            for a, b, c, d in sorted(
+                zip(start, end, tag, score), key=lambda pair: pair[0]
+            )
+        ]
         start, end, tag, score = [[x[i] for x in tpl] for i in range(len(tpl[0]))]
     return start, end, tag, score
 
@@ -65,8 +70,8 @@ def _handle_overlaps(start, end, tag, score):
     index = min(start)
     number_of_spans = len(start)
     i = 0
-    while i < number_of_spans-1:
-        for j in range(i+1,number_of_spans):
+    while i < number_of_spans - 1:
+        for j in range(i + 1, number_of_spans):
             # Span j intersects with span i
             if start[i] <= start[j] <= end[i]:
                 # i's score is higher, remove intersecting part
@@ -98,14 +103,15 @@ def _handle_overlaps(start, end, tag, score):
     return start, end, tag, score
 
 
-def span_to_tag(scheme: str,
-                text: str,
-                start: List[int],
-                end: List[int],
-                tag: List[str],
-                scores: List[float] = None,
-                tokens: List[spacy.tokens.Token] = None,
-                io_tags_only=False) -> List[str]:
+def span_to_tag(
+    scheme: str,
+    text: str,
+    start: List[int],
+    end: List[int],
+    tag: List[str],
+    scores: List[float] = None,
+    tokens: List[spacy.tokens.Token] = None,
+) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
     tagging (BILOU,BIO/IOB)
@@ -116,7 +122,6 @@ def span_to_tag(scheme: str,
     :param end: list of indices where entities in the text end
     :param tag: list of entity names
     :param scores: score of tag (confidence)
-    :param io_tags_only: Whether to return only I and O tags
     :return: list of strings, representing either BILOU or BIO for the input
     """
 
@@ -141,7 +146,7 @@ def span_to_tag(scheme: str,
         if not found:
             io_tags.append("O")
 
-    if io_tags_only or scheme == "IO":
+    if scheme == "IO":
         return io_tags
 
     # Set tagging based on scheme (BIO/IOB or BILOU)
@@ -158,7 +163,9 @@ def span_to_tag(scheme: str,
     new_return_tags = []
     for i in range(len(changes) - 1):
         new_return_tags.extend(
-            _get_detailed_tags(scheme=scheme,
-                               cur_tags=io_tags[changes[i]:changes[i + 1]]))
+            _get_detailed_tags(
+                scheme=scheme, cur_tags=io_tags[changes[i] : changes[i + 1]]
+            )
+        )
 
     return new_return_tags

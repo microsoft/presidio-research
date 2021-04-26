@@ -2,27 +2,8 @@ import pytest
 
 from presidio_evaluator import InputSample, Span
 from presidio_evaluator.data_generator import read_synth_dataset
-from presidio_evaluator.presidio_analyzer_evaluator import PresidioAnalyzerEvaluator
-
-# Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
-entities_mapping = {
-    "PERSON": "PERSON",
-    "EMAIL": "EMAIL_ADDRESS",
-    "CREDIT_CARD": "CREDIT_CARD",
-    "FIRST_NAME": "PERSON",
-    "PHONE_NUMBER": "PHONE_NUMBER",
-    "BIRTHDAY": "DATE_TIME",
-    "DATE": "DATE_TIME",
-    "DOMAIN": "DOMAIN",
-    "CITY": "LOCATION",
-    "ADDRESS": "LOCATION",
-    "IBAN": "IBAN_CODE",
-    "URL": "DOMAIN_NAME",
-    "US_SSN": "US_SSN",
-    "IP_ADDRESS": "IP_ADDRESS",
-    "ORGANIZATION": "ORG",
-    "O": "O",
-}
+from presidio_evaluator.evaluation import Evaluator
+from presidio_evaluator.models.presidio_analyzer_wrapper import PresidioAnalyzerWrapper
 
 
 class GeneratedTextTestCase:
@@ -54,8 +35,7 @@ analyzer_test_generate_text_testdata = [
 
 
 def test_analyzer_simple_input():
-    model = PresidioAnalyzerEvaluator(entities_to_keep=["PERSON"])
-
+    model = PresidioAnalyzerWrapper(entities_to_keep=["PERSON"])
     sample = InputSample(
         full_text="My name is Mike",
         masked="My name is [PERSON]",
@@ -63,8 +43,11 @@ def test_analyzer_simple_input():
         create_tags_from_span=True,
     )
 
-    evaluated = model.evaluate_sample(sample)
-    metrics = model.calculate_score([evaluated])
+    prediction = model.predict(sample)
+    evaluator = Evaluator(model=model)
+
+    evaluated = evaluator.evaluate_sample(sample, prediction)
+    metrics = evaluator.calculate_score([evaluated])
 
     assert metrics.pii_precision == 1
     assert metrics.pii_recall == 1
@@ -89,13 +72,14 @@ def test_analyzer_with_generated_text(test_input, acceptance_threshold):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     input_samples = read_synth_dataset(test_input.format(dir_path))
 
-    updated_samples = PresidioAnalyzerEvaluator.align_input_samples_to_presidio_analyzer(
-        input_samples=input_samples, entities_mapping=entities_mapping
+    updated_samples = Evaluator.align_input_samples_to_presidio_analyzer(
+        input_samples=input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
     )
 
-    analyzer = PresidioAnalyzerEvaluator()
-    evaluated_samples = analyzer.evaluate_all(updated_samples)
-    scores = analyzer.calculate_score(evaluation_results=evaluated_samples)
+    analyzer = PresidioAnalyzerWrapper()
+    evaluator = Evaluator(model=analyzer)
+    evaluated_samples = evaluator.evaluate_all(updated_samples)
+    scores = evaluator.calculate_score(evaluation_results=evaluated_samples)
 
     assert acceptance_threshold <= scores.pii_precision
     assert acceptance_threshold <= scores.pii_recall

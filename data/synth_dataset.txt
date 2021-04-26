@@ -5481,7 +5481,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "SvenZimmer@fleckens.hu",
                 "start_position": 39,
                 "end_position": 61
@@ -9288,7 +9288,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "EmilySanderson@jourrapide.com",
                 "start_position": 59,
                 "end_position": 88
@@ -20492,7 +20492,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "NatalinaLucchese@superrito.com",
                 "start_position": 59,
                 "end_position": 89
@@ -25723,7 +25723,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "HannaUkkonen@dayrep.com",
                 "start_position": 39,
                 "end_position": 62
@@ -32783,7 +32783,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "yahyaeriksson@gustr.com",
                 "start_position": 23,
                 "end_position": 46
@@ -40833,7 +40833,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "VictorAndreyev@cuvox.de",
                 "start_position": 23,
                 "end_position": 46
@@ -44468,7 +44468,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "HarrisonBarnes@fleckens.hu",
                 "start_position": 59,
                 "end_position": 85
@@ -49165,7 +49165,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "MathiasEJespersen@armyspy.com",
                 "start_position": 23,
                 "end_position": 52
@@ -62644,7 +62644,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "ElishaFedorov@fleckens.hu",
                 "start_position": 39,
                 "end_position": 64
@@ -68659,7 +68659,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "HartmannAntonsson@jourrapide.com",
                 "start_position": 59,
                 "end_position": 91
@@ -72669,7 +72669,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "MakarMaslow@teleworm.us",
                 "start_position": 39,
                 "end_position": 62
