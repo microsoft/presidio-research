@@ -33,7 +33,7 @@ Notes:
 - For a simple data generation pipeline, 
 [see this notebook](../../notebooks/Generate data.ipynb).
 - For information on transforming a NER dataset into a templates, 
-see the notebooks in the [helper notebooks](helper%20notebooks) folder.
+see the notebooks in the [helper notebooks](../../notebooks/data%20generation) folder.
 
 Example run:
 

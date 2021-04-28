@@ -38,7 +38,7 @@ Note that some dependencies (such as Flair) are not installed to reduce installa
 
 
 ## 1. Data generation
-See [Data Generator README](/presidio_evaluator/data_generator/README.md) for more details.
+See [Data Generator README](presidio_evaluator/data_generator/README.md) for more details.
 
 The data generation process receives a file with templates, e.g. `My name is [FIRST_NAME]` and a data frame with fake PII data. 
 Then, it creates new synthetic sentences by sampling templates and PII values. Furthermore, it tokenizes the data, creates tags (either IO/IOB/BILOU) and spans for the newly created samples.
@@ -61,23 +61,23 @@ The presidio-evaluator framework allows you to evaluate Presidio as a system, or
 The main logic lies in the [ModelEvaluator](presidio_evaluator/models/base_model.py) class. It provides a structured way of evaluating models and recognizers.
 
 
-### Ready evaluators
+### Ready model / engine wrappers
 Some evaluators were developed for analysis and references. These include:
 
-#### 1. Presidio analyzer evaluator
+#### Presidio analyzer evaluation
 
 Allows you to evaluate an existing Presidio instance. [See this notebook for details](notebooks/Evaluate%20Presidio%20Analyzer.ipynb).
 
-#### 3. One recognizer evaluator
-Evaluate one specific recognizer for precision and recall. See [presidio_recognizer_evaluator.py](presidio_evaluator/models/presidio_recognizer_wrapper.py)
+#### One recognizer evaluation
+Evaluate one specific recognizer for precision and recall. 
+Similar to the analyzer evaluation just focusing on one type of PII recognizer.
+See [presidio_recognizer_wrapper.py](presidio_evaluator/models/presidio_recognizer_wrapper.py)
 
-## 4. Modeling
-
-### Conditional Random Fields
+#### Conditional Random Fields
 To train a CRF on a new dataset, see [this notebook](notebooks/models/CRF.ipynb).
 To evaluate a CRF model, see the the [same notebook](notebooks/models/CRF.ipynb) or [this class](presidio_evaluator/models/crf_model.py).
 
-### spaCy based models
+#### spaCy based models
 There are three ways of interacting with spaCy models: 
 1. Evaluate an existing trained model
 2. Train with pretrained embeddings
@@ -86,10 +86,10 @@ There are three ways of interacting with spaCy models:
 Before interacting with spaCy models, the data needs to be adapted to fit spaCy's API. 
 See [this notebook for creating spaCy datasets](notebooks/models/Create%20datasets%20for%20Spacy%20training.ipynb).
 
-#### Evaluate an existing trained model
+##### Evaluate an existing spaCy model
 To evaluate spaCy based models, see [this notebook](notebooks/models/Evaluate%20spacy%20models.ipynb).
 
-### Flair based models
+#### Flair based models
 To train a new model, see the [FlairTrainer](https://github.com/microsoft/presidio-research/blob/master/models/flair_train.py) object. 
 For experimenting with other embedding types, change the `embeddings` object in the `train` method.
 To train a Flair model, run:
