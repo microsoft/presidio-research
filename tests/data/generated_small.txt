@@ -4,7 +4,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "syedsimensen@cuvox.de",
                 "start_position": 59,
                 "end_position": 80
@@ -156,7 +156,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -2140,7 +2140,7 @@
         "masked": null,
         "spans": [
             {
-                "entity_type": "EMAIL",
+                "entity_type": "EMAIL_ADDRESS",
                 "entity_value": "AkahoYokoi@cuvox.de",
                 "start_position": 59,
                 "end_position": 78
@@ -2292,7 +2292,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {

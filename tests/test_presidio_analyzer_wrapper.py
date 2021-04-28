@@ -72,7 +72,7 @@ def test_analyzer_with_generated_text(test_input, acceptance_threshold):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     input_samples = read_synth_dataset(test_input.format(dir_path))
 
-    updated_samples = Evaluator.align_input_samples_to_presidio_analyzer(
+    updated_samples = Evaluator.align_entity_types(
         input_samples=input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
     )
 

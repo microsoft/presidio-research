@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional, Dict
 
 import spacy
 
 try:
-    from flair.data import Sentence, build_spacy_tokenizer
+    from flair.data import Sentence
     from flair.models import SequenceTagger
     from flair.tokenization import SpacyTokenizer
 except ImportError:
@@ -21,7 +21,6 @@ class FlairModel(BaseModel):
         model_path: str = None,
         entities_to_keep: List[str] = None,
         verbose: bool = False,
-        translate_to_spacy_entities=True,
     ):
         """
         Evaluator for Flair models
@@ -29,7 +28,7 @@ class FlairModel(BaseModel):
         :param model_path:
         :param entities_to_keep:
         :param verbose:
-        :param translate_to_spacy_entities:
+        and model expected entity types
         """
         super().__init__(
             entities_to_keep=entities_to_keep,
@@ -43,18 +42,9 @@ class FlairModel(BaseModel):
             self.model = model
 
         self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_lg"))
-        self.translate_to_spacy_entities = translate_to_spacy_entities
-
-        if self.translate_to_spacy_entities:
-            print(
-                "Translating entities using this dictionary: {}".format(
-                    PRESIDIO_SPACY_ENTITIES
-                )
-            )
 
     def predict(self, sample: InputSample) -> List[str]:
-        if self.translate_to_spacy_entities:
-            sample.translate_input_sample_tags()
+
         sentence = Sentence(text=sample.full_text, use_tokenizer=self.spacy_tokenizer)
         self.model.predict(sentence)
 

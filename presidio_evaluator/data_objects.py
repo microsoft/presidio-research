@@ -3,7 +3,7 @@ from typing import List, Optional
 import spacy
 import srsly
 from spacy.tokens import Token
-from spacy.training import docs_to_json
+from spacy.training import docs_to_json, iob_to_biluo
 from tqdm import tqdm
 
 from presidio_evaluator import span_to_tag, tokenize
@@ -106,7 +106,7 @@ class Span:
         return cls(**data)
 
 
-class SimpleSpacyExtensions(object):
+class SimpleSpacyExtensions:
     def __init__(self, **kwargs):
         """
         Serialization of Spacy Token extensions.
@@ -119,7 +119,7 @@ class SimpleSpacyExtensions(object):
         return self.__dict__
 
 
-class SimpleToken(object):
+class SimpleToken:
     """
     A class mimicking the Spacy Token class, for serialization purposes
     """
@@ -359,19 +359,38 @@ class InputSample(object):
         return self.full_text, {"entities": new_entities}
 
     @classmethod
-    def from_spacy(cls, text, annotations, translate_from_spacy=True):
+    def from_spacy_doc(cls, doc, map_spacy_entities_to_presidio=True, scheme="BILUO"):
+        if scheme not in  ("BILUO","BILOU","BIO","IOB"):
+            raise ValueError("scheme should be one of \"BILUO\",\"BILOU\",\"BIO\",\"IOB\"")
+
         spans = []
-        for annotation in annotations:
-            tag = (
-                cls.rename_from_spacy_tags([annotation[2]])[0]
-                if translate_from_spacy
-                else annotation[2]
+        for ent in doc.ents:
+            entity_type = (
+                cls.rename_from_spacy_tags(ent.label_)
+                if map_spacy_entities_to_presidio
+                else ent.label_
             )
             span = Span(
-                tag, text[annotation[0] : annotation[1]], annotation[0], annotation[1]
+                entity_type=entity_type,
+                entity_value=ent.text,
+                start_position=ent.start_char,
+                end_position=ent.end_char,
             )
             spans.append(span)
-        return cls(full_text=text, masked=None, spans=spans)
+
+        tags = [f"{token.ent_iob_}-{token.ent_type_}" if token.ent_iob_ != "O" else "O" for token in doc]
+        if scheme in ("BILUO", "BILOU"):
+            tags = iob_to_biluo(tags)
+
+        return cls(
+            full_text=doc.text,
+            masked=None,
+            spans=spans,
+            tokens=doc,
+            tags=tags,
+            create_tags_from_span=False,
+            scheme=scheme
+        )
 
     @staticmethod
     def create_spacy_dataset(

@@ -1,6 +1,9 @@
-import numpy as np
+from collections import Counter
 
-from presidio_evaluator import InputSample
+import numpy as np
+import pytest
+
+from presidio_evaluator import InputSample, Span
 from presidio_evaluator.data_generator import read_synth_dataset
 from presidio_evaluator.evaluation import EvaluationResult, Evaluator
 from tests.mocks import (
@@ -296,3 +299,49 @@ def test_dataset_to_metric_50_50_model():
     assert metrics.pii_precision == 1
     assert metrics.pii_recall < 0.75
     assert metrics.pii_recall > 0.25
+
+
+def test_align_entity_types_correct_output():
+
+    sample1 = InputSample(
+        "I live in ABC",
+        spans=[Span("A", "a", 0, 1), Span("A", "a", 10, 11), Span("B", "b", 100, 101)],
+        create_tags_from_span=False,
+    )
+    sample2 = InputSample(
+        "I live in ABC",
+        spans=[Span("A", "a", 0, 1), Span("A", "a", 10, 11), Span("C", "c", 100, 101)],
+        create_tags_from_span=False,
+    )
+    samples = [sample1, sample2]
+    mapping = {
+        "A": "1",
+        "B": "2",
+        "C": "1",
+    }
+
+    new_samples = Evaluator.align_entity_types(samples, mapping)
+
+    count_per_entity = Counter()
+    for sample in new_samples:
+        for span in sample.spans:
+            count_per_entity[span.entity_type] += 1
+
+    assert count_per_entity["1"] == 5
+    assert count_per_entity["2"] == 1
+
+
+def test_align_entity_types_wrong_mapping_exception():
+
+    sample1 = InputSample(
+        "I live in ABC",
+        spans=[Span("A", "a", 0, 1), Span("A", "a", 10, 11), Span("B", "b", 100, 101)],
+        create_tags_from_span=False,
+    )
+
+    entities_mapping = {"Z": "z"}
+
+    with pytest.raises(ValueError):
+        Evaluator.align_entity_types(
+            input_samples=[sample1], entities_mapping=entities_mapping
+        )

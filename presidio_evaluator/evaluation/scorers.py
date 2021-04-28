@@ -95,7 +95,7 @@ def score_presidio_recognizer(
 
     print("Preparing dataset by aligning entity names to Presidio's entity names")
 
-    updated_samples = Evaluator.align_input_samples_to_presidio_analyzer(input_samples)
+    updated_samples = Evaluator.align_entity_types(input_samples)
 
     model = PresidioRecognizerWrapper(
         recognizer=recognizer,
@@ -127,7 +127,7 @@ def score_presidio_analyzer(
 
     print("Preparing dataset by aligning entity names to Presidio's entity names")
 
-    updated_samples = Evaluator.align_input_samples_to_presidio_analyzer(input_samples)
+    updated_samples = Evaluator.align_entity_types(input_samples)
 
     flatten = lambda l: [item for sublist in l for item in sublist]
     from collections import Counter

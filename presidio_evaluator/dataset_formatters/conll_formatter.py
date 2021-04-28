@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import List, Optional
 
 import requests
-from spacy.training import converters
+from spacy.training.converters import conll_ner_to_docs
+from tqdm import tqdm
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.dataset_formatters import DatasetFormatter
@@ -11,15 +12,15 @@ from presidio_evaluator.dataset_formatters import DatasetFormatter
 class CONLL2003Formatter(DatasetFormatter):
     def __init__(
         self,
-        files_path=Path("../data/conll2003").resolve(),
-        glob_pattern: str = "*.iob",
+        files_path=Path("../../data/conll2003").resolve(),
+        glob_pattern: str = "*.*",
     ):
         self.files_path = files_path
         self.glob_pattern = glob_pattern
 
     @staticmethod
     def download(
-        local_data_path=Path("../data/conll2003").resolve(),
+        local_data_path=Path("../../data/conll2003").resolve(),
         conll_gh_path="https://raw.githubusercontent.com/glample/tagger/master/dataset/",
     ):
 
@@ -43,6 +44,7 @@ class CONLL2003Formatter(DatasetFormatter):
 
     def to_input_samples(self, fold: Optional[str] = None) -> List[InputSample]:
         files_found = False
+        input_samples = []
         for i, file_path in enumerate(self.files_path.glob(self.glob_pattern)):
             if fold and fold not in file_path.name:
                 continue
@@ -53,10 +55,19 @@ class CONLL2003Formatter(DatasetFormatter):
 
             text = "".join(text)
 
-            output_docs = converters.conll_ner2json(
+            output_docs = conll_ner_to_docs(
                 input_data=text, n_sents=None, no_print=True
             )
+            for doc in tqdm(output_docs, f"Processing doc for file {file_path.name}"):
+                input_samples.append(InputSample.from_spacy_doc(doc=doc))
 
-        # TODO: Translate to InputSample
         if not files_found:
-            raise FileNotFoundError(f"No files found for pattern {self.glob_pattern}")
+            raise FileNotFoundError(f"No files found for pattern {self.glob_pattern} and fold {fold}")
+
+        return input_samples
+
+
+if __name__ == "__main__":
+    conll_formatter = CONLL2003Formatter()
+    train_samples = conll_formatter.to_input_samples(fold="train")
+    print(train_samples[:5])

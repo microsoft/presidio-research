@@ -1,4 +1,4 @@
-My email is [EMAIL]
+My email is [EMAIL_ADDRESS]
 My address is [ADDRESS]
 My first name is [FIRST_NAME] and my last is [LAST_NAME]
 My name is [PERSON]

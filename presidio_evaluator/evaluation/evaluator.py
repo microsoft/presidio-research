@@ -150,7 +150,7 @@ class Evaluator:
         return evaluation_results
 
     @staticmethod
-    def align_input_samples_to_presidio_analyzer(
+    def align_entity_types(
         input_samples: List[InputSample],
         entities_mapping: Dict[
             str, str
@@ -166,24 +166,23 @@ class Evaluator:
         # A list that will contain updated input samples,
         new_list = []
 
-        # Iterate on all samples
         for input_sample in new_input_samples:
-            contains_presidio_field = False
+            contains_field_in_mapping = False
             new_spans = []
-            # Update spans to match Presidio's entity name
+            # Update spans to match the entity types in the values of entities_mapping
             for span in input_sample.spans:
-                in_presidio_field = False
                 if span.entity_type in entities_mapping.keys():
                     new_name = entities_mapping.get(span.entity_type)
                     span.entity_type = new_name
-                    contains_presidio_field = True
+                    contains_field_in_mapping = True
 
-                    # Add to new span list, if the span contains an entity relevant to Presidio
                     new_spans.append(span)
+                else:
+                    raise ValueError(f"Key {span.entity_type} cannot be found in the provided entities_mapping")
             input_sample.spans = new_spans
 
             # Update tags in case this sample has relevant entities for evaluation
-            if contains_presidio_field:
+            if contains_field_in_mapping:
                 for i, tag in enumerate(input_sample.tags):
                     has_prefix = "-" in tag
                     if has_prefix:
@@ -200,7 +199,9 @@ class Evaluator:
                         input_sample.tags[i] = "O"
 
             new_list.append(input_sample)
+
         return new_list
+        # Iterate on all samples
 
     def calculate_score(
         self,

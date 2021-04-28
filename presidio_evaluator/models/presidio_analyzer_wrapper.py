@@ -71,10 +71,12 @@ class PresidioAnalyzerWrapper(BaseModel):
         "CITY": "LOCATION",
         "ADDRESS": "LOCATION",
         "NATIONALITY": "LOCATION",
+        "LOCATION": "LOCATION",
         "IBAN": "IBAN_CODE",
         "URL": "DOMAIN_NAME",
         "US_SSN": "US_SSN",
         "IP_ADDRESS": "IP_ADDRESS",
         "ORGANIZATION": "ORG",
+        "TITLE": "O",
         "O": "O",
     }
