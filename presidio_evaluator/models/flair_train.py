@@ -1,10 +1,13 @@
 from typing import List
 
-from flair.data import Corpus, Sentence
-from flair.datasets import ColumnCorpus
-from flair.embeddings import TokenEmbeddings, WordEmbeddings, StackedEmbeddings, FlairEmbeddings, BertEmbeddings
-from flair.models import SequenceTagger
-from flair.trainers import ModelTrainer
+try:
+    from flair.data import Corpus, Sentence
+    from flair.datasets import ColumnCorpus
+    from flair.embeddings import TokenEmbeddings, WordEmbeddings, StackedEmbeddings, FlairEmbeddings, BertEmbeddings
+    from flair.models import SequenceTagger
+    from flair.trainers import ModelTrainer
+except ImportError:
+    print("Flair is not installed")
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.data_generator import read_synth_dataset

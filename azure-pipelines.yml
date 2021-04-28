@@ -15,11 +15,12 @@ pool:
   vmImage: 'ubuntu-latest'
 strategy:
   matrix:
-    Python36:
-      python.version: '3.6'
     Python37:
       python.version: '3.7'
-
+    Python38:
+      python.version: '3.8'
+    Python39:
+      python.version: '3.9'
 steps:
 - task: UsePythonVersion@0
   inputs:
@@ -28,7 +29,10 @@ steps:
 
 - script: |
     python -m pip install --upgrade pip
+    pip install wheel
     pip install -r requirements.txt
+    python -m spacy download en_core_web_lg
+
   displayName: 'Install dependencies'
 
 - script: |

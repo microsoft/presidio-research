@@ -1,6 +1,7 @@
 from typing import List, Set, Dict
 
 from presidio_analyzer import RecognizerResult
+from presidio_anonymizer import AnonymizerEngine
 
 from presidio_evaluator.data_generator import FakeDataGenerator
 
@@ -13,7 +14,6 @@ class PresidioPerturb(FakeDataGenerator):
         fake_pii_df: pd.DataFrame,
         lower_case_ratio: float = 0.0,
         ignore_types: Set[str] = None,
-        entity_dict: Dict[str, str] = None,
     ):
         super().__init__(
             fake_pii_df=fake_pii_df,
@@ -29,12 +29,9 @@ class PresidioPerturb(FakeDataGenerator):
         :param lower_case_ratio: Percentage of names that should start
          with lower case
          :param ignore_types: set of types to ignore
-         :param entity_dict: Dictionary with mapping of entity names between Presidio and the fake_pii_df.
-         For example, {"EMAIL_ADDRESS": "EMAIL"}
         """
 
         self.fake_pii = self.prep_fake_pii(self.original_pii_df)
-        self.entity_dict = entity_dict
 
     def perturb(
         self,
@@ -56,19 +53,15 @@ class PresidioPerturb(FakeDataGenerator):
 
         presidio_response = sorted(presidio_response, key=lambda resp: resp.start)
 
-        delta = 0
-        text = original_text
-        for resp in presidio_response:
-            start = resp.start + delta
-            end = resp.end + delta
-            entity_text = original_text[resp.start : resp.end]
-            entity_type = resp.entity_type
-            if self.entity_dict:
-                if entity_type in self.entity_dict:
-                    entity_type = self.entity_dict[entity_type]
+        anonymizer_engine = AnonymizerEngine()
+        anonymized_result = anonymizer_engine.anonymize(
+            text=original_text, analyzer_results=presidio_response
+        )
 
-            text = f"{text[:start]}{{{entity_type}}}{text[end:]}"
-            delta += len(entity_type) + 2 - len(entity_text)
+        text = anonymized_result.text
+        text = text.replace(">", "}").replace("<", "{")
+
+
         self.templates = [text]
         return [
             sample.full_text

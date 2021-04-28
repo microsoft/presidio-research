@@ -11,15 +11,15 @@ To install the package, clone the repo and install all dependencies, preferably 
 
 ``` sh
 # Create conda env (optional)
-conda create --name presidio python=3.7
+conda create --name presidio python=3.8
 conda activate presidio
 
 # Install package+dependencies
 pip install -r requirements.txt
 python setup.py install
 
-# Optionally link in the local development copy of presidio-analyzer
-pip install -e [path to presidio-analyzer]
+# Download a spaCy model used by presidio-analyzer
+python -m spacy download en_core_web_lg
 
 # Verify installation
 pytest
@@ -38,7 +38,7 @@ Note that some dependencies (such as Flair) are not installed to reduce installa
 
 
 ## 1. Data generation
-See [Data Generator README](/presidio_evaluator/data_generator/README.md) for more details.
+See [Data Generator README](presidio_evaluator/data_generator/README.md) for more details.
 
 The data generation process receives a file with templates, e.g. `My name is [FIRST_NAME]` and a data frame with fake PII data. 
 Then, it creates new synthetic sentences by sampling templates and PII values. Furthermore, it tokenizes the data, creates tags (either IO/IOB/BILOU) and spans for the newly created samples.
@@ -58,30 +58,26 @@ In order to standardize the process, we use specific data objects that hold all 
 
 ## 3. Recognizer evaluation
 The presidio-evaluator framework allows you to evaluate Presidio as a system, or a specific PII recognizer for precision and recall.
-The main logic lies in the [ModelEvaluator](presidio_evaluator/model_evaluator.py) class. It provides a structured way of evaluating models and recognizers.
+The main logic lies in the [Evaluator](presidio_evaluator/evaluation/evaluator.py) class. It provides a structured way of evaluating models and recognizers.
 
 
-### Ready evaluators
+### Ready model / engine wrappers
 Some evaluators were developed for analysis and references. These include:
 
-#### 1. Presidio API evaluator
+#### Presidio analyzer evaluation
 
-Allows you to evaluate an existing Presidio deployment through the API. [See this notebook for details](notebooks/Evaluate%20Presidio-API.ipynb).
+Allows you to evaluate an existing Presidio instance. [See this notebook for details](notebooks/Evaluate%20Presidio%20Analyzer.ipynb).
 
-#### 2. Presidio analyzer evaluator
-Allows you to evaluate the local Presidio-Analyzer package. Faster than the API option but requires you to have Presidio-Analyzer installed locally. [See this class for more information](presidio_evaluator/presidio_analyzer.py)
+#### One recognizer evaluation
+Evaluate one specific recognizer for precision and recall. 
+Similar to the analyzer evaluation just focusing on one type of PII recognizer.
+See [presidio_recognizer_wrapper.py](presidio_evaluator/models/presidio_recognizer_wrapper.py)
 
-#### 3. One recognizer evaluator
-Evaluate one specific recognizer for precision and recall. See [presidio_recognizer_evaluator.py](presidio_evaluator/presidio_recognizer_evaluator.py)
-
-
-## 4. Modeling
-
-### Conditional Random Fields
+#### Conditional Random Fields
 To train a CRF on a new dataset, see [this notebook](notebooks/models/CRF.ipynb).
-To evaluate a CRF model, see the the [same notebook](notebooks/models/CRF.ipynb) or [this class](presidio_evaluator/crf_evaluator.py).
+To evaluate a CRF model, see the the [same notebook](notebooks/models/CRF.ipynb) or [this class](presidio_evaluator/models/crf_model.py).
 
-### spaCy based models
+#### spaCy based models
 There are three ways of interacting with spaCy models: 
 1. Evaluate an existing trained model
 2. Train with pretrained embeddings
@@ -90,49 +86,16 @@ There are three ways of interacting with spaCy models:
 Before interacting with spaCy models, the data needs to be adapted to fit spaCy's API. 
 See [this notebook for creating spaCy datasets](notebooks/models/Create%20datasets%20for%20Spacy%20training.ipynb).
 
-#### Evaluate an existing trained model
+##### Evaluate an existing spaCy model
 To evaluate spaCy based models, see [this notebook](notebooks/models/Evaluate%20spacy%20models.ipynb).
 
-#### Train with pretrain embeddings
-In order to train a new spaCy model from scratch with pretrained embeddings (FastText wiki news subword in this case), follow these three steps:
-
-##### 1. Download FastText pretrained (sub) word embeddings
-``` sh
-wget https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M-subword.vec.zip
-unzip wiki-news-300d-1M-subword.vec.zip
-```
-
-##### 2. Init spaCy model with pre-trained embeddings
-Using spaCy CLI:
-``` sh
-python -m spacy init-model en spacy_fasttext --vectors-loc wiki-news-300d-1M-subword.vec
-```
-
-##### 3. Train spaCy NER model
-Using spaCy CLI:
-``` sh
-python -m spacy train en spacy_fasttext_100 train.json test.json --vectors spacy_fasttext --pipeline ner -n 100
-```
-
-#### Fine-tune an existing spaCy model
-See [this code for retraining an existing spaCy model](models/spacy_retrain.py). Specifically, run a SpacyRetrainer:
-First, you would have to create train and test pickle files for your train and test sets. See [this notebook](notebooks/models/Create%20datasets%20for%20Spacy%20training.ipynb) for more information.
-
-```python
-from models import SpacyRetrainer
-spacy_retrainer = SpacyRetrainer(original_model_name='en_core_web_lg',
-                                 experiment_name='new_spacy_experiment',
-                                 n_iter=500, dropout=0.1, aml_config=None)
-spacy_retrainer.run()
-```
-
-### Flair based models
+#### Flair based models
 To train a new model, see the [FlairTrainer](https://github.com/microsoft/presidio-research/blob/master/models/flair_train.py) object. 
 For experimenting with other embedding types, change the `embeddings` object in the `train` method.
 To train a Flair model, run:
 
 ```python
-from models import FlairTrainer
+from presidio_evaluator.models import FlairTrainer
 train_samples = "../data/generated_train.json"
 test_samples = "../data/generated_test.json"
 val_samples = "../data/generated_validation.json"

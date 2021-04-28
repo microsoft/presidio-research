@@ -15,24 +15,34 @@ class NationalityGenerator:
 
     def get_country(self):
         ## [COUNTRY]
-        return NationalityGenerator.capitalizeWords(random.choice(self.df['country'].values))
+        return NationalityGenerator.capitalizeWords(
+            random.choice(self.df["country"].values)
+        )
 
     def get_nationality(self):
         ## [NATIONALITY]
-        return NationalityGenerator.capitalizeWords(random.choice(self.df['nationality'].values))
+        return NationalityGenerator.capitalizeWords(
+            random.choice(self.df["nationality"].values)
+        )
 
     def get_nation_woman(self):
         ## [NATION_WOMAN]
-        return NationalityGenerator.capitalizeWords(random.choice(self.df['woman'].values))
+        return NationalityGenerator.capitalizeWords(
+            random.choice(self.df["woman"].values)
+        )
 
     def get_nation_man(self):
         ## [NATION_MAN]
-        return NationalityGenerator.capitalizeWords(random.choice(self.df['man'].values))
+        return NationalityGenerator.capitalizeWords(
+            random.choice(self.df["man"].values)
+        )
 
     def get_nation_plural(self):
         ## [NATION_PLURAL]
-        return NationalityGenerator.capitalizeWords(random.choice(self.df['plural'].values))
+        return NationalityGenerator.capitalizeWords(
+            random.choice(self.df["plural"].values)
+        )
 
     @staticmethod
     def capitalizeWords(s):
-        return re.sub(r'\w+', lambda m: m.group(0).capitalize(), s)
+        return re.sub(r"\w+", lambda m: m.group(0).capitalize(), s)

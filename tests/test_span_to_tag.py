@@ -2,8 +2,9 @@ from presidio_evaluator import span_to_tag
 
 BILOU_SCHEME = "BILOU"
 BIO_SCHEME = "BIO"
+IO_SCHEME = "IO"
 
-
+# fmt: off
 def test_span_to_bio_multiple_tokens():
     text = "My Address is 409 Bob st. Manhattan NY. I just moved in"
     start = 14
@@ -166,8 +167,7 @@ def test_overlapping_entities_first_ends_in_mid_second():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'US_PHONE_NUMBER',
                 'US_PHONE_NUMBER', 'US_PHONE_NUMBER',
                  'O', 'O', 'O', 'O']
-    io = span_to_tag(BIO_SCHEME, text, start, end, tag, scores,
-                     io_tags_only=True)
+    io = span_to_tag(IO_SCHEME, text, start, end, tag, scores)
     assert io == expected
 
 
@@ -180,8 +180,7 @@ def test_overlapping_entities_second_embedded_in_first_with_lower_score():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'PHONE_NUMBER',
                 'PHONE_NUMBER', 'PHONE_NUMBER',
                  'O', 'O', 'O', 'O']
-    io = span_to_tag(BIO_SCHEME, text, start, end, tag, scores,
-                     io_tags_only=True)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
     assert io == expected
 
 
@@ -194,8 +193,7 @@ def test_overlapping_entities_second_embedded_in_first_has_higher_score():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'US_PHONE_NUMBER',
                 'PHONE_NUMBER', 'PHONE_NUMBER',
                  'O', 'O', 'O', 'O']
-    io = span_to_tag(BIO_SCHEME, text, start, end, tag, scores,
-                     io_tags_only=True)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
     assert io == expected
 
 
@@ -207,6 +205,6 @@ def test_overlapping_entities_pyramid():
     tag = ["A1", "B2","C3"]
     expected = ['O', 'O', 'O', 'O', 'O', 'A1', 'B2', 'C3', 'B2',
                  'A1', 'O', 'O', 'O', 'O']
-    io = span_to_tag(BIO_SCHEME, text, start, end, tag, scores,
-                     io_tags_only=True)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
     assert io == expected
+# fmt: on

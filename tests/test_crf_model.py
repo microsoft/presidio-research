@@ -1,6 +1,6 @@
 import numpy as np
 
-from presidio_evaluator.crf_evaluator import CRFEvaluator
+from presidio_evaluator.models.crf_model import CRFModel
 from presidio_evaluator.data_generator import read_synth_dataset
 
 
@@ -12,7 +12,7 @@ def no_test_test_crf_simple():
 
     model_path = os.path.abspath(os.path.join(dir_path, "..", "model-outputs/crf.pickle"))
 
-    crf_evaluator = CRFEvaluator(model_pickle_path=model_path,entities_to_keep=['PERSON'])
+    crf_evaluator = CRFModel(model_pickle_path=model_path, entities_to_keep=['PERSON'])
     evaluation_results = crf_evaluator.evaluate_all(input_samples)
     scores = crf_evaluator.calculate_score(evaluation_results)
 

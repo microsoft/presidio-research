@@ -7,7 +7,7 @@ import json
 from presidio_evaluator import InputSample
 
 
-def split_dataset(dataset : List[InputSample], ratios):
+def split_dataset(dataset: List[InputSample], ratios):
     """
     Splits a provided dataset into n groups, by the Template# attribute in each sample's metadata
     :param dataset: List of InputSamples to be splitted
@@ -23,7 +23,9 @@ def split_dataset(dataset : List[InputSample], ratios):
 
     for ratio in ratios:
         if 1 >= ratio > 0:
-            first_templates, second_templates = split_by_template(remaining_dataset, ratio/remaining_ratio)
+            first_templates, second_templates = split_by_template(
+                remaining_dataset, ratio / remaining_ratio
+            )
             first_split = get_samples_by_pattern(remaining_dataset, first_templates)
             second_split = get_samples_by_pattern(remaining_dataset, second_templates)
             splits.append(first_split)
@@ -39,7 +41,7 @@ def group_by_template(dataset: List[InputSample]) -> Dict[str, List[InputSample]
     """
     Creates a dict of key = template ID and value = List[InputSamples] for this template id
     """
-    samples_pattern_tup = [(sample.metadata["Template#"],sample) for sample in dataset]
+    samples_pattern_tup = [(sample.metadata["Template#"], sample) for sample in dataset]
 
     group_by_template = defaultdict(list)
     for sample in samples_pattern_tup:
@@ -55,7 +57,9 @@ def split_by_template(input_samples: List[InputSample], train_pct: float = 0.7):
     samples_grpd = group_by_template(input_samples)
 
     templates = np.array(list(samples_grpd.keys()))
-    train_ind = set(random.sample(range(len(templates)), round(train_pct * len(templates))))
+    train_ind = set(
+        random.sample(range(len(templates)), round(train_pct * len(templates)))
+    )
 
     test_ind = set(range(len(templates))) - train_ind
 
@@ -75,5 +79,5 @@ def get_samples_by_pattern(input_samples, patterns_list):
 def save_to_json(samples, output_file):
     examples_dict = [example.to_dict() for example in samples]
 
-    with open("{}".format(output_file), 'w+', encoding='utf-8') as f:
+    with open("{}".format(output_file), "w+", encoding="utf-8") as f:
         json.dump(examples_dict, f, ensure_ascii=False, indent=4)

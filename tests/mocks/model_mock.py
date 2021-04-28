@@ -1,14 +1,15 @@
-from typing import List
+from typing import List, Optional
 
-from presidio_evaluator import InputSample, ModelEvaluator
+from presidio_evaluator import InputSample
+from presidio_evaluator.models import BaseModel
 
 
-class MockTokensModel(ModelEvaluator):
+class MockTokensModel(BaseModel):
     """
     Simulates a real model, returns the prediction given in the constructor
     """
 
-    def __init__(self, prediction: List[str], entities_to_keep: List = None,
+    def __init__(self, prediction: Optional[List[str]], entities_to_keep: List = None,
                  verbose: bool = False, **kwargs):
         super().__init__(entities_to_keep=entities_to_keep, verbose=verbose,
                          **kwargs)
@@ -18,20 +19,19 @@ class MockTokensModel(ModelEvaluator):
         return self.prediction
 
 
-class IdentityTokensMockModel(ModelEvaluator):
+class IdentityTokensMockModel(BaseModel):
     """
     Simulates a real model, always return the label as prediction
     """
 
-    def __init__(self, entities_to_keep: List = None,
-                 verbose: bool = False):
-        super().__init__(entities_to_keep=entities_to_keep, verbose=verbose)
+    def __init__(self, verbose: bool = False):
+        super().__init__(verbose=verbose)
 
     def predict(self, sample: InputSample) -> List[str]:
         return sample.tags
 
 
-class FiftyFiftyIdentityTokensMockModel(ModelEvaluator):
+class FiftyFiftyIdentityTokensMockModel(BaseModel):
     """
     Simulates a real model, returns the label or no predictions (list of 'O')
     alternately
