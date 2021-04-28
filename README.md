@@ -58,7 +58,7 @@ In order to standardize the process, we use specific data objects that hold all 
 
 ## 3. Recognizer evaluation
 The presidio-evaluator framework allows you to evaluate Presidio as a system, or a specific PII recognizer for precision and recall.
-The main logic lies in the [ModelEvaluator](presidio_evaluator/models/base_model.py) class. It provides a structured way of evaluating models and recognizers.
+The main logic lies in the [Evaluator](presidio_evaluator/evaluation/evaluator.py) class. It provides a structured way of evaluating models and recognizers.
 
 
 ### Ready model / engine wrappers

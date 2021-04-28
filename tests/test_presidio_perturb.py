@@ -71,7 +71,7 @@ def test_subset_perturbation():
             "NameSet": ["Hebrew", "English"],
         }
     )
-    ignore_types = {"DATE", "LOCATION", "ADDRESS", "GENDER"}
+    ignore_types = {"DATE_TIME", "LOCATION", "ADDRESS", "GENDER"}
 
     presidio_perturb = PresidioPerturb(fake_pii_df=fake_df, ignore_types=ignore_types)
 
