@@ -64,16 +64,12 @@ The main logic lies in the [ModelEvaluator](presidio_evaluator/models/base_model
 ### Ready evaluators
 Some evaluators were developed for analysis and references. These include:
 
-#### 1. Presidio API evaluator
+#### 1. Presidio analyzer evaluator
 
-Allows you to evaluate an existing Presidio deployment through the API. [See this notebook for details](notebooks/Evaluate%20Presidio-API.ipynb).
-
-#### 2. Presidio analyzer evaluator
-Allows you to evaluate the local Presidio-Analyzer package. Faster than the API option but requires you to have Presidio-Analyzer installed locally. [See this class for more information](presidio_evaluator/presidio_analyzer.py)
+Allows you to evaluate an existing Presidio instance. [See this notebook for details](notebooks/Evaluate%20Presidio%20Analyzer.ipynb).
 
 #### 3. One recognizer evaluator
 Evaluate one specific recognizer for precision and recall. See [presidio_recognizer_evaluator.py](presidio_evaluator/models/presidio_recognizer_wrapper.py)
-
 
 ## 4. Modeling
 
@@ -99,7 +95,7 @@ For experimenting with other embedding types, change the `embeddings` object in 
 To train a Flair model, run:
 
 ```python
-from models import FlairTrainer
+from presidio_evaluator.models import FlairTrainer
 train_samples = "../data/generated_train.json"
 test_samples = "../data/generated_test.json"
 val_samples = "../data/generated_validation.json"

@@ -5585,7 +5585,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -9440,7 +9440,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -20644,7 +20644,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -25827,7 +25827,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -32918,7 +32918,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL",
+            "U-EMAIL_ADDRESS",
             "O",
             "O",
             "O",
@@ -40968,7 +40968,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL",
+            "U-EMAIL_ADDRESS",
             "O",
             "O",
             "O",
@@ -44620,7 +44620,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -49300,7 +49300,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL",
+            "U-EMAIL_ADDRESS",
             "O",
             "O",
             "O",
@@ -62748,7 +62748,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -68811,7 +68811,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
@@ -72773,7 +72773,7 @@
             "O",
             "O",
             "O",
-            "U-EMAIL"
+            "U-EMAIL_ADDRESS"
         ],
         "template_id": null,
         "metadata": {
