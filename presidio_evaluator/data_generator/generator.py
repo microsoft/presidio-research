@@ -8,6 +8,11 @@ from spacy.tokens import Token
 from tqdm import tqdm
 
 from presidio_evaluator import Span, InputSample
+from presidio_evaluator.data_generator import (
+    OrgNameGenerator,
+    NationalityGenerator,
+    UsDriverLicenseGenerator,
+)
 from presidio_evaluator.data_generator.extensions import (
     generate_iban,
     generate_ip_addresses,
@@ -91,6 +96,10 @@ class FakeDataGenerator:
         self.span_to_tag = span_to_tag
         self.labeling_scheme = labeling_scheme
 
+        self.org_name_generator = OrgNameGenerator()
+        self.nationality_generator = NationalityGenerator()
+        self.us_driver_license_generator = UsDriverLicenseGenerator()
+
     def get_is_in_vocabulary(self, token):
         return token.text.lower() in self.vocabulary_words
 
@@ -138,7 +147,7 @@ class FakeDataGenerator:
 
         if "COUNTRY" not in self.ignore_types:
             df["COUNTRY"] = generate_country(
-                len(df)
+                len(df), self.nationality_generator
             )  # replace previous country which has limited options
 
         # Copied entities
@@ -174,10 +183,16 @@ class FakeDataGenerator:
 
         if "NATIONALITY" not in self.ignore_types:
             print("Generating nationalities")
-            df["NATIONALITY"] = generate_nationality(len(df))
-            df["NATION_MAN"] = generate_nation_man(len(df))
-            df["NATION_WOMAN"] = generate_nation_woman(len(df))
-            df["NATION_PLURAL"] = generate_nation_plural(len(df))
+            df["NATIONALITY"] = generate_nationality(
+                len(df), self.nationality_generator
+            )
+            df["NATION_MAN"] = generate_nation_man(len(df), self.nationality_generator)
+            df["NATION_WOMAN"] = generate_nation_woman(
+                len(df), self.nationality_generator
+            )
+            df["NATION_PLURAL"] = generate_nation_plural(
+                len(df), self.nationality_generator
+            )
 
         if "IBAN" not in self.ignore_types:
             print("Generating IBANs")
@@ -193,7 +208,9 @@ class FakeDataGenerator:
 
         if "US_DRIVER_LICENSE" not in self.ignore_types:
             print("Generating US driver license numbers")
-            df["US_DRIVER_LICENSE"] = generate_us_driver_licenses(len(df))
+            df["US_DRIVER_LICENSE"] = generate_us_driver_licenses(
+                len(df), self.us_driver_license_generator
+            )
 
         if "URL" not in self.ignore_types:
             print("Generating URLs")
@@ -204,7 +221,7 @@ class FakeDataGenerator:
 
         if "ORGANIZATION" not in self.ignore_types:
             print("Generating company names")
-            df["ORG"] = generate_company_names(len(df))
+            df["ORG"] = generate_company_names(len(df), self.org_name_generator)
             if "Company" in df:
                 df["ORGANIZATION"] = df[random.choice(["Company", "ORG"])].str.title()
             else:
@@ -249,7 +266,8 @@ class FakeDataGenerator:
         print("Preparing sample sentences for ingestion")
         # Todo: introduce typos
         templates = [
-            l.strip().replace("[", "{").replace("]", "}") for l in raw_templates
+            template.strip().replace("[", "{").replace("]", "}")
+            for template in raw_templates
         ]
         return templates
 
