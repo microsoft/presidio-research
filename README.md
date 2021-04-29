@@ -45,7 +45,7 @@ Then, it creates new synthetic sentences by sampling templates and PII values. F
 
 - For information on data generation/augmentation, see the data generator [README](presidio_evaluator/data_generator/README.md).
 
-- For an example for running the generation process, see [this notebook](notebooks/Generate%20data.ipynb). 
+- For an example for running the generation process, see [this notebook](notebooks/data%20generation/Generate%20data.ipynb). 
 
 - For an understanding of the underlying fake PII data used, see this [exploratory data analysis notebook](notebooks/PII%20EDA.ipynb).
 Note that the generation process might not work off-the-shelf as we are not sharing the fake PII datasets and templates used in this analysis, do to copyright and other restrictions.
@@ -130,4 +130,5 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 Copyright notice:
 
 Fake Name Generator identities by the [Fake Name Generator](https://www.fakenamegenerator.com/)
-are licensed under a [Creative Commons Attribution-Share Alike 3.0 United States License](http://creativecommons.org/licenses/by-sa/3.0/us/). Fake Name Generator and the Fake Name Generator logo are trademarks of Corban Works, LLC.
+are licensed under a [Creative Commons Attribution-Share Alike 3.0 United States License](http://creativecommons.org/licenses/by-sa/3.0/us/). 
+Fake Name Generator and the Fake Name Generator logo are trademarks of Corban Works, LLC.

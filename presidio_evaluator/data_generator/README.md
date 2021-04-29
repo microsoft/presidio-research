@@ -31,7 +31,7 @@ that samples from the same template would only appear in one set
 Notes:
 - For steps 5, 6, 7 see the main [README](../../README.md).
 - For a simple data generation pipeline, 
-[see this notebook](../../notebooks/Generate data.ipynb).
+[see this notebook](../../notebooks/data%20generation/Generate%20data.ipynb).
 - For information on transforming a NER dataset into a templates, 
 see the notebooks in the [helper notebooks](../../notebooks/data%20generation) folder.
 

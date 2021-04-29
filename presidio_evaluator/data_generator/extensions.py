@@ -4,19 +4,9 @@ import pandas as pd
 from faker import Faker
 from haikunator import Haikunator
 
-from presidio_evaluator.data_generator import (
-    NationalityGenerator,
-    OrgNameGenerator,
-    UsDriverLicenseGenerator,
-)
-
 fake = Faker()
 haikunator = Haikunator()
 IP_V4_RATIO = 0.8
-
-org_name_generator = OrgNameGenerator()
-nationality_generator = NationalityGenerator()
-us_driver_license_generator = UsDriverLicenseGenerator()
 
 
 def generate_url(domain: pd.Series):
@@ -82,7 +72,7 @@ def generate_iban(country: pd.Series):
     return country.apply(generate_one_iban)
 
 
-def generate_company_names(length):
+def generate_company_names(length, org_name_generator):
     return [org_name_generator.get_organization() for _ in range(length)]
 
 
@@ -149,27 +139,27 @@ def generate_roles(length):
     return [random.choice(roles) for _ in range(length)]
 
 
-def generate_nationality(length):
+def generate_nationality(length, nationality_generator):
     return [nationality_generator.get_nationality() for _ in range(length)]
 
 
-def generate_us_driver_licenses(length):
+def generate_us_driver_licenses(length, us_driver_license_generator):
     return [
         us_driver_license_generator.get_driver_license_number() for _ in range(length)
     ]
 
 
-def generate_country(length):
+def generate_country(length, nationality_generator):
     return [nationality_generator.get_country() for _ in range(length)]
 
 
-def generate_nation_woman(length):
+def generate_nation_woman(length, nationality_generator):
     return [nationality_generator.get_nation_woman() for _ in range(length)]
 
 
-def generate_nation_man(length):
+def generate_nation_man(length, nationality_generator):
     return [nationality_generator.get_nation_man() for _ in range(length)]
 
 
-def generate_nation_plural(length):
+def generate_nation_plural(length, nationality_generator):
     return [nationality_generator.get_nation_plural() for _ in range(length)]
