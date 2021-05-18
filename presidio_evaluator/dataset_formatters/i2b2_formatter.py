@@ -11,10 +11,10 @@ import xmltodict
 from presidio_evaluator import InputSample
 from presidio_evaluator.dataset_formatters import DatasetFormatter
 
-class I2C2Formatter(DatasetFormatter):
+class I2B2Formatter(DatasetFormatter):
   def __init__(
         self,
-        files_path=Path("../../data/i2c2").resolve(),
+        files_path=Path("../../data/i2b2").resolve(),
         glob_pattern: str = "*.*",
     ):
         self.files_path = files_path
@@ -50,6 +50,6 @@ class I2C2Formatter(DatasetFormatter):
         
 
 if __name__ == "__main__":
-    formatter = I2C2Formatter()    
+    formatter = I2B2Formatter()    
     train_samples = formatter.to_input_samples(folder="./training-PHI-Gold-Set1")
     print(train_samples)
