@@ -11,7 +11,7 @@ import xmltodict
 from presidio_evaluator import InputSample
 from presidio_evaluator.dataset_formatters import DatasetFormatter
 
-class I2B2Formatter(DatasetFormatter):
+class I2B22014Formatter(DatasetFormatter):
   def __init__(
         self,
         files_path=Path("../../data/i2b2").resolve(),
@@ -50,6 +50,6 @@ class I2B2Formatter(DatasetFormatter):
         
 
 if __name__ == "__main__":
-    formatter = I2B2Formatter()    
+    formatter = I2B22014Formatter()    
     train_samples = formatter.to_input_samples(folder="./training-PHI-Gold-Set1")
     print(train_samples)
