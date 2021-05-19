@@ -8,9 +8,8 @@ loaded_spacy = {}
 
 def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_lg"):
     if model_version not in loaded_spacy:
-        disable = ["vectors", "textcat", "ner"]
         print("loading model {}".format(model_version))
-        loaded_spacy[model_version] = spacy.load(model_version, disable=disable)
+        loaded_spacy[model_version] = spacy.load(model_version)
     return loaded_spacy[model_version]
 
 

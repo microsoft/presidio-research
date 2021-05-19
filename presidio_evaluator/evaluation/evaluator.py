@@ -154,7 +154,7 @@ class Evaluator:
         input_samples: List[InputSample],
         entities_mapping: Dict[
             str, str
-        ] = PresidioAnalyzerWrapper.presidio_entities_map,
+        ] = None,
     ) -> List[InputSample]:
         """
         Change input samples to conform with Presidio's entities
