@@ -84,10 +84,24 @@ class I2B22014Formatter(DatasetFormatter):
             json.dump(json_dataset, f, ensure_ascii=False, indent=4)
 
     @staticmethod
-    def _span_and_text_are_identical(span, text):
+    def _span_and_text_are_identical(span:Span, text:str)->bool:
+        """
+        There are mismatches between annotations and text.
+
+        To verify that the annotation matches the text,
+        there is a need to ignore cases where the annotations are different
+        due to whitespaces, newline or other cases.
+        """
         return span.entity_value != text[
-            span.start_position : span.end_position
-        ].replace("est\nBra", "estBra").replace("\n", " ").replace("&", "and")
+            span.start_position : span.end_position]. \
+            replace("pa\nPic", "paPic").\
+            replace("est\nBra", "estBra").\
+            replace("er \n30", "er 30").\
+            replace("pr\n29", "pr29").\
+            replace(" \n ", "  ").\
+            replace("\n\n", "").\
+            replace("\n", " ").\
+            replace("&", "and")
 
 
 if __name__ == "__main__":
