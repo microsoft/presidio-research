@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 from typing import List
-
 import xmltodict
 from tqdm import tqdm
 
@@ -15,9 +14,9 @@ from presidio_evaluator.dataset_formatters import DatasetFormatter
 class I2B22014Formatter(DatasetFormatter):
     def __init__(
         self,
-        files_path=Path("../../data/i2b2").resolve(),
+        files_path="../../data/i2b2",        
     ):
-        self.files_path = files_path
+        self.files_path = files_path        
 
     @staticmethod
     def _create_span(item):
@@ -31,7 +30,11 @@ class I2B22014Formatter(DatasetFormatter):
 
     def to_input_samples(self) -> List[InputSample]:
         input_samples = []
-        for root, dirs, files in tqdm(os.walk(self.files_path),desc="Reading files..."):
+      if folder:
+        self.files_path = folder
+      print(f"Parsing files in {self.files_path}")
+
+      for root, dirs, files in os.walk(self.files_path):
             for file in files:
                 spans = []
                 filename = os.path.join(root, file)
