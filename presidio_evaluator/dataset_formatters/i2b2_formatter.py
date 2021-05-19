@@ -11,6 +11,7 @@ from presidio_evaluator.data_objects import Span
 from presidio_evaluator.dataset_formatters import DatasetFormatter
 
 
+
 class I2B22014Formatter(DatasetFormatter):
     def __init__(
         self,
@@ -40,16 +41,25 @@ class I2B22014Formatter(DatasetFormatter):
                 filename = os.path.join(root, file)
                 xml_content = open(filename, "r").read()
 
-                ordered_dict = xmltodict.parse(xml_content)
+                ordered_dict = xmltodict.parse(xml_input=xml_content, strip_whitespace=False)
                 data = dict(ordered_dict["deIdi2b2"])
                 text = data["TEXT"]
                 tags = data["TAGS"]
-                for item in tags.items():
-                    if type(item[1]) is collections.OrderedDict:
-                        spans.append(self._create_span(item[1]))
+                for key, value in tags.items():
+                    if key == "#text":
+                        continue
+                    if type(value) is collections.OrderedDict:
+                        span = self._create_span(value)
+                        if span.entity_value != text[span.start_position:span.end_position].replace("\n", " "):
+                            raise ValueError(f"Mismatch on file {file}, span {span}")
+
+                        spans.append(span)
                     else:
-                        for sub in item[1]:
-                            spans.append(self._create_span(sub))
+                        for sub in value:
+                            span = self._create_span(sub)
+                            if span.entity_value != text[span.start_position:span.end_position].replace("\n", " "):
+                                raise ValueError(f"Mismatch on file {file}, span {span}")
+                            spans.append(span)
                 input_samples.append(
                     InputSample(full_text=text, spans=spans, create_tags_from_span=True)
                 )
