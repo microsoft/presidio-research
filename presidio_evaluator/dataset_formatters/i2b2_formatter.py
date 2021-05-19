@@ -2,7 +2,7 @@ import collections
 import json
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import xmltodict
 from tqdm import tqdm
 
@@ -14,9 +14,9 @@ from presidio_evaluator.dataset_formatters import DatasetFormatter
 class I2B22014Formatter(DatasetFormatter):
     def __init__(
         self,
-        files_path="../../data/i2b2",        
+        files_path="../../data/i2b2/2014/testing-PHI-Gold-fixed",
     ):
-        self.files_path = files_path        
+        self.files_path = files_path
 
     @staticmethod
     def _create_span(item):
@@ -28,14 +28,14 @@ class I2B22014Formatter(DatasetFormatter):
         )
         return span
 
-    def to_input_samples(self) -> List[InputSample]:
+    def to_input_samples(self, folder: Optional[str] = None) -> List[InputSample]:
         input_samples = []
-      if folder:
-        self.files_path = folder
-      print(f"Parsing files in {self.files_path}")
+        if folder:
+            self.files_path = folder
+        print(f"Parsing files in {self.files_path}")
 
-      for root, dirs, files in os.walk(self.files_path):
-            for file in files:
+        for root, dirs, files in os.walk(self.files_path):
+            for file in tqdm(files, desc="Reading files..."):
                 spans = []
                 filename = os.path.join(root, file)
                 xml_content = open(filename, "r").read()
@@ -53,7 +53,8 @@ class I2B22014Formatter(DatasetFormatter):
                 input_samples.append(
                     InputSample(full_text=text, spans=spans, create_tags_from_span=True)
                 )
-        return input_samples
+
+            return input_samples
 
     @staticmethod
     def dataset_to_json(input_path, output_path):
