@@ -87,7 +87,7 @@ class I2B22014Formatter(DatasetFormatter):
     def _span_and_text_are_identical(span, text):
         return span.entity_value != text[
             span.start_position : span.end_position
-        ].replace("est\nBra", "stBr").replace("\n", " ").replace("&", "and")
+        ].replace("est\nBra", "estBra").replace("\n", " ").replace("&", "and")
 
 
 if __name__ == "__main__":
