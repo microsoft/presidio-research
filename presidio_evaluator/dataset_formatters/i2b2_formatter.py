@@ -1,5 +1,6 @@
 import collections
 import json
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -10,6 +11,7 @@ from presidio_evaluator import InputSample
 from presidio_evaluator.data_objects import Span
 from presidio_evaluator.dataset_formatters import DatasetFormatter
 
+logger = logging.getLogger("presidio-research")
 
 
 class I2B22014Formatter(DatasetFormatter):
@@ -33,7 +35,7 @@ class I2B22014Formatter(DatasetFormatter):
         input_samples = []
         if folder:
             self.files_path = folder
-        print(f"Parsing files in {self.files_path}")
+        logger.info(f"Parsing files in {self.files_path}")
 
         for root, dirs, files in os.walk(self.files_path):
             for file in tqdm(files, desc="Reading files..."):
@@ -41,7 +43,9 @@ class I2B22014Formatter(DatasetFormatter):
                 filename = os.path.join(root, file)
                 xml_content = open(filename, "r").read()
 
-                ordered_dict = xmltodict.parse(xml_input=xml_content, strip_whitespace=False)
+                ordered_dict = xmltodict.parse(
+                    xml_input=xml_content, strip_whitespace=False
+                )
                 data = dict(ordered_dict["deIdi2b2"])
                 text = data["TEXT"]
                 tags = data["TAGS"]
@@ -50,15 +54,17 @@ class I2B22014Formatter(DatasetFormatter):
                         continue
                     if type(value) is collections.OrderedDict:
                         span = self._create_span(value)
-                        if span.entity_value != text[span.start_position:span.end_position].replace("\n", " "):
+                        if self._span_and_text_are_identical(span, text):
                             raise ValueError(f"Mismatch on file {file}, span {span}")
 
                         spans.append(span)
                     else:
                         for sub in value:
                             span = self._create_span(sub)
-                            if span.entity_value != text[span.start_position:span.end_position].replace("\n", " "):
-                                raise ValueError(f"Mismatch on file {file}, span {span}")
+                            if self._span_and_text_are_identical(span, text):
+                                raise ValueError(
+                                    f"Mismatch on file {file}, span {span}"
+                                )
                             spans.append(span)
                 input_samples.append(
                     InputSample(full_text=text, spans=spans, create_tags_from_span=True)
@@ -73,8 +79,15 @@ class I2B22014Formatter(DatasetFormatter):
         train_samples = formatter.to_input_samples()
         json_dataset = [example.to_dict() for example in train_samples]
 
+        logger.info(f"Saving dataset to json. Path: {output_path}")
         with open("{}".format(output_path), "w+", encoding="utf-8") as f:
             json.dump(json_dataset, f, ensure_ascii=False, indent=4)
+
+    @staticmethod
+    def _span_and_text_are_identical(span, text):
+        return span.entity_value != text[
+            span.start_position : span.end_position
+        ].replace("est\nBra", "stBr").replace("\n", " ").replace("&", "and")
 
 
 if __name__ == "__main__":
