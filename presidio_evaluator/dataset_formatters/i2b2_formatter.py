@@ -1,11 +1,9 @@
-from pathlib import Path
+
 from presidio_evaluator.data_objects import Span
-from typing import List, Optional, OrderedDict
+from typing import List, Optional
 
 import collections
-
 import os
-
 import xmltodict
 
 from presidio_evaluator import InputSample
@@ -14,11 +12,9 @@ from presidio_evaluator.dataset_formatters import DatasetFormatter
 class I2B22014Formatter(DatasetFormatter):
   def __init__(
         self,
-        files_path=Path("../../data/i2b2").resolve(),
-        glob_pattern: str = "*.*",
+        files_path="../../data/i2b2",        
     ):
-        self.files_path = files_path
-        self.glob_pattern = glob_pattern        
+        self.files_path = files_path        
 
   def _create_span(self, item):        
     span = Span(entity_type=item['@TYPE'], 
@@ -29,7 +25,11 @@ class I2B22014Formatter(DatasetFormatter):
 
   def to_input_samples(self, folder: Optional[str] = None) -> List[InputSample]:      
       input_samples = []
-      for root, dirs, files in os.walk(folder):
+      if folder:
+        self.files_path = folder
+      print(f"Parsing files in {self.files_path}")
+
+      for root, dirs, files in os.walk(self.files_path):
         for file in files:
           spans = []
           filename = os.path.join(root,file)          
@@ -51,5 +51,5 @@ class I2B22014Formatter(DatasetFormatter):
 
 if __name__ == "__main__":
     formatter = I2B22014Formatter()    
-    train_samples = formatter.to_input_samples(folder="./training-PHI-Gold-Set1")
+    train_samples = formatter.to_input_samples()
     print(train_samples)
