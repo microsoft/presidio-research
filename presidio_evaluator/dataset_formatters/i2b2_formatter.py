@@ -94,6 +94,10 @@ class I2B22014Formatter(DatasetFormatter):
         """
         return span.entity_value != text[
             span.start_position : span.end_position]. \
+            replace("Michael \n\nOgrady", "Michael   Ogrady").\
+            replace("Yehuda \n\nLanders", "Yehuda   Landers").\
+            replace("February\n\n2086", "February  2086").\
+            replace("31,\n\n", "31,  ").\
             replace("pa\nPic", "paPic").\
             replace("est\nBra", "estBra").\
             replace("er \n30", "er 30").\
