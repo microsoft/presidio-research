@@ -29,8 +29,8 @@ class EvaluationResult(object):
         self.entity_precision_dict = None
 
     def print(self):
-        recall_dict = self.entity_recall_dict
-        precision_dict = self.entity_precision_dict
+        recall_dict = dict(sorted(self.entity_recall_dict.items()))
+        precision_dict = dict(sorted(self.entity_precision_dict.items()))
 
         recall_dict["PII"] = self.pii_recall
         precision_dict["PII"] = self.pii_precision

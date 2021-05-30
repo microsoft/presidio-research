@@ -197,6 +197,18 @@ def test_overlapping_entities_second_embedded_in_first_has_higher_score():
     assert io == expected
 
 
+def test_overlapping_entities_second_embedded_in_first_has_lower_score():
+    text= "My new phone number is 1 705 774 8720. Thanks, man"
+    start = [23, 25]
+    end = [37, 28]
+    scores = [0.6, 0.3]
+    tag = ["PHONE_NUMBER", "US_PHONE_NUMBER"]
+    expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'PHONE_NUMBER',
+                'PHONE_NUMBER', 'PHONE_NUMBER',
+                'O', 'O', 'O', 'O']
+    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    assert io == expected
+
 def test_overlapping_entities_pyramid():
     text = "My new phone number is 1 705 999 774 8720. Thanks, cya"
     start = [23, 25, 29]
