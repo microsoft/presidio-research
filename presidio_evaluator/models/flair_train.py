@@ -54,9 +54,9 @@ class FlairTrainer:
             self.to_flair(val_data, outfile="flair_val.txt")
 
     @staticmethod
-    def read_corpus(data_folder) -> Corpus:
+    def read_corpus(data_folder):
         columns = {0: 'text', 1: 'pos', 2: 'ner'}
-        corpus: Corpus = ColumnCorpus(data_folder, columns,
+        corpus = ColumnCorpus(data_folder, columns,
                                       train_file='flair_train.txt',
                                       test_file='flair_val.txt',
                                       dev_file='flair_test.txt')

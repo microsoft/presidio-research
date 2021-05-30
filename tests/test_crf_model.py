@@ -1,20 +1,24 @@
 import numpy as np
+import pytest
 
+from presidio_evaluator.evaluation import Evaluator
 from presidio_evaluator.models.crf_model import CRFModel
 from presidio_evaluator.data_generator import read_synth_dataset
 
 
 # no_test since the CRF model is not supplied with the package
-def no_test_test_crf_simple():
+@pytest.mark.skip(reason="CRF suite is not installed by default")
+def test_test_crf_simple():
     import os
     dir_path = os.path.dirname(os.path.realpath(__file__))
     input_samples = read_synth_dataset(os.path.join(dir_path, "data/generated_small.txt"))
 
     model_path = os.path.abspath(os.path.join(dir_path, "..", "model-outputs/crf.pickle"))
 
-    crf_evaluator = CRFModel(model_pickle_path=model_path, entities_to_keep=['PERSON'])
-    evaluation_results = crf_evaluator.evaluate_all(input_samples)
-    scores = crf_evaluator.calculate_score(evaluation_results)
+    crf_model = CRFModel(model_pickle_path=model_path, entities_to_keep=['PERSON'])
+    evaluator = Evaluator(model=crf_model)
+    evaluation_results = evaluator.evaluate_all(input_samples)
+    scores = evaluator.calculate_score(evaluation_results)
 
     np.testing.assert_almost_equal(scores.pii_precision, scores.entity_precision_dict['PERSON'])
     np.testing.assert_almost_equal(scores.pii_recall, scores.entity_recall_dict['PERSON'])
