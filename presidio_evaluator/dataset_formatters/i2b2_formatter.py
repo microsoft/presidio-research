@@ -84,7 +84,7 @@ class I2B22014Formatter(DatasetFormatter):
             json.dump(json_dataset, f, ensure_ascii=False, indent=4)
 
     @staticmethod
-    def _span_and_text_are_identical(span:Span, text:str)->bool:
+    def _span_and_text_are_identical(span:Span, text:str) -> bool:
         """
         There are mismatches between annotations and text.
 
