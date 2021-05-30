@@ -154,7 +154,8 @@ class Evaluator:
         input_samples: List[InputSample],
         entities_mapping: Dict[
             str, str
-        ] = PresidioAnalyzerWrapper.presidio_entities_map,
+        ] = None,
+        allow_missing_mappings: bool = False
     ) -> List[InputSample]:
         """
         Change input samples to conform with Presidio's entities
@@ -178,7 +179,8 @@ class Evaluator:
 
                     new_spans.append(span)
                 else:
-                    raise ValueError(f"Key {span.entity_type} cannot be found in the provided entities_mapping")
+                    if not allow_missing_mappings:
+                        raise ValueError(f"Key {span.entity_type} cannot be found in the provided entities_mapping")
             input_sample.spans = new_spans
 
             # Update tags in case this sample has relevant entities for evaluation
@@ -207,7 +209,7 @@ class Evaluator:
         self,
         evaluation_results: List[EvaluationResult],
         entities: Optional[List[str]] = None,
-        beta: float = 1,
+        beta: float = 2.5,
     ) -> EvaluationResult:
         """
         Returns the pii_precision, pii_recall and f_measure either for each entity

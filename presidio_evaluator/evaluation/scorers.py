@@ -1,6 +1,5 @@
 """E2E scoring pipelines for the different models"""
 
-import math
 from typing import List, Optional
 
 from presidio_analyzer import EntityRecognizer
@@ -95,7 +94,9 @@ def score_presidio_recognizer(
 
     print("Preparing dataset by aligning entity names to Presidio's entity names")
 
-    updated_samples = Evaluator.align_entity_types(input_samples)
+    updated_samples = Evaluator.align_entity_types(
+        input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
+    )
 
     model = PresidioRecognizerWrapper(
         recognizer=recognizer,
@@ -127,7 +128,9 @@ def score_presidio_analyzer(
 
     print("Preparing dataset by aligning entity names to Presidio's entity names")
 
-    updated_samples = Evaluator.align_entity_types(input_samples)
+    updated_samples = Evaluator.align_entity_types(
+        input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
+    )
 
     flatten = lambda l: [item for sublist in l for item in sublist]
     from collections import Counter

@@ -13,3 +13,4 @@ pytest~=6.2.3
 presidio_analyzer
 presidio_anonymizer
 requests~=2.25.1
+xmltodict==0.12.0
