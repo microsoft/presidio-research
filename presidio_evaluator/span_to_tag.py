@@ -76,7 +76,7 @@ def _handle_overlaps(start, end, tag, score):
                 # i's score is higher, remove intersecting part
                 if score[i] > score[j]:
                     # j is contained within i but has lower score, remove
-                    if start[i] >= end[j] >= end[i]:
+                    if start[i] <= end[j] <= end[i]:
                         score[j] = 0
                     # else, j continues after i ended:
                     else:
