@@ -19,9 +19,9 @@ class FakeDataGenerator:
         """
         try:
             pattern = self.faker.parse(template)
-        except AttributeError:
-            pattern = f"TODO: {template}!"
-        return pattern
+            return pattern
+        except Exception as err:
+            raise AttributeError(f"{err}! You could create a new provider!")
 
     def insert_fake_pii_into_template(self, template):
         """
@@ -82,6 +82,6 @@ class FakeDataGenerator:
 if __name__ == "__main__":
 
     template_file_path = Path(__file__).parent / "raw_data" / "templates.txt"
-    generator = FakeDataGenerator()
+    generator = FakeDataGenerator('en_US')
     fake_patterns = generator.insert_fake_data(template_file_path)
     pprint(fake_patterns)

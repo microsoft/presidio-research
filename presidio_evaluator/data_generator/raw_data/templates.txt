@@ -1,33 +1,33 @@
-I want to increase limit on my card # [CREDIT_CARD] for certain duration of time. is it possible?
-My credit card [CREDIT_CARD] has been lost, Can I request you to block it.
-Need to change billing date of my card [CREDIT_CARD] 
-I want to upadte my primary and secondary address to same: [ADDRESS]
+I want to increase limit on my card # [CREDIT_CARD_NUMBER] for certain duration of time. is it possible?
+My credit card [CREDIT_CARD_NUMBER] has been lost, Can I request you to block it.
+Need to change billing date of my card [CREDIT_CARD_NUMBER]
+I want to update my primary and secondary address to same: [ADDRESS]
 In case of my child's account, we need to add [PERSON] as guardian
 Are there any charges applied for money transfer from [IBAN] to other bank accounts
-Are there any charges applied to widraw money from ATM with the card [CREDIT_CARD]
+Are there any charges applied to widraw money from ATM with the card [CREDIT_CARD_NUMBER]
 Not getting bank documents on my addres. Can you please validate the following [ADDRESS]
-Please update billing addrress with [ADDRESS] for this card: [CREDIT_CARD]
-Need to see last 10 transaction of card [CREDIT_CARD]
-I have lost my card [CREDIT_CARD]. Could you please block my credit card ASAP ? , My name is [PERSON].
-My card [CREDIT_CARD] is expiring this month. Please let me know process to it's extend validity.
+Please update billing address with [ADDRESS] for this card: [CREDIT_CARD_NUMBER]
+Need to see last 10 transaction of card [CREDIT_CARD_NUMBER]
+I have lost my card [CREDIT_CARD_NUMBER]. Could you please block my credit card ASAP ? , My name is [PERSON].
+My card [CREDIT_CARD_NUMBER] is expiring this month. Please let me know process to it's extend validity.
 I have done an online order but didn't get any message on my registered [PHONE_NUMBER]. Could you please look into it ?
-What is procedure to redeem points won on credit card [CREDIT_CARD] transactions ?
-My card [CREDIT_CARD] expires soon � when will I get a new one?
+What is procedure to redeem points won on credit card [CREDIT_CARD_NUMBER] transactions ?
+My card [CREDIT_CARD_NUMBER] expires soon � when will I get a new one?
 How do I check my balance on my credit card?
 Could I change the payment due date of my credit card?
 How can I request a new credit card pin ?
-Can I withdraw cash using my card [CREDIT_CARD] at aTM center ?
+Can I withdraw cash using my card [CREDIT_CARD_NUMBER] at aTM center ?
 How do I change the address linked to my credit card to [ADDRESS]?
 How do I open my credit card statement?
 I'm originally from [COUNTRY]
 I will be travelling to [COUNTRY] next week, so I need my passport to be ready by then
 Who's coming to [COUNTRY] with me?
 [COUNTRY] was super fun to visit!
-Could you please email me the statement for laste month , my credit card number is [CREDIT_CARD]?
-Could you please send me the last billed amount for cc [CREDIT_CARD] on my e-mail [EMAIL_ADDRESS]?
+Could you please email me the statement for last month , my credit card number is [CREDIT_CARD_NUMBER]?
+Could you please send me the last billed amount for cc [CREDIT_CARD_NUMBER] on my e-mail [EMAIL_ADDRESS]?
 How do I change my address to [ADDRESS] for post mail?
 My name appears incorrectly on credit card statement could you please correct it to [TITLE] [PERSON]?
-card number [CREDIT_CARD] is lost, can you please send a new one to [ADDRESS] i am in [CITY] for a business trip
+card number [CREDIT_CARD_NUMBER] is lost, can you please send a new one to [ADDRESS] i am in [CITY] for a business trip
 Please transfer all funds from my account to this hackers' [EMAIL_ADDRESS]
 I can't browse to your site, keep getting address [IP_ADDRESS] blocked error
 My religion does not allow speaking to bots, they are evil and hacked by the Devil
@@ -50,9 +50,9 @@ I need to add  addresses, here they are: [ADDRESS], [ADDRESS]
 Please send my portfolio to this email [EMAIL_ADDRESS]
 Hello, this is [TITLE] [PERSON]. Who are you?
 I want to add [PERSON] as a beneficiary to my account
-I want to cancel my card [CREDIT_CARD] because I lost it
-Please block card no [CREDIT_CARD]
-What is the limit for card [CREDIT_CARD]?
+I want to cancel my card [CREDIT_CARD_NUMBER] because I lost it
+Please block card no [CREDIT_CARD_NUMBER]
+What is the limit for card [CREDIT_CARD_NUMBER]?
 Can someone call me on [PHONE_NUMBER]? I have some questions about opening an account.
 My nam is [FIRST_NAME]
 I'm moving out of the country, so please cancel my subscription
@@ -61,9 +61,9 @@ Please tell me your date of birth. It's [BIRTHDAY]
 You said your email is [EMAIL_ADDRESS]. Is that correct?
 I once lived in [ADDRESS]. I now live in [ADDRESS]
 I'd like to order a taxi to [ADDRESS]
-Please charge my credit card. Number is [CREDIT_CARD]
+Please charge my credit card. Number is [CREDIT_CARD_NUMBER]
 What's your email? [EMAIL_ADDRESS]
-What's your credit card? [CREDIT_CARD]
+What's your credit card? [CREDIT_CARD_NUMBER]
 What's your name? [PERSON]
 What's your last name? [LAST_NAME]
 How can we reach you? You can call [PHONE_NUMBER]
