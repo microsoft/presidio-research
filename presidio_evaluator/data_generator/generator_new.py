@@ -47,13 +47,35 @@ class FakeDataGenerator:
         with open(templates_file) as f:
             return f.readlines()
 
+    @staticmethod
+    def _prep_templates(raw_templates):
+        print("Preparing sample sentences for ingestion")
+        def convert_to_lower(match_obj):
+            if match_obj.group() is not None:
+                return match_obj.group().lower()
+
+        templates = [(
+            re.sub(r'\[.*?\]', convert_to_lower, template.strip())
+              .replace("[", "{"+"{")
+              .replace("]", "}"+"}")
+        )
+        for template in raw_templates
+        ]
+
+        return templates
+
     def generate_fake_data(self,
                            templates_file):
 
         templates = self.read_template_file(templates_file)
 
+        if templates:
+            self.templates = self._prep_templates(templates)
+        else:
+            self.templates = None
+
         examples = []
-        for template in templates:
+        for template in self.templates:
             examples.append(self.generate_fake_pii_for_template(template))
         return examples
 
