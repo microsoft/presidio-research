@@ -7,15 +7,34 @@ from pprint import pprint
 class FakeDataGenerator:
     def __init__(
         self,
+        custom_faker: Faker = None,
         locale: Optional[List[str]] = None
     ):
-        self.faker = Faker(locale)
+        """
+        Fake data generator.
+        Leverages Faker to create fake PII entities into predefined templates of structure: a b c {{PII}} d e f,
+        e.g. "My name is {{first_name}}."
+        :param custom_faker: A Faker object provided by the user
+        :param locale: A locale object to create our own Faker instance if a custom one was not provided.
+        """
+        if custom_faker:
+            self.faker = custom_faker
+        else:
+            self.faker = Faker(locale)
 
     def parse(self, template: str):
         """
         Currently only parses a template using Faker.
         Could use more ways to parse depending on what
         all we need to parse
+        Args:
+            template: str with token(s) that needs to be replaced by fake PII
+            Examples:
+            1. "My name is {{first_name_female}} {{last_name}}".
+            2. "I want to increase limit on my card # {{credit_card_number}}
+                for certain duration of time. is it possible?"
+        Returns:
+            A sentence with fake PII in it [or] an Exception.
         """
         try:
             pattern = self.faker.parse(template)
@@ -50,12 +69,12 @@ class FakeDataGenerator:
     @staticmethod
     def _prep_templates(raw_templates):
         print("Preparing sample sentences for ingestion")
-        def convert_to_lower(match_obj):
+        def make_lower_case(match_obj):
             if match_obj.group() is not None:
                 return match_obj.group().lower()
 
         templates = [(
-            re.sub(r'\[.*?\]', convert_to_lower, template.strip())
+            re.sub(r'\[.*?\]', make_lower_case, template.strip())
               .replace("[", "{"+"{")
               .replace("]", "}"+"}")
         )
@@ -66,6 +85,13 @@ class FakeDataGenerator:
 
     def generate_fake_data(self,
                            templates_file):
+        """
+        Generates fake PII data whenever it encounters known faker entities in a template.
+        Args:
+            templates_file: A path to a Faker-style template file
+        Returns:
+            List: Example Sentences with fake values for PII entities in templates
+        """
 
         templates = self.read_template_file(templates_file)
 
@@ -82,6 +108,7 @@ class FakeDataGenerator:
 if __name__ == "__main__":
 
     template_file_path = Path(__file__).parent / "raw_data" / "faker_templates.txt"
-    generator = FakeDataGenerator('en_US')
+    custom_faker = Faker('fa_IR')
+    generator = FakeDataGenerator(custom_faker=None, locale='jp_JP')
     fake_patterns = generator.generate_fake_data(template_file_path)
     pprint(fake_patterns)
