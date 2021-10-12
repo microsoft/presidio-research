@@ -23,7 +23,7 @@ class FakeDataGenerator:
         except Exception as err:
             raise AttributeError(f"{err}! You could create a new provider!")
 
-    def insert_fake_pii_into_template(self, template):
+    def generate_fake_pii_for_template(self, template):
         """
         This function replaces known PII {{tokens}} in a template sentence
         with a fake value for each token and returns a sentence with fake PII.
@@ -47,8 +47,8 @@ class FakeDataGenerator:
         with open(templates_file) as f:
             return f.readlines()
 
-    def insert_fake_data(self,
-                         templates_file):
+    def generate_fake_data(self,
+                           templates_file):
 
         templates = self.read_template_file(templates_file)
         if templates:
@@ -58,22 +58,16 @@ class FakeDataGenerator:
 
         examples = []
         for template in self.templates:
-            examples.append(self.insert_fake_pii_into_template(template))
+            examples.append(self.generate_fake_pii_for_template(template))
         return examples
 
     @staticmethod
     def _prep_templates(raw_templates):
         print("Preparing sample sentences for ingestion")
-        # replacement function to convert uppercase letter to lowercase
-        def convert_to_lower(match_obj):
-            if match_obj.group() is not None:
-                return match_obj.group().lower()
-
-        templates = [
-            (
-                re.sub(r"\[[^()]*\]", convert_to_lower, template.strip())
-                  .replace("[", "{"+"{")
-                  .replace("]", "}"+"}")
+        templates = [(
+            template.strip()
+                    .replace("[", "{"+"{")
+                    .replace("]", "}"+"}")
             )
             for template in raw_templates
         ]
@@ -83,5 +77,5 @@ if __name__ == "__main__":
 
     template_file_path = Path(__file__).parent / "raw_data" / "templates.txt"
     generator = FakeDataGenerator('en_US')
-    fake_patterns = generator.insert_fake_data(template_file_path)
+    fake_patterns = generator.generate_fake_data(template_file_path)
     pprint(fake_patterns)
