@@ -4,7 +4,7 @@ Need to change billing date of my card [CREDIT_CARD_NUMBER]
 I want to update my primary and secondary address to same: [ADDRESS]
 In case of my child's account, we need to add [PERSON] as guardian
 Are there any charges applied for money transfer from [IBAN] to other bank accounts
-Are there any charges applied to widraw money from ATM with the card [CREDIT_CARD_NUMBER]
+Are there any charges applied to withdraw money from ATM with the card [CREDIT_CARD_NUMBER]
 Not getting bank documents on my addres. Can you please validate the following [ADDRESS]
 Please update billing address with [ADDRESS] for this card: [CREDIT_CARD_NUMBER]
 Need to see last 10 transaction of card [CREDIT_CARD_NUMBER]

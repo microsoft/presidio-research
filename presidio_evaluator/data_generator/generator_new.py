@@ -51,31 +51,15 @@ class FakeDataGenerator:
                            templates_file):
 
         templates = self.read_template_file(templates_file)
-        if templates:
-            self.templates = self._prep_templates(templates)
-        else:
-            self.templates = None
 
         examples = []
-        for template in self.templates:
+        for template in templates:
             examples.append(self.generate_fake_pii_for_template(template))
         return examples
 
-    @staticmethod
-    def _prep_templates(raw_templates):
-        print("Preparing sample sentences for ingestion")
-        templates = [(
-            template.strip()
-                    .replace("[", "{"+"{")
-                    .replace("]", "}"+"}")
-            )
-            for template in raw_templates
-        ]
-        return templates
-
 if __name__ == "__main__":
 
-    template_file_path = Path(__file__).parent / "raw_data" / "templates.txt"
+    template_file_path = Path(__file__).parent / "raw_data" / "faker_templates.txt"
     generator = FakeDataGenerator('en_US')
     fake_patterns = generator.generate_fake_data(template_file_path)
     pprint(fake_patterns)
