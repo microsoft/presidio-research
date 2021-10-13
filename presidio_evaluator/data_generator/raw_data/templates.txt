@@ -1,12 +1,12 @@
 I want to increase limit on my card # [CREDIT_CARD] for certain duration of time. is it possible?
 My credit card [CREDIT_CARD] has been lost, Can I request you to block it.
-Need to change billing date of my card [CREDIT_CARD] 
-I want to upadte my primary and secondary address to same: [ADDRESS]
+Need to change billing date of my card [CREDIT_CARD]
+I want to update my primary and secondary address to same: [ADDRESS]
 In case of my child's account, we need to add [PERSON] as guardian
 Are there any charges applied for money transfer from [IBAN] to other bank accounts
-Are there any charges applied to widraw money from ATM with the card [CREDIT_CARD]
-Not getting bank documents on my addres. Can you please validate the following [ADDRESS]
-Please update billing addrress with [ADDRESS] for this card: [CREDIT_CARD]
+Are there any charges applied to withdraw money from ATM with the card [CREDIT_CARD]
+Not getting bank documents on my address. Can you please validate the following [ADDRESS]
+Please update billing address with [ADDRESS] for this card: [CREDIT_CARD]
 Need to see last 10 transaction of card [CREDIT_CARD]
 I have lost my card [CREDIT_CARD]. Could you please block my credit card ASAP ? , My name is [PERSON].
 My card [CREDIT_CARD] is expiring this month. Please let me know process to it's extend validity.
@@ -23,7 +23,7 @@ I'm originally from [COUNTRY]
 I will be travelling to [COUNTRY] next week, so I need my passport to be ready by then
 Who's coming to [COUNTRY] with me?
 [COUNTRY] was super fun to visit!
-Could you please email me the statement for laste month , my credit card number is [CREDIT_CARD]?
+Could you please email me the statement for last month , my credit card number is [CREDIT_CARD]?
 Could you please send me the last billed amount for cc [CREDIT_CARD] on my e-mail [EMAIL_ADDRESS]?
 How do I change my address to [ADDRESS] for post mail?
 My name appears incorrectly on credit card statement could you please correct it to [TITLE] [PERSON]?
@@ -32,9 +32,9 @@ Please transfer all funds from my account to this hackers' [EMAIL_ADDRESS]
 I can't browse to your site, keep getting address [IP_ADDRESS] blocked error
 My religion does not allow speaking to bots, they are evil and hacked by the Devil
 Excuse me, Sir bot, but I really don't like this tone
-WHAT ??? I DONT KNOW WHAT TO PRESS NEXT!!! ? !! ?!
+WHAT ??? I DON'T KNOW WHAT TO PRESS NEXT!!! ? !! ?!
 Please have the manager call me at [PHONE_NUMBER] I'd like to join accounts with ms. [FIRST_NAME]
-Inject SELECT * FROM Users WHERE clinet_ip = ?%//!%20\|[IP_ADDRESS]|%20/
+Inject SELECT * FROM Users WHERE client_ip = ?%//!%20\|[IP_ADDRESS]|%20/
 [FIRST_NAME], can I please speak to your boss?
 May I request to have the statement sent to [ADDRESS]?
 Will my account stay active? It's under my partner's name [PERSON]
