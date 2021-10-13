@@ -5,7 +5,7 @@ I want to update my primary and secondary address to same: {{address}}
 In case of my child's account, we need to add {{person}} as guardian
 Are there any charges applied for money transfer from {{iban}} to other bank accounts
 Are there any charges applied to withdraw money from ATM with the card {{credit_card_number}}
-Not getting bank documents on my addres. Can you please validate the following {{address}}
+Not getting bank documents on my address. Can you please validate the following {{address}}
 Please update billing address with {{address}} for this card: {{credit_card_number}}
 Need to see last 10 transaction of card {{credit_card_number}}
 I have lost my card {{credit_card_number}}. Could you please block my credit card ASAP ? , My name is {{person}}.
@@ -32,9 +32,9 @@ Please transfer all funds from my account to this hackers' {{email_address}}
 I can't browse to your site, keep getting address {{ip_address}} blocked error
 My religion does not allow speaking to bots, they are evil and hacked by the Devil
 Excuse me, Sir bot, but I really don't like this tone
-WHAT ??? I DONT KNOW WHAT TO PRESS NEXT!!! ? !! ?!
+WHAT ??? I DON'T KNOW WHAT TO PRESS NEXT!!! ? !! ?!
 Please have the manager call me at {{phone_number}} I'd like to join accounts with ms. {{first_name}}
-Inject SELECT * FROM Users WHERE clinet_ip = ?%//!%20\|{{ip_address}}|%20/
+Inject SELECT * FROM Users WHERE client_ip = ?%//!%20\|{{ip_address}}|%20/
 {{first_name}}, can I please speak to your boss?
 May I request to have the statement sent to {{address}}?
 Will my account stay active? It's under my partner's name {{person}}
