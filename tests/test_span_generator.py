@@ -54,15 +54,14 @@ def test_one_replacement(faker, pattern, expected):
     assert res.spans[0].value == "bar"
 
 
-
 def test_multiple_replacements(faker):
-    pattern = "{{foo}} and then {{foo2}}, {{ foofoofoo }} and finally {{foo3}}."
-    expected = "bar and then barbar and finally barbarbar."
+    pattern = "{{foo}} and then {{foo2}}, {{  foofoofoo  }} and finally {{foo3}}."
+    expected = "bar and then barbar, bar and finally barbarbar."
     expected_spans = [
         Span(value="bar", start=0, end=3),
         Span(value="barbar", start=13, end=19),
-        Span(value="bar", start=13, end=19),
-        Span(value="barbarbar", start=32, end=41),
+        Span(value="bar", start=21, end=24),
+        Span(value="barbarbar", start=37, end=46),
     ]
 
     res = faker.parse(pattern)
