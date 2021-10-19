@@ -5,6 +5,7 @@ from faker.providers import BaseProvider
 from presidio_evaluator.data_generator.faker_extensions import (
     SpanGenerator,
     Span,
+    SpansResult,
 )
 
 
@@ -40,7 +41,7 @@ def faker(test_provider):
     [
         ("My name is {{foo}}", "My name is bar"),
         ("My name is {{  foo   }}", "My name is bar"),
-        ( "my name is {{foofoofoo}}","my name is bar")
+        ("my name is {{foofoofoo}}", "my name is bar"),
     ],
 )
 def test_one_replacement(faker, pattern, expected):
@@ -72,6 +73,14 @@ def test_multiple_replacements(faker):
     assert res.fake == expected
     for expected, actual in zip(expected_spans, actual_spans):
         assert expected == actual
+
+
+def test_spans_result_repr():
+    sr = SpansResult(fake="momo", spans=[Span("momo", 0, 4)])
+    assert (
+        sr.__repr__()
+        == '{"fake": "momo", "spans": "[{\\"value\\": \\"momo\\", \\"start\\": 0, \\"end\\": 4}]"}'
+    )
 
 
 def test_no_replacements(faker):

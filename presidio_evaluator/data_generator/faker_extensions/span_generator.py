@@ -1,3 +1,5 @@
+import dataclasses
+import json
 import re
 from dataclasses import dataclass
 from typing import List, Dict
@@ -8,14 +10,18 @@ from presidio_anonymizer.entities import OperatorConfig
 _re_token = re.compile(r"\{\{\s*(\w+)(:\s*\w+?)?\s*\}\}")
 
 
-@dataclass(repr=True, order=True)
+@dataclass(eq=True)
 class Span:
     value: str
     start: int
     end: int
 
+    def __repr__(self):
+        return json.dumps(dataclasses.asdict(self))
 
-@dataclass(repr=True)
+
+
+@dataclass()
 class SpansResult:
     fake: str
     spans: List[Span]
@@ -23,9 +29,32 @@ class SpansResult:
     def __str__(self):
         return self.fake
 
+    def __repr__(self):
+        spans_dict = json.dumps([dataclasses.asdict(span) for span in self.spans])
+        return json.dumps({"fake":self.fake, "spans": spans_dict})
+
 
 class SpanGenerator(Generator):
-    """Generator which also returns the indices of fake values."""
+    """Generator which also returns the indices of fake values.
+
+    :example:
+    >>>from faker import Faker
+    >>>from presidio_evaluator.data_generator.faker_extensions import SpanGenerator
+
+    >>>generator = SpanGenerator()
+    >>>faker = Faker(generator=generator)
+    >>>res = faker.address()
+
+    >>>res.spans
+    [{"value": "84272", "start": 36, "end": 41},
+    {"value": "ME", "start": 33, "end": 35},
+    {"value": "East Destiny", "start": 19, "end": 31},
+    {"value": "52883 Murray Views", "start": 0, "end": 18}]
+
+    >>>res.fake
+    '0233 Nielsen Falls\nKellyborough, DC 81152'
+
+    """
 
     def parse(self, text) -> SpansResult:
         fake = super().parse(text)
@@ -36,12 +65,12 @@ class SpanGenerator(Generator):
 
         new_spans = []
         for span in original_spans:
-            prev_len = len(span.value) + 4  # adding two curly brackets
+            old_len = len(span.value) + 4  # adding two curly brackets
 
             formatted = str(self.format(span.value.strip()))
             new_len = len(formatted)
             start = span.start
-            delta = new_len - prev_len
+            delta = new_len - old_len
             end = span.end + delta
 
             # Update previously inserted spans
