@@ -2,7 +2,7 @@ import dataclasses
 import json
 import re
 from dataclasses import dataclass
-from typing import List
+from typing import List, Union
 
 from faker import Generator
 
@@ -34,7 +34,7 @@ class SpansResult:
 
     def __repr__(self):
         spans_dict = json.dumps([dataclasses.asdict(span) for span in self.spans])
-        return json.dumps({"fake":self.fake, "spans": spans_dict})
+        return json.dumps({"fake": self.fake, "spans": spans_dict})
 
 
 class SpanGenerator(Generator):
@@ -57,9 +57,16 @@ class SpanGenerator(Generator):
         'My name is Allison Hill and i live in 819 Johnson Course\nEast William, OH 26563.'
     """
 
-    def parse(self, text, add_spans=False) -> SpansResult:
+    def parse(self, text, add_spans=False) -> Union[str, SpansResult]:
         if not add_spans:
             return super().parse(text)
+        else:
+            return self.parse_with_spans(text)
+
+    def parse_with_spans(self, text) -> SpansResult:
+        """Parses a Faker template and returns a `SpanResult` object.
+        :param text: Text holding the faker template, e.g. "My name is {{name}}".
+        """
 
         spans = self._match_to_span(text)
 
@@ -98,7 +105,7 @@ class SpanGenerator(Generator):
                     type=formatter,
                     start=match.start(),
                     end=match.end(),
-                    value=super().format(formatter.strip())
+                    value=super().format(formatter.strip()),
                 )
             )
 
