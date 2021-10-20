@@ -24,7 +24,8 @@ class Span:
 
 @dataclass()
 class SpansResult:
-    """SpanResult holds the full fake sentence and a list of spans for each element replaced."""
+    """SpanResult holds the full fake sentence
+    and a list of spans for each element replaced."""
 
     fake: str
     spans: List[Span]
@@ -46,15 +47,14 @@ class SpanGenerator(Generator):
 
     >>>generator = SpanGenerator()
     >>>faker = Faker(generator=generator)
-    >>>res = faker.address()
+    >>>res = faker.parse("My child's name is {{name}}", add_spans=True)
 
     >>>res.spans
-        [{"value": "819 Johnson Course\nEast William, OH 26563", "start": 38, "end": 79, "type": "address"},
-         {"value": "Allison Hill", "start": 11, "end": 23, "type": "name"}]
+        [{"value": "Daniel Gallagher", "start": 19, "end": 35, "type": "name"}]
     >>>res.fake
-        'My name is Allison Hill and i live in 819 Johnson Course\nEast William, OH 26563.'
+        "My child's name is Daniel Gallagher"
     >>>str(res)
-        'My name is Allison Hill and i live in 819 Johnson Course\nEast William, OH 26563.'
+        "My child's name is Daniel Gallagher"
     """
 
     def parse(self, text, add_spans=False) -> Union[str, SpansResult]:
