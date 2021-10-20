@@ -65,12 +65,13 @@ class SpanGenerator(Generator):
         """Parses a Faker template and returns a `SpanResult` object.
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
         """
-
+        # Create Span objects for original placeholders
         spans = self._match_to_span(text)
 
         # Reverse for easier index handling while replacing
         spans = sorted(spans, reverse=True, key=lambda x: x.start)
 
+        # Update indices based on new values
         for i, span in enumerate(spans):
             formatter = span.type
             old_len = len(formatter) + 4  # adding two curly brackets
