@@ -1,12 +1,10 @@
 import dataclasses
 import json
-import re
 from dataclasses import dataclass
 from typing import List, Union
 
 from faker import Generator
-
-_re_token = re.compile(r"\{\{\s*(\w+)(:\s*\w+?)?\s*\}\}")
+from faker.generator import _re_token
 
 
 @dataclass(eq=True)
@@ -57,13 +55,13 @@ class SpanGenerator(Generator):
         "My child's name is Daniel Gallagher"
     """
 
-    def parse(self, text, add_spans=False) -> Union[str, SpansResult]:
+    def parse(self, text: str, add_spans: bool = False) -> Union[str, SpansResult]:
         if not add_spans:
             return super().parse(text)
         else:
             return self.parse_with_spans(text)
 
-    def parse_with_spans(self, text) -> SpansResult:
+    def parse_with_spans(self, text: str) -> SpansResult:
         """Parses a Faker template and returns a `SpanResult` object.
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
         """
@@ -94,7 +92,7 @@ class SpanGenerator(Generator):
 
         return SpansResult(fake=fake_text, spans=spans)
 
-    def _match_to_span(self, text) -> List[Span]:
+    def _match_to_span(self, text: str) -> List[Span]:
         matches = _re_token.finditer(text)
 
         results: List[Span] = []
