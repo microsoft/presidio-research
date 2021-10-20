@@ -2,27 +2,30 @@ import dataclasses
 import json
 import re
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List
 
 from faker import Generator
-from presidio_anonymizer.entities import OperatorConfig
 
 _re_token = re.compile(r"\{\{\s*(\w+)(:\s*\w+?)?\s*\}\}")
 
 
 @dataclass(eq=True)
 class Span:
+    """Span holds the start, end, value and type of every element replaced."""
+
     value: str
     start: int
     end: int
+    type: str
 
     def __repr__(self):
         return json.dumps(dataclasses.asdict(self))
 
 
-
 @dataclass()
 class SpansResult:
+    """SpanResult holds the full fake sentence and a list of spans for each element replaced."""
+
     fake: str
     spans: List[Span]
 
@@ -46,60 +49,56 @@ class SpanGenerator(Generator):
     >>>res = faker.address()
 
     >>>res.spans
-    [{"value": "84272", "start": 36, "end": 41},
-    {"value": "ME", "start": 33, "end": 35},
-    {"value": "East Destiny", "start": 19, "end": 31},
-    {"value": "52883 Murray Views", "start": 0, "end": 18}]
-
+        [{"value": "819 Johnson Course\nEast William, OH 26563", "start": 38, "end": 79, "type": "address"},
+         {"value": "Allison Hill", "start": 11, "end": 23, "type": "name"}]
     >>>res.fake
-    '0233 Nielsen Falls\nKellyborough, DC 81152'
-
+        'My name is Allison Hill and i live in 819 Johnson Course\nEast William, OH 26563.'
+    >>>str(res)
+        'My name is Allison Hill and i live in 819 Johnson Course\nEast William, OH 26563.'
     """
 
-    def parse(self, text) -> SpansResult:
-        fake = super().parse(text)
-        original_spans = self._match_to_span(text)
+    def parse(self, text, add_spans=False) -> SpansResult:
+        if not add_spans:
+            return super().parse(text)
+
+        spans = self._match_to_span(text)
 
         # Reverse for easier index handling while replacing
-        original_spans = sorted(original_spans, reverse=True, key=lambda x: x.start)
+        spans = sorted(spans, reverse=True, key=lambda x: x.start)
 
-        new_spans = []
-        for span in original_spans:
-            old_len = len(span.value) + 4  # adding two curly brackets
+        for i, span in enumerate(spans):
+            formatter = span.type
+            old_len = len(formatter) + 4  # adding two curly brackets
 
-            formatted = str(self.format(span.value.strip()))
-            new_len = len(formatted)
-            start = span.start
+            new_len = len(span.value)
+            span.start = span.start
             delta = new_len - old_len
-            end = span.end + delta
+            span.end = span.end + delta
+            span.type = formatter.strip()
 
-            # Update previously inserted spans
-            for new_span in new_spans:
-                new_span.start += delta
-                new_span.end += delta
+            # Update previously inserted spans since indices shifted
+            for j in range(0, i):
+                spans[j].start += delta
+                spans[j].end += delta
 
-            new_spans.append(Span(value=formatted, start=start, end=end))
+        before_after = dict([(span.type, span.value) for span in spans])
+        # Create fake text using already sampled values
+        fake_text = _re_token.sub(lambda mo: before_after[list(mo.groups())[0]], text)
 
-        return SpansResult(fake=fake, spans=new_spans)
+        return SpansResult(fake=fake_text, spans=spans)
 
-    @staticmethod
-    def _to_replace_operators(before_after_dict: Dict[str, str]):
-        operators = {}
-        for k, v in before_after_dict.items():
-            operators[k] = OperatorConfig("replace", {"new_value": v})
-        return operators
-
-    @staticmethod
-    def _match_to_span(text) -> List[Span]:
+    def _match_to_span(self, text) -> List[Span]:
         matches = _re_token.finditer(text)
 
         results: List[Span] = []
         for match in matches:
+            formatter = match.group()[2:-2]
             results.append(
                 Span(
-                    value=match.group()[2:-2],
+                    type=formatter,
                     start=match.start(),
                     end=match.end(),
+                    value=super().format(formatter.strip())
                 )
             )
 

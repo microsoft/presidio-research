@@ -30,6 +30,7 @@ def test_provider():
 @pytest.fixture(scope="session")
 def faker(test_provider):
     generator = SpanGenerator()
+    Faker.seed(42)
     faker = Faker(generator=generator)
     faker.add_provider(test_provider)
 
@@ -46,7 +47,7 @@ def faker(test_provider):
 )
 def test_one_replacement(faker, pattern, expected):
 
-    res = faker.parse(pattern)
+    res = faker.parse(pattern, add_spans=True)
 
     assert str(res) == expected
     assert res.fake == expected
@@ -59,13 +60,13 @@ def test_multiple_replacements(faker):
     pattern = "{{foo}} and then {{foo2}}, {{  foofoofoo  }} and finally {{foo3}}."
     expected = "bar and then barbar, bar and finally barbarbar."
     expected_spans = [
-        Span(value="bar", start=0, end=3),
-        Span(value="barbar", start=13, end=19),
-        Span(value="bar", start=21, end=24),
-        Span(value="barbarbar", start=37, end=46),
+        Span(value="bar", start=0, end=3, type="foo"),
+        Span(value="barbar", start=13, end=19, type="foo2"),
+        Span(value="bar", start=21, end=24, type="foofoofoo"),
+        Span(value="barbarbar", start=37, end=46, type="foo3"),
     ]
 
-    res = faker.parse(pattern)
+    res = faker.parse(pattern, add_spans=True)
 
     actual_spans = sorted(res.spans, key=lambda x: x.start)
 
@@ -76,17 +77,39 @@ def test_multiple_replacements(faker):
 
 
 def test_spans_result_repr():
-    sr = SpansResult(fake="momo", spans=[Span("momo", 0, 4)])
-    assert (
-        sr.__repr__()
-        == '{"fake": "momo", "spans": "[{\\"value\\": \\"momo\\", \\"start\\": 0, \\"end\\": 4}]"}'
+    sr = SpansResult(fake="momo", spans=[Span("momo", 0, 4, type="name")])
+    expected = (
+        '{"fake": "momo", "spans": "[{\\"value\\": \\"momo\\", '
+        '\\"start\\": 0, '
+        '\\"end\\": 4, '
+        '\\"type\\": \\"name\\"}]"}'
     )
+
+    assert sr.__repr__() == expected
 
 
 def test_no_replacements(faker):
     pattern = "this is a sentence with no fields"
 
-    res = faker.parse(pattern)
+    res = faker.parse(pattern, add_spans=True)
 
     assert str(res) == pattern
     assert len(res.spans) == 0
+
+
+def test_without_spans(faker):
+    pattern = "this is a sentence with {{foo}}"
+    expected = "this is a sentence with bar"
+    res = faker.parse(pattern)
+
+    assert type(res) == str
+    assert res == expected
+
+
+def test_generated_text_contains_spans_text(faker):
+    pattern = "My name is {{name}} and i live in {{address}}."
+
+    res = faker.parse(pattern, add_spans=True)
+
+    for span in res.spans:
+        assert span.value in res.fake
