@@ -28,7 +28,7 @@ def test_provider():
 
 
 @pytest.fixture(scope="session")
-def faker(test_provider):
+def span_faker(test_provider):
     generator = SpanGenerator()
     Faker.seed(42)
     faker = Faker(generator=generator)
@@ -45,9 +45,9 @@ def faker(test_provider):
         ("my name is {{foofoofoo}}", "my name is bar"),
     ],
 )
-def test_one_replacement(faker, pattern, expected):
+def test_one_replacement(span_faker, pattern, expected):
 
-    res = faker.parse(pattern, add_spans=True)
+    res = span_faker.parse(pattern, add_spans=True)
 
     assert str(res) == expected
     assert res.fake == expected
@@ -56,7 +56,7 @@ def test_one_replacement(faker, pattern, expected):
     assert res.spans[0].value == "bar"
 
 
-def test_multiple_replacements(faker):
+def test_multiple_replacements(span_faker):
     pattern = "{{foo}} and then {{foo2}}, {{  foofoofoo  }} and finally {{foo3}}."
     expected = "bar and then barbar, bar and finally barbarbar."
     expected_spans = [
@@ -66,7 +66,7 @@ def test_multiple_replacements(faker):
         Span(value="barbarbar", start=37, end=46, type="foo3"),
     ]
 
-    res = faker.parse(pattern, add_spans=True)
+    res = span_faker.parse(pattern, add_spans=True)
 
     actual_spans = sorted(res.spans, key=lambda x: x.start)
 
@@ -88,28 +88,61 @@ def test_spans_result_repr():
     assert sr.__repr__() == expected
 
 
-def test_no_replacements(faker):
+def test_no_replacements(span_faker):
     pattern = "this is a sentence with no fields"
 
-    res = faker.parse(pattern, add_spans=True)
+    res = span_faker.parse(pattern, add_spans=True)
 
     assert str(res) == pattern
     assert len(res.spans) == 0
 
 
-def test_without_spans(faker):
+def test_without_spans(span_faker):
     pattern = "this is a sentence with {{foo}}"
     expected = "this is a sentence with bar"
-    res = faker.parse(pattern)
+    res = span_faker.parse(pattern)
 
     assert type(res) == str
     assert res == expected
 
 
-def test_generated_text_contains_spans_text(faker):
+def test_generated_text_contains_spans_text(span_faker):
     pattern = "My name is {{name}} and i live in {{address}}."
 
-    res = faker.parse(pattern, add_spans=True)
+    res = span_faker.parse(pattern, add_spans=True)
 
     for span in res.spans:
         assert span.value in res.fake
+
+
+@pytest.mark.parametrize(
+    "pattern, non_element_text",[
+        ("{{name}} My name is {{name}}", " My name is "),
+        ("a b {{name}}{{name}}{{name}}", "a b "),
+        ("...{{name}}{{name}} {{name}}...", "... ..."),
+    ]
+)
+def test_generated_text_duplicate_types_returns_different_results(
+    span_faker, pattern, non_element_text
+):
+
+    res = span_faker.parse(pattern, add_spans=True)
+
+    # assert that span values exist in the text
+    for span in res.spans:
+        assert span.value in res.fake
+
+    # assert that the non-element text is identical
+    substring_indices = list(range(len(res.fake)))
+    for span in res.spans:
+        substring_indices = [ind for ind in substring_indices if ind not in range(span.start, span.end)]
+
+    actual_non_element_text = "".join([res.fake[i] for i in range(len(res.fake)) if i in substring_indices])
+    assert actual_non_element_text == non_element_text
+
+    # assert that names are different from each other
+    for i in range(len(res.spans)):
+        for j in range(i + 1, len(res.spans)):
+            assert res.spans[i].value != res.spans[j].value
+            assert res.spans[i].start != res.spans[j].start
+            assert res.spans[i].end != res.spans[j].end

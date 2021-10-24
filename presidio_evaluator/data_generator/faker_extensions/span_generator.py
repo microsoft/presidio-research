@@ -71,13 +71,21 @@ class SpanGenerator(Generator):
         # Reverse for easier index handling while replacing
         spans = sorted(spans, reverse=True, key=lambda x: x.start)
 
-        # Update indices based on new values
+        fake_text = ""
+        prev_end = len(text)  # we are going backwards
+
+        # Update indices and fake text based on new values
         for i, span in enumerate(spans):
             formatter = span.type
             old_len = len(formatter) + 4  # adding two curly brackets
-
             new_len = len(span.value)
-            span.start = span.start
+
+            # Update full text
+            fake_text = text[span.end : prev_end] + fake_text
+            fake_text = span.value + fake_text
+            prev_end = span.start
+
+            # Update span indices
             delta = new_len - old_len
             span.end = span.end + delta
             span.type = formatter.strip()
@@ -87,9 +95,8 @@ class SpanGenerator(Generator):
                 spans[j].start += delta
                 spans[j].end += delta
 
-        before_after = dict([(span.type, span.value) for span in spans])
-        # Create fake text using already sampled values
-        fake_text = _re_token.sub(lambda mo: before_after[list(mo.groups())[0]], text)
+        # Add the beginning of the sentence
+        fake_text = text[0:prev_end] + fake_text
 
         return SpansResult(fake=fake_text, spans=spans)
 
