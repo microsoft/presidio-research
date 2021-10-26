@@ -63,9 +63,6 @@ class SpanGenerator(Generator):
         :param add_spans: Whether to return the spans of each fake value in the output string
         """
 
-        if not add_spans:
-            return super().parse(text)
-
         # Create Span objects for original placeholders
         spans = self._match_to_span(text)
 
