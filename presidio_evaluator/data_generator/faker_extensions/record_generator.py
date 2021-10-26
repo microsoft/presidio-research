@@ -73,9 +73,9 @@ class RecordGenerator(SpanGenerator):
         return self.dynamic_record_provider.get_random_value().copy()
 
     def _match_to_span(self, text: str, **kwargs) -> List[Span]:
-        """Adds logic for sampling from input records if possible"""
+        """Adds logic for sampling from input records if possible."""
         matches = _re_token.finditer(text)
-        record = self._get_random_record()
+        record = self._get_random_record() # Sample one record (Dict containing fake values)
 
         results: List[Span] = []
         for match in matches:
@@ -98,6 +98,7 @@ class RecordGenerator(SpanGenerator):
         return results
 
     def format(self, formatter: str, *args: Any, **kwargs: Any) -> str:
+        """Fill in fake data. If the input record has the requested entity, return its value."""
         record = kwargs.get("record")
         if not record or (formatter not in record):
             return super().format(formatter)
