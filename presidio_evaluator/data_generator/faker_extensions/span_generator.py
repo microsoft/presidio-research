@@ -56,14 +56,9 @@ class SpanGenerator(Generator):
     """
 
     def parse(self, text: str, add_spans: bool = False) -> Union[str, SpansResult]:
-        if not add_spans:
-            return super().parse(text)
-        else:
-            return self.parse_with_spans(text)
-
-    def parse_with_spans(self, text: str) -> SpansResult:
-        """Parses a Faker template and returns a `SpanResult` object.
+        """Parses a Faker template.
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
+        :param add_spans: Whether to return the spans of each fake value in the output string
         """
         # Create Span objects for original placeholders
         spans = self._match_to_span(text)
@@ -98,9 +93,12 @@ class SpanGenerator(Generator):
         # Add the beginning of the sentence
         fake_text = text[0:prev_end] + fake_text
 
-        return SpansResult(fake=fake_text, spans=spans)
+        if add_spans:
+            return SpansResult(fake=fake_text, spans=spans)
+        else:
+            return fake_text
 
-    def _match_to_span(self, text: str) -> List[Span]:
+    def _match_to_span(self, text: str, **kwargs) -> List[Span]:
         matches = _re_token.finditer(text)
 
         results: List[Span] = []
@@ -111,7 +109,7 @@ class SpanGenerator(Generator):
                     type=formatter,
                     start=match.start(),
                     end=match.end(),
-                    value=super().format(formatter.strip()),
+                    value=self.format(formatter.strip(), **kwargs),
                 )
             )
 
