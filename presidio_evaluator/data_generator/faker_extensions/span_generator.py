@@ -57,9 +57,15 @@ class SpanGenerator(Generator):
 
     def parse(self, text: str, add_spans: bool = False) -> Union[str, SpansResult]:
         """Parses a Faker template.
+
+        This replaces the original parse method to introduce spans.
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
         :param add_spans: Whether to return the spans of each fake value in the output string
         """
+
+        if not add_spans:
+            return super().parse(text)
+
         # Create Span objects for original placeholders
         spans = self._match_to_span(text)
 
@@ -80,15 +86,16 @@ class SpanGenerator(Generator):
             fake_text = span.value + fake_text
             prev_end = span.start
 
-            # Update span indices
-            delta = new_len - old_len
-            span.end = span.end + delta
-            span.type = formatter.strip()
+            if add_spans:  # skip if spans aren't required
+                # Update span indices
+                delta = new_len - old_len
+                span.end = span.end + delta
+                span.type = formatter.strip()
 
-            # Update previously inserted spans since indices shifted
-            for j in range(0, i):
-                spans[j].start += delta
-                spans[j].end += delta
+                # Update previously inserted spans since indices shifted
+                for j in range(0, i):
+                    spans[j].start += delta
+                    spans[j].end += delta
 
         # Add the beginning of the sentence
         fake_text = text[0:prev_end] + fake_text
