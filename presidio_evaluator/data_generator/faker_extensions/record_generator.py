@@ -53,6 +53,15 @@ class RecordGenerator(SpanGenerator):
     >>>faker.parse("I'm {{name}} and my email is {{email}}")
 
     I'm a and my email is a@a
+
+    >>># Return spans of fake values
+    >>>res = faker.parse("I'm {{name}} and my email is {{email}}",add_spans=True)
+
+    {"fake": "I'm c and my email is c@c",
+     "spans": "[{\"value\": \"c@c\", \"start\": 22, \"end\": 25, \"type\": \"email\"},
+     {\"value\": \"c\", \"start\": 4, \"end\": 5, \"type\": \"name\"}]"
+     }
+
     """
 
     def __init__(self, records: Optional[List[Dict]] = None):
