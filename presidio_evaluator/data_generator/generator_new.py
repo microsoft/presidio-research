@@ -37,7 +37,7 @@ class FakeDataGenerator:
             A sentence with fake PII in it [or] an Exception.
         """
         try:
-            pattern = self.faker.parse(template)
+            pattern = self.faker.parse(template, add_spans=True)
             return pattern
         except Exception as err:
             raise AttributeError(f"{err}! You could create a new provider!")

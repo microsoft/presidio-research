@@ -1,10 +1,12 @@
 import dataclasses
 import json
+import re
 from dataclasses import dataclass
 from typing import List, Union
 
 from faker import Generator
-from faker.generator import _re_token
+
+_re_token = re.compile(r"\{\{\s*(\w+)(:\s*\w+?)?\s*\}\}")
 
 
 @dataclass(eq=True)
@@ -97,10 +99,7 @@ class SpanGenerator(Generator):
         # Add the beginning of the sentence
         fake_text = text[0:prev_end] + fake_text
 
-        if add_spans:
-            return SpansResult(fake=fake_text, spans=spans)
-        else:
-            return fake_text
+        return SpansResult(fake=fake_text, spans=spans) if add_spans else fake_text
 
     def _match_to_span(self, text: str, **kwargs) -> List[Span]:
         matches = _re_token.finditer(text)
