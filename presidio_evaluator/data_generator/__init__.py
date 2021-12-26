@@ -1,14 +1,10 @@
-from .nationality_generator import NationalityGenerator
-from .us_driver_license_generator import UsDriverLicenseGenerator
-from .org_name_generator import OrgNameGenerator
-from .generator import FakeDataGenerator
-from .main import generate, read_synth_dataset
+from .presidio_data_generator import PresidioDataGenerator
+from .presidio_pseudonymize import PresidioPseudonymization
 
-__all__ = [
-    "FakeDataGenerator",
-    "generate",
-    "read_synth_dataset",
-    "NationalityGenerator",
-    "OrgNameGenerator",
-    "UsDriverLicenseGenerator",
-]
+
+def read_synth_dataset():
+    raise DeprecationWarning("read_synth_dataset is deprecated. "
+                             "Please use InputSample.read_dataset_json")
+
+
+__all__ = ["PresidioDataGenerator", "PresidioPseudonymization", "read_synth_dataset"]

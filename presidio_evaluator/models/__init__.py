@@ -5,6 +5,7 @@ from .presidio_recognizer_wrapper import PresidioRecognizerWrapper
 from .spacy_model import SpacyModel
 from .flair_model import FlairModel
 from .flair_train import FlairTrainer
+
 __all__ = [
     "BaseModel",
     "CRFModel",
@@ -12,5 +13,5 @@ __all__ = [
     "PresidioAnalyzerWrapper",
     "SpacyModel",
     "FlairModel",
-    "FlairTrainer"
+    "FlairTrainer",
 ]

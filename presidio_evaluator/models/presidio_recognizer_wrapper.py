@@ -9,15 +9,14 @@ from presidio_evaluator.span_to_tag import span_to_tag
 
 
 class PresidioRecognizerWrapper(BaseModel):
-
     def __init__(
-            self,
-            recognizer: EntityRecognizer,
-            nlp_engine: NlpEngine,
-            entities_to_keep: List[str] = None,
-            labeling_scheme: str = "BILUO",
-            with_nlp_artifacts: bool = False,
-            verbose: bool = False,
+        self,
+        recognizer: EntityRecognizer,
+        nlp_engine: NlpEngine,
+        entities_to_keep: List[str] = None,
+        labeling_scheme: str = "BILUO",
+        with_nlp_artifacts: bool = False,
+        verbose: bool = False,
     ):
         """
         Evaluator for one specific PII recognizer
@@ -37,6 +36,7 @@ class PresidioRecognizerWrapper(BaseModel):
         self.with_nlp_artifacts = with_nlp_artifacts
         self.recognizer = recognizer
         self.nlp_engine = nlp_engine
+
     #
     def __make_nlp_artifacts(self, text: str):
         return self.nlp_engine.process_text(text, "en")

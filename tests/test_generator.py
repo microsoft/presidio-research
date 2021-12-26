@@ -1,82 +1,51 @@
-from presidio_evaluator.data_generator import generate, read_synth_dataset, FakeDataGenerator
-from tests import get_mock_fake_df
+import os
+from pathlib import Path
 
+import pandas as pd
+import pytest
+from faker import Faker
 
-def get_fake_generator(template, fake_pii_df):
-    class MockFakeGenerator(FakeDataGenerator):
-        """
-        Mock class that doesn't add to the fake PII DF so you could inject entities yourself.
-        """
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-
-        def prep_fake_pii(self, df):
-            return df
-
-    return MockFakeGenerator(templates=[template],
-                             fake_pii_df=fake_pii_df,
-                             include_metadata=False,
-                             span_to_tag=False,
-                             dictionary_path=None,
-                             lower_case_ratio=0)
+from presidio_evaluator.data_generator import PresidioDataGenerator
+from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
 
 
 def test_generator_correct_output():
-    OUTPUT = "generated_test.txt"
-    EXAMPLES = 3
 
-    import os
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    fake_pii_csv = "{}/data/FakeNameGenerator.com_100.csv".format(dir_path)
-    utterances_file = "{}/data/templates.txt".format(dir_path)
-    dictionary = "{}/data/Dictionary_test.csv".format(dir_path)
+    fake_pii_csv = Path(dir_path, "data/FakeNameGenerator.com_100.csv")
+    template_file_path = Path(dir_path, "data/templates.txt")
 
-    generate(fake_pii_csv=fake_pii_csv,
-             utterances_file=utterances_file,
-             dictionary_path=dictionary,
-             output_file=OUTPUT,
-             lower_case_ratio=0.3,
-             num_of_examples=EXAMPLES)
+    # Read FakeNameGenerator data
+    fake_data = pd.read_csv(fake_pii_csv)
+    # Convert column names to lowercase to match patterns
+    PresidioDataGenerator.update_fake_name_generator_df(fake_data)
+    records = fake_data.to_dict(orient="records")
+    generator = RecordGenerator(records=records)
 
-    input_samples = read_synth_dataset(OUTPUT)
+    # Create Faker and add additional specific providers
+    faker = Faker(generator=generator)
+    data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=0.0)
 
-    for sample in input_samples:
-        assert len(sample.tags) == len(sample.tokens)
+    sentence_templates = PresidioDataGenerator.read_template_file(template_file_path)
+    fake_sentences = data_generator.generate_fake_data(
+        templates=sentence_templates, n_samples=100
+    )
 
-
-def test_a_turned_to_an():
-    fake_pii_df = get_mock_fake_df(GENDER="Ale")
-    template = "I am a [GENDER] living in [COUNTRY]"
-    bracket_location = template.find("[")
-    fake_generator = get_fake_generator(fake_pii_df=fake_pii_df,
-                                        template=template)
-
-    examples = [x for x in fake_generator.sample_examples(1)]
-    assert " an " in examples[0].full_text
-    # entity location updated
-    assert examples[0].spans[0].start_position == bracket_location + 1
+    for sample in fake_sentences:
+        assert sample.fake
+        assert sample.template
+        assert sample.template_id >= 0
 
 
-def test_a_not_turning_into_an():
-    fake_pii_df = get_mock_fake_df(GENDER="Male")
-    template = "I am a [GENDER] living in [COUNTRY]"
-    previous_bracket = template.find("[")
-    fake_generator = get_fake_generator(fake_pii_df=fake_pii_df,
-                                        template=template)
+def test_new_provider_no_alias_raises_attribute_error():
+    data_generator = PresidioDataGenerator(lower_case_ratio=0.0)
 
-    examples = [x for x in fake_generator.sample_examples(1)]
-    assert " an " not in examples[0].full_text
-    assert examples[0].spans[0].start_position == previous_bracket
+    with pytest.raises(AttributeError):
+        data_generator.parse("My doctor is {{doc_name}}", 0)
 
 
-def test_A_turning_into_An():
-    fake_pii_df = get_mock_fake_df(GENDER="ale")
-    template = "A [GENDER] living in [COUNTRY]"
-    previous_bracket = template.find("[")
-    fake_generator = get_fake_generator(fake_pii_df=fake_pii_df,
-                                        template=template)
-
-    examples = [x for x in fake_generator.sample_examples(1)]
-    assert "An " in examples[0].full_text
-    assert examples[0].spans[0].start_position == previous_bracket + 1
+def test_new_provider_with_alias():
+    data_generator = PresidioDataGenerator(lower_case_ratio=0.0)
+    data_generator.add_provider_alias("name", "doc_name")
+    res = data_generator.parse(template="My doctor is {{doc_name}}", template_id=0)
+    assert res

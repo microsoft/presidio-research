@@ -1,8 +1,7 @@
 from typing import Dict, List
 
-from presidio_evaluator.data_objects import SimpleToken
-
 import pandas as pd
+from spacy.tokens import Token
 
 
 class ModelError:
@@ -11,7 +10,7 @@ class ModelError:
         error_type: str,
         annotation: str,
         prediction: str,
-        token: SimpleToken,
+        token: Token,
         full_text: str,
         metadata: Dict,
     ):

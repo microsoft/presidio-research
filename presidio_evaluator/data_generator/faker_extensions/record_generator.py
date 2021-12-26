@@ -2,7 +2,7 @@ from typing import Dict, Optional, List, Any
 
 from faker.providers import DynamicProvider
 from faker.generator import _re_token
-from presidio_evaluator.data_generator.faker_extensions import Span, SpanGenerator
+from presidio_evaluator.data_generator.faker_extensions import FakerSpan, SpanGenerator
 
 
 class RecordGenerator(SpanGenerator):
@@ -81,22 +81,24 @@ class RecordGenerator(SpanGenerator):
     def _get_random_record(self):
         return self.dynamic_record_provider.get_random_value().copy()
 
-    def _match_to_span(self, text: str, **kwargs) -> List[Span]:
+    def _match_to_span(self, text: str, **kwargs) -> List[FakerSpan]:
         """Adds logic for sampling from input records if possible."""
         matches = _re_token.finditer(text)
-        record = self._get_random_record() # Sample one record (Dict containing fake values)
+        record = (
+            self._get_random_record()
+        )  # Sample one record (Dict containing fake values)
 
-        results: List[Span] = []
+        results: List[FakerSpan] = []
         for match in matches:
             formatter = match.group()[2:-2]
             stripped = formatter.strip()
 
-            value = self.format(formatter=stripped, record=record)
+            value = str(self.format(formatter=stripped, record=record))
             if stripped in record:
                 del record[stripped]  # Remove in order not to sample twice
 
             results.append(
-                Span(
+                FakerSpan(
                     type=formatter,
                     start=match.start(),
                     end=match.end(),

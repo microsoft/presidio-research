@@ -1,41 +1,14 @@
-import dataclasses
-import json
 import re
-from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Union, Optional
 
 from faker import Generator
 
+from presidio_evaluator.data_generator.faker_extensions import (
+    FakerSpansResult,
+    FakerSpan,
+)
+
 _re_token = re.compile(r"\{\{\s*(\w+)(:\s*\w+?)?\s*\}\}")
-
-
-@dataclass(eq=True)
-class Span:
-    """Span holds the start, end, value and type of every element replaced."""
-
-    value: str
-    start: int
-    end: int
-    type: str
-
-    def __repr__(self):
-        return json.dumps(dataclasses.asdict(self))
-
-
-@dataclass()
-class SpansResult:
-    """SpanResult holds the full fake sentence
-    and a list of spans for each element replaced."""
-
-    fake: str
-    spans: List[Span]
-
-    def __str__(self):
-        return self.fake
-
-    def __repr__(self):
-        spans_dict = json.dumps([dataclasses.asdict(span) for span in self.spans])
-        return json.dumps({"fake": self.fake, "spans": spans_dict})
 
 
 class SpanGenerator(Generator):
@@ -57,12 +30,15 @@ class SpanGenerator(Generator):
         "My child's name is Daniel Gallagher"
     """
 
-    def parse(self, text: str, add_spans: bool = False) -> Union[str, SpansResult]:
+    def parse(
+        self, text: str, add_spans: bool = False, template_id: Optional[int] = None
+    ) -> Union[str, FakerSpansResult]:
         """Parses a Faker template.
 
         This replaces the original parse method to introduce spans.
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
         :param add_spans: Whether to return the spans of each fake value in the output string
+        :param template_id: Template ID to be returned with the output
         """
 
         # Create Span objects for original placeholders
@@ -78,11 +54,11 @@ class SpanGenerator(Generator):
         for i, span in enumerate(spans):
             formatter = span.type
             old_len = len(formatter) + 4  # adding two curly brackets
-            new_len = len(span.value)
+            new_len = len(str(span.value))
 
             # Update full text
-            fake_text = text[span.end : prev_end] + fake_text
-            fake_text = span.value + fake_text
+            fake_text = str(text[span.end : prev_end]) + str(fake_text)
+            fake_text = str(span.value) + str(fake_text)
             prev_end = span.start
 
             if add_spans:  # skip if spans aren't required
@@ -99,20 +75,26 @@ class SpanGenerator(Generator):
         # Add the beginning of the sentence
         fake_text = text[0:prev_end] + fake_text
 
-        return SpansResult(fake=fake_text, spans=spans) if add_spans else fake_text
+        return (
+            FakerSpansResult(
+                fake=fake_text, spans=spans, template=text, template_id=template_id
+            )
+            if add_spans
+            else fake_text
+        )
 
-    def _match_to_span(self, text: str, **kwargs) -> List[Span]:
+    def _match_to_span(self, text: str, **kwargs) -> List[FakerSpan]:
         matches = _re_token.finditer(text)
 
-        results: List[Span] = []
+        results: List[FakerSpan] = []
         for match in matches:
             formatter = match.group()[2:-2]
             results.append(
-                Span(
+                FakerSpan(
                     type=formatter,
                     start=match.start(),
                     end=match.end(),
-                    value=self.format(formatter.strip(), **kwargs),
+                    value=str(self.format(formatter.strip(), **kwargs)),
                 )
             )
 

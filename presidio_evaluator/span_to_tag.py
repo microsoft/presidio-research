@@ -6,14 +6,14 @@ from spacy.tokens import Token
 loaded_spacy = {}
 
 
-def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_lg"):
+def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_sm"):
     if model_version not in loaded_spacy:
         print("loading model {}".format(model_version))
         loaded_spacy[model_version] = spacy.load(model_version)
     return loaded_spacy[model_version]
 
 
-def tokenize(text, model_version="en_core_web_lg"):
+def tokenize(text, model_version="en_core_web_sm"):
     return get_spacy(model_version=model_version)(text)
 
 
@@ -137,9 +137,23 @@ def span_to_tag(
     for token in tokens:
         found = False
         for span_index in range(0, len(start)):
-            if start[span_index] <= token.idx < end[span_index]:
+            span_start_in_token = (
+                token.idx <= start[span_index] <= token.idx + len(token.text)
+            )
+            span_end_in_token = (
+                token.idx <= end[span_index] <= token.idx + len(token.text)
+            )
+            if (
+                start[span_index] <= token.idx < end[span_index]
+            ):  # token start is between start and end
                 io_tags.append(tag[span_index])
                 found = True
+            elif (
+                span_start_in_token and span_end_in_token
+            ):  # span is within token boundaries (special case)
+                io_tags.append(tag[span_index])
+                found = True
+            if found:
                 break
 
         if not found:

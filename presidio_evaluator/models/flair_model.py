@@ -41,7 +41,7 @@ class FlairModel(BaseModel):
         else:
             self.model = model
 
-        self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_lg"))
+        self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_sm"))
 
     def predict(self, sample: InputSample) -> List[str]:
 

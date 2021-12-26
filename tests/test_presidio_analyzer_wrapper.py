@@ -1,7 +1,7 @@
 import pytest
 
 from presidio_evaluator import InputSample, Span
-from presidio_evaluator.data_generator import read_synth_dataset
+
 from presidio_evaluator.evaluation import Evaluator
 from presidio_evaluator.models.presidio_analyzer_wrapper import PresidioAnalyzerWrapper
 
@@ -27,7 +27,7 @@ analyzer_test_generate_text_testdata = [
     # small set fixture which expects all results.
     GeneratedTextTestCase(
         test_name="small-set",
-        test_input="{}/data/generated_small.txt",
+        test_input="{}/data/generated_small.json",
         acceptance_threshold=0.3,
         marks=pytest.mark.none,
     )
@@ -60,20 +60,21 @@ def test_analyzer_simple_input():
 )
 def test_analyzer_with_generated_text(test_input, acceptance_threshold):
     """
-        Test analyzer with a generated dataset text file
-        :param test_input: input text file location
-        :param acceptance_threshold: minimim precision/recall
-         allowed for tests to pass
+    Test analyzer with a generated dataset text file
+    :param test_input: input text file location
+    :param acceptance_threshold: minimum precision/recall
+     allowed for tests to pass
     """
     # read test input from generated file
 
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(test_input.format(dir_path))
+    input_samples = InputSample.read_dataset_json(test_input.format(dir_path))
 
     updated_samples = Evaluator.align_entity_types(
-        input_samples=input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
+        input_samples=input_samples,
+        entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map,
     )
 
     analyzer = PresidioAnalyzerWrapper()

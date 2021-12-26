@@ -1,4 +1,5 @@
-from presidio_evaluator.data_generator import FakeDataGenerator
+from presidio_evaluator import InputSample
+from presidio_evaluator.data_generator import PresidioDataGenerator
 from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 import pandas as pd
 import pytest
@@ -12,6 +13,7 @@ class PatternRecognizerTestCase:
     Test case parameters for tests with dataset generated from a template and
     two csv value files, one containing the common-entities and another one with custom entities.
     """
+
     def __init__(
         self,
         test_name,
@@ -158,12 +160,14 @@ def test_pattern_recognizer(
     dfpii[ext_column_name] = [get_from_ext(i) for i in range(0, dfpii.shape[0])]
 
     # generate examples
-    generator = FakeDataGenerator(
-        fake_pii_df=dfpii,
-        templates=utterances.format(dir_path),
-        dictionary_path=dictionary_path,
+    generator = PresidioDataGenerator()
+    templates = utterances.format(dir_path)
+    examples = generator.generate_fake_data(
+        templates=templates, n_samples=num_of_examples
     )
-    examples = generator.sample_examples(num_of_examples)
+    input_samples = [
+        InputSample.from_faker_spans_result(example) for example in examples
+    ]
 
     pattern = Pattern("test pattern", pattern, score)
     pattern_recognizer = PatternRecognizer(
@@ -173,7 +177,7 @@ def test_pattern_recognizer(
     scores = score_presidio_recognizer(
         recognizer=pattern_recognizer,
         entities_to_keep=[entity_name],
-        input_samples=examples,
+        input_samples=input_samples,
     )
     if not np.isnan(scores.pii_f):
         assert acceptance_threshold <= scores.pii_f

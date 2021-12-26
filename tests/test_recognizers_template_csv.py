@@ -1,4 +1,5 @@
-from presidio_evaluator.data_generator import generate
+from presidio_evaluator import InputSample
+from presidio_evaluator.data_generator import PresidioDataGenerator
 from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 import pytest
 import numpy as np
@@ -10,6 +11,7 @@ class TemplateTextTestCase:
     """
     Test case parameters for tests with dataset generated from a template and csv values
     """
+
     def __init__(
         self,
         test_name,
@@ -84,13 +86,15 @@ def test_credit_card_recognizer_with_template(
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    input_samples = generate(
-        fake_pii_csv=pii_csv.format(dir_path),
-        utterances_file=utterances.format(dir_path),
-        dictionary_path=dictionary_path.format(dir_path),
-        lower_case_ratio=0.5,
-        num_of_examples=num_of_examples,
+    # generate examples
+    generator = PresidioDataGenerator()
+    templates = utterances.format(dir_path)
+    examples = generator.generate_fake_data(
+        templates=templates, n_samples=num_of_examples
     )
+    input_samples = [
+        InputSample.from_faker_spans_result(example) for example in examples
+    ]
 
     scores = score_presidio_recognizer(
         recognizer=CreditCardRecognizer(),

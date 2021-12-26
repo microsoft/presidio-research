@@ -152,10 +152,8 @@ class Evaluator:
     @staticmethod
     def align_entity_types(
         input_samples: List[InputSample],
-        entities_mapping: Dict[
-            str, str
-        ] = None,
-        allow_missing_mappings: bool = False
+        entities_mapping: Dict[str, str] = None,
+        allow_missing_mappings: bool = False,
     ) -> List[InputSample]:
         """
         Change input samples to conform with Presidio's entities
@@ -180,7 +178,9 @@ class Evaluator:
                     new_spans.append(span)
                 else:
                     if not allow_missing_mappings:
-                        raise ValueError(f"Key {span.entity_type} cannot be found in the provided entities_mapping")
+                        raise ValueError(
+                            f"Key {span.entity_type} cannot be found in the provided entities_mapping"
+                        )
             input_sample.spans = new_spans
 
             # Update tags in case this sample has relevant entities for evaluation
@@ -212,7 +212,7 @@ class Evaluator:
         beta: float = 2.5,
     ) -> EvaluationResult:
         """
-        Returns the pii_precision, pii_recall and f_measure either for each entity
+        Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
         or for all entities (ignore_entity_type = True)
         :param evaluation_results: List of EvaluationResult
         :param entities: List of entities to calculate score to. Default is None: all entities
@@ -227,6 +227,7 @@ class Evaluator:
         # compute pii_recall per entity
         entity_recall = {}
         entity_precision = {}
+        n = {}
         if not entities:
             entities = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
 
@@ -234,6 +235,7 @@ class Evaluator:
             # all annotation of given type
             annotated = sum([all_results[x] for x in all_results if x[0] == entity])
             predicted = sum([all_results[x] for x in all_results if x[1] == entity])
+            n[entity] = annotated
             tp = all_results[(entity, entity)]
 
             if annotated > 0:
@@ -291,6 +293,7 @@ class Evaluator:
         evaluation_result.entity_recall_dict = entity_recall
         evaluation_result.entity_precision_dict = entity_precision
         evaluation_result.pii_f = pii_f_beta
+        evaluation_result.n = n
 
         return evaluation_result
 

@@ -1,15 +1,14 @@
-My email is [EMAIL_ADDRESS]
-My address is [ADDRESS]
-My first name is [FIRST_NAME] and my last is [LAST_NAME]
-My name is [PERSON]
-My zip is [ZIP]
-I live in [CITY]
-Here's my phone number: [PHONE_NUMBER]
-You want my credit card? No problem: [CREDIT_CARD]
-I was born on [BIRTHDAY]
-My full address is [FULL_ADDRESS]
-My kids are [PERSON] and [PERSON2]
-I either live on [ADDRESS] or [ADDRESS2]
-Our last names are [LAST_NAME] and [LAST_NAME2]
-My first name is [FIRST_NAME] and [FIRST_NAME2]
-My accounts are [ACCOUNT_NUMBER] and [ACCOUNT_NUMBER2]
+My email is {{email}}
+My address is {{address}}
+My first name is {{first_name}} and my last is {{last_name}}
+My name is {{name}}
+My zip is {{zipcode}}
+I live in {{city}}
+Here's my phone number: {{phone_number}}
+You want my credit card? No problem: {{credit_card_number}}
+I was born on {{date_of_birth}}
+My full address is {{address}}
+My kids are {{name}} and {{name}}
+I either live on {{address}} or {{address}}
+Our last names are {{last_name}} and {{last_name}}
+My first name is {{first_name}} and {{first_name}}

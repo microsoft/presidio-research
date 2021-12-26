@@ -1,10 +1,24 @@
-from .span_generator import SpanGenerator, Span, SpansResult
+from .data_objects import FakerSpan, FakerSpansResult
+from .span_generator import SpanGenerator
 from .record_generator import RecordGenerator
+from .records_faker import RecordsFaker
+from .providers import (
+    NationalityProvider,
+    OrganizationProvider,
+    UsDriverLicenseProvider,
+    IpAddressProvider,
+    AddressProviderNew,
+)
 
 __all__ = [
     "SpanGenerator",
-    "Span",
-    "SpansResult",
-    "RecordGenerator"
-
+    "FakerSpan",
+    "FakerSpansResult",
+    "RecordGenerator",
+    "NationalityProvider",
+    "OrganizationProvider",
+    "UsDriverLicenseProvider",
+    "IpAddressProvider",
+    "AddressProviderNew",
+    "RecordsFaker"
 ]

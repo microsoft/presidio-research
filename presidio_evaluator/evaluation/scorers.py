@@ -6,7 +6,6 @@ from presidio_analyzer import EntityRecognizer
 from presidio_analyzer.nlp_engine import SpacyNlpEngine
 
 from presidio_evaluator import InputSample
-from presidio_evaluator.data_generator import read_synth_dataset
 from presidio_evaluator.evaluation import EvaluationResult, Evaluator
 from presidio_evaluator.models import (
     PresidioRecognizerWrapper,
@@ -88,7 +87,7 @@ def score_presidio_recognizer(
 
     if not input_samples:
         print("Reading dataset")
-        input_samples = read_synth_dataset("../../data/synth_dataset.txt")
+        input_samples = InputSample.read_dataset_json("../../data/synth_dataset.txt")
     else:
         input_samples = list(input_samples)
 
@@ -122,7 +121,7 @@ def score_presidio_analyzer(
     """"""
     if not input_samples:
         print("Reading dataset")
-        input_samples = read_synth_dataset("../../data/synth_dataset.txt")
+        input_samples = InputSample.read_dataset_json("../../data/synth_dataset.txt")
     else:
         input_samples = list(input_samples)
 

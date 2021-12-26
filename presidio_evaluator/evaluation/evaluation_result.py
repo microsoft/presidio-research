@@ -27,6 +27,7 @@ class EvaluationResult(object):
         self.pii_f = None
         self.entity_recall_dict = None
         self.entity_precision_dict = None
+        self.n = None
 
     def print(self):
         recall_dict = dict(sorted(self.entity_recall_dict.items()))
@@ -38,12 +39,17 @@ class EvaluationResult(object):
         entities = recall_dict.keys()
         recall = recall_dict.values()
         precision = precision_dict.values()
+        n = self.n.values()
 
-        row_format = "{:>30}{:>30.2%}{:>30.2%}"
-        header_format = "{:>30}" * 3
-        print(header_format.format(*("Entity", "Precision", "Recall")))
-        for entity, precision, recall in zip(entities, precision, recall):
-            print(row_format.format(entity, precision, recall))
+        row_format = "{:>30}{:>30.2%}{:>30.2%}{:>30}"
+        header_format = "{:>30}" * 4
+        print(
+            header_format.format(
+                *("Entity", "Precision", "Recall", "Number of samples")
+            )
+        )
+        for entity, precision, recall, n in zip(entities, precision, recall, n):
+            print(row_format.format(entity, precision, recall, n))
 
         print("PII F measure: {}".format(self.pii_f))
 

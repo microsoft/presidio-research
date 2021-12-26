@@ -4,8 +4,8 @@ from faker.providers import BaseProvider
 
 from presidio_evaluator.data_generator.faker_extensions import (
     SpanGenerator,
-    Span,
-    SpansResult,
+    FakerSpan,
+    FakerSpansResult,
 )
 
 
@@ -60,10 +60,10 @@ def test_multiple_replacements(span_faker):
     pattern = "{{foo}} and then {{foo2}}, {{  foofoofoo  }} and finally {{foo3}}."
     expected = "bar and then barbar, bar and finally barbarbar."
     expected_spans = [
-        Span(value="bar", start=0, end=3, type="foo"),
-        Span(value="barbar", start=13, end=19, type="foo2"),
-        Span(value="bar", start=21, end=24, type="foofoofoo"),
-        Span(value="barbarbar", start=37, end=46, type="foo3"),
+        FakerSpan(value="bar", start=0, end=3, type="foo"),
+        FakerSpan(value="barbar", start=13, end=19, type="foo2"),
+        FakerSpan(value="bar", start=21, end=24, type="foofoofoo"),
+        FakerSpan(value="barbarbar", start=37, end=46, type="foo3"),
     ]
 
     res = span_faker.parse(pattern, add_spans=True)
@@ -77,12 +77,12 @@ def test_multiple_replacements(span_faker):
 
 
 def test_spans_result_repr():
-    sr = SpansResult(fake="momo", spans=[Span("momo", 0, 4, type="name")])
+    sr = FakerSpansResult(fake="momo", spans=[FakerSpan("momo", 0, 4, type="name")])
     expected = (
-        '{"fake": "momo", "spans": "[{\\"value\\": \\"momo\\", '
-        '\\"start\\": 0, '
-        '\\"end\\": 4, '
-        '\\"type\\": \\"name\\"}]"}'
+        '{"fake": "momo", '
+        '"spans": [{"value": "momo", "start": 0, "end": 4, "type": "name"}],'
+        ' "template": null, '
+        '"template_id": null}'
     )
 
     assert sr.__repr__() == expected
@@ -116,11 +116,12 @@ def test_generated_text_contains_spans_text(span_faker):
 
 
 @pytest.mark.parametrize(
-    "pattern, non_element_text",[
+    "pattern, non_element_text",
+    [
         ("{{name}} My name is {{name}}", " My name is "),
         ("a b {{name}}{{name}}{{name}}", "a b "),
         ("...{{name}}{{name}} {{name}}...", "... ..."),
-    ]
+    ],
 )
 def test_generated_text_duplicate_types_returns_different_results(
     span_faker, pattern, non_element_text
@@ -135,9 +136,13 @@ def test_generated_text_duplicate_types_returns_different_results(
     # assert that the non-element text is identical
     substring_indices = list(range(len(res.fake)))
     for span in res.spans:
-        substring_indices = [ind for ind in substring_indices if ind not in range(span.start, span.end)]
+        substring_indices = [
+            ind for ind in substring_indices if ind not in range(span.start, span.end)
+        ]
 
-    actual_non_element_text = "".join([res.fake[i] for i in range(len(res.fake)) if i in substring_indices])
+    actual_non_element_text = "".join(
+        [res.fake[i] for i in range(len(res.fake)) if i in substring_indices]
+    )
     assert actual_non_element_text == non_element_text
 
     # assert that names are different from each other

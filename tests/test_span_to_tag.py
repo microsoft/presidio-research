@@ -209,14 +209,29 @@ def test_overlapping_entities_second_embedded_in_first_has_lower_score():
     io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
     assert io == expected
 
+
 def test_overlapping_entities_pyramid():
     text = "My new phone number is 1 705 999 774 8720. Thanks, cya"
     start = [23, 25, 29]
     end = [41, 36, 32]
     scores = [0.6, 0.7, 0.8]
-    tag = ["A1", "B2","C3"]
+    tag = ["A1", "B2", "C3"]
     expected = ['O', 'O', 'O', 'O', 'O', 'A1', 'B2', 'C3', 'B2',
                  'A1', 'O', 'O', 'O', 'O']
+    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    assert io == expected
+
+
+def test_token_contains_span():
+    # The last token here (https://www.gmail.com/) contains the span (www.gmail.com).
+    # In this case the token should be tagged as the span tag, even if not all of it is covered by the span.
+
+    text = "My website is https://www.gmail.com/"
+    start = [22]
+    end = [35]
+    scores = [1.0]
+    tag = ["DOMAIN_NAME"]
+    expected = ["O", "O", "O", "DOMAIN_NAME"]
     io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
     assert io == expected
 # fmt: on

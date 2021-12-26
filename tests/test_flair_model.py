@@ -1,5 +1,6 @@
 import pytest
 
+from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import Evaluator
 
 try:
@@ -7,7 +8,7 @@ try:
 except:
     ImportError("Flair is not installed by default")
 
-from presidio_evaluator.data_generator import read_synth_dataset
+
 from presidio_evaluator.models.flair_model import FlairModel
 
 import numpy as np
@@ -19,8 +20,8 @@ def test_flair_simple():
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(
-        os.path.join(dir_path, "data/generated_small.txt")
+    input_samples = InputSample.read_dataset_json(
+        os.path.join(dir_path, "data/generated_small.json")
     )
 
     model = SequenceTagger.load("ner-ontonotes-fast")  # .load('ner')
