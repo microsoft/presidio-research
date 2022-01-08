@@ -8,6 +8,8 @@ schwifty
 faker>=9.6.0
 scikit_learn<0.24
 #flair
+#stanza
+#spacy_stanza
 sklearn_crfsuite
 pytest>=6.2.3
 presidio_analyzer

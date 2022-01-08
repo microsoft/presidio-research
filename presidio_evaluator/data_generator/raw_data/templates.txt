@@ -71,8 +71,8 @@ What's your last name? {{last_name}}
 How can we reach you? You can call {{phone_number}}
 I'd like it to be sent to {{address}}
 Meet me at {{address}}
-The restaurant is located at {{address}}. It serves great indian food.
-So where are we meeting? There's this nice new Thai place downtown. Cool, what's the address? Oh do they serve vegan stuff? It's in {{address}}
+The restaurant is located at {{address}}. It serves great {{nationality}} food.
+So where are we meeting? There's this nice new {{nationality}} place downtown. Cool, what's the address? Oh do they serve vegan stuff? It's in {{address}}
 Hi {{first_name}}, I'm contacting you about a problem I have with sending a wire transfer using this IBAN {{iban}}
 She was born on {{date_of_birth}}. Her maiden name is {{last_name}}
 Sometimes people call me {{first_name}}
@@ -105,27 +105,27 @@ A tribute to {{person}} – sadly, she wasn't impressed.
 When they weren't singing about Hobbits, satanic felines and interstellar journeys, they were singing about the verses from {{person}}'s Cautionary Tales. Is there a better example of unbridled creativity than early {{last_name}}?
 A great song made even greater by a mandolin coda (not by {{person}}).
 {{name_male}} listed his top 20 songs for Entertainment Weekly and had the balls to list this song at #15. (What did he put at #1 you ask? Answer:"Tube Snake Boogie" by {{person}} – go figure)
-From the film American graffiti (also features {{person}}. What's not to love?
-You can tell {{first_name}} was a huge {{person}} fan. Written when he was only 14.
+From the film {{nationality}} graffiti (also features {{person}}. What's not to love?
+You can tell {{first_name}} was a huge {{person}} fan. Written when he was {{age}}.
 This song by ex-Zombie {{last_name}} is a perfect example of why you shouldn't concentrate on the order of this list. An argument could be made that this should be at number one, and I wouldn't argue with it.
 The title refers to {{street_name}} street in {{city}}. It was on this street that many of the clubs where Metallica first played were situated. "Battery is found in me" shows that these early shows on {{street_name}} Street were important to them. Battery is where "lunacy finds you" and you "smash through the boundaries."
 Blink-182 pay tribute here to the {{country}}. Producer {{person}} explained to Fuse TV: "We all liked the idea of writing a song about our state, where we live and love. To me it's the most beautiful place in the world, this song was us giving credit to how lucky we are to have lived here and grown up here, raising families here, the whole thing."
-It may be too that {{last_name}} was influenced by an earlier song, "Carry Me Back To {{country}}," which was arranged and sung by {{person}} in 1847 (though {{last_name}}'s song was actually about a boat!).
+It may be too that {{last_name}} was influenced by an earlier song, "Carry Me Back To {{country}}," which was arranged and sung by {{person}} in {{year}} (though {{last_name}}'s song was actually about a boat!).
 The {{person}} version recorded for {{organization}} became the first celebrity recording by a classical musician to sell one million copies. The song was awarded the seventh gold disc ever granted.
 In {{country}} they have company songs, musical expressions of employee loyalty sung by salarymen. Unfortunately, as regular RR commenter {{person}} points out, "most are horrible".
 "The big three" of The Big Three Killed My Baby are the car manufacturers that dominate the economy of the White Stripes' home city {{city}}: {{organization}}, {{organization}} and {{organization}}. "Don't feed me planned obsolescence," says {{person}} in an uncharacteristically political song, lamenting the demise of the unions in the 60s.
 {{organization}} songwriter {{name_female}} employs corporate lingo in the first verse of her {{organization}} resignation Letter
 Mission Statement: This non-profit founded by radio executives "serves as an advocate for the value of music" and "supports its songwriters, composers and publishers by taking care of an important aspect of their careers – getting paid," according to the {{organization}} website. They offer blanket music licenses to businesses and organizations that allow them to play nearly 13 million musical works.
-The {{organization}} Orchestra was founded in 1929. Since then, the TSO has grown from a volunteer community orchestra to a fully professional orchestra serving Southern {{country}}
-Celebrating its 10th year in {{city}}, {{organization}} is a 501(c)3 that invites songwriters from around the world to Texas to share the universal language of music in collaborations designed to bridge cultures, build friendships and cultivate peace.
+The {{organization}} Orchestra was founded in {{year}}. Since then, it has grown from a volunteer community orchestra to a fully professional orchestra serving Southern {{country}}
+Celebrating its 10th year in {{city}}, {{organization}} is a 501(c)3 that invites songwriters from around the world to {{city}} to share the universal language of music in collaborations designed to bridge cultures, build friendships and cultivate peace.
 {{organization}} is the brainchild of our 3 founders: {{last_name}}, {{last_name}} and {{last_name}}.  The idea was born (on the beach) while they were constructing a website to be the basis of another start-up idea.
 {{organization}} is an {{nationality}} multinational investment bank and financial services company
-Zoolander is a 2001 American action-comedy film directed by {{person}} and starring {{last_name}}
-During the 1990s, {{organization}} invested heavily in new microprocessor designs fostering the rapid growth of the computer industry.
-On 29 March 2017, the {{nationality}} government formally began the process of withdrawal by invoking Article 50 of the Treaty on European Union
+Zoolander is a {{year}} {{nationality}} action-comedy film directed by {{person}} and starring {{last_name}}
+During {{year}}, {{organization}} invested heavily in new microprocessor designs fostering the rapid growth of the computer industry.
+On {{date_time}}, the {{nationality}} government formally began the process of withdrawal by invoking Article 50 of the Treaty on European Union
 {{first_name}} shouted at {{first_name}}: "What are you doing here?"
-{{first_name}} spent a year at {{organization}} as the assistant to {{person}}, and the following year at {{organization}} in {{city}}, which later became {{organization}} in 1965.
-{{last_name}} began writing as a teenager, publishing her first story, "The Dimensions of a Shadow", in 1950 while studying English and journalism at the University of {{city}}.
+{{first_name}} spent a year at {{organization}} as the assistant to {{person}}, and the following year at {{organization}} in {{city}}, which later became {{organization}} in {{year}}.
+{{last_name}} began writing as a teenager, publishing her first story, "The Dimensions of a Shadow", in {{year}} while studying English and journalism at the University of {{city}}.
 My driver's license number is {{us_driver_license}}
 {{person}}\n\n{{building_number}} {{street_name}}\n {{secondary_address}}\n {{city}}\n {{country}} {{postcode}}
 {{person}}\n\n{{building_number}} {{street_name}}\n {{secondary_address}}\n {{city}}\n\n {{country}} {{postcode}}
@@ -142,7 +142,7 @@ What is your address? it is {{address}}
 We moved here from {{city}}
 We moved here from {{country}}
 {{person}}\n\n{{building_number}} {{street_name}}\n {{secondary_address}}\n {{city}}\n {{country}} {{postcode}}\n{{phone_number}}-Office\,{{phone_number}}-Fax
-{{person}}\n{{job}}\n{{company}}\n{{address}}
+{{person}}\n{{job}}\n{{organization}}\n{{address}}
 Our offices are located at {{address}}
 Please return to {{address}} in case of an issue.
 {{organization}}\n\n{{address}}
@@ -168,8 +168,8 @@ God gave rock and roll to you, gave rock and roll to you, put it in the soul of 
 My great great grandfather was called {{name_male}}, and my great great grandmother was called {{name_female}}
 She named him {{first_name_male}}
 Name:    {{name}}\nAddress:     {{address}}
-Follow up with {{name}} in 2 months.
-{{prefix_male}} {{last_name_male}} is a 50 year old man who grew up in {{city}}.
+Follow up with {{name}} in a couple of months.
+{{prefix_male}} {{last_name_male}} is a {{age}} year old man who grew up in {{city}}.
 Date: {{date_time}}\nName: {{name}}\nPhone: {{phone_number}}
 {{first_name}}: "Who are you?"\n{{first_name_female}}:"I'm {{first_name}}'s daughter".
 At my suggestion, one morning over breakfast, she agreed, and on the last Sunday before Labor Day we returned to {{city}} by helicopter.
@@ -180,3 +180,31 @@ The Princess Royal arrived at {{city}} this morning from {{country}}.
 I'm in {{city}}, at the conference
 {{name}}, the {{job}}, said: "I'm glad to hear that this has been withdrawn – quite why they thought this would go down well is beyond me."
 "I'm glad to hear that {{country}} is moving in that direction," says {{last_name}}.
+I am {{nation_woman}} but I live in {{country}}.
+We are proud {{nation_plural}}
+{{person}}'s killers sentenced to life in prison
+{{country}} leader gives 'kill without warning' order
+The {{nationality}} Border Force have detained top-flight tennis player {{name_female}} over visa disputes.
+You will be responsible for the husbandry and care of a large variety of species including lemurs, antelope, camels, and more
+{{name}}\n\n{{job}}\n\nPersonal Info:\nPhone:\n{{phone_number}}\n\nE-mail:\n{{email}}\n\nWebsite:\n{{url}}\n\nAddress:\n{{address}}.
+{{name}}\n\n{{city}}\n{{state}}
+Title VII of the Civil Rights Act of {{year}} protects individuals against employment discrimination on the basis of race and color as well as national origin, sex, or religion.
+Energetic and driven salesperson with 8+ years of professional experience in inbound and outbound sales. Awarded Salesperson of the Month three times. Helped increase inbound sales by 16% within the first year of employment. Looking to support {{organization}} in {{city}} {{zipcode}} in its mission to become a market-leading solution.
+The bus drops you off at {{building_number}} {{street_name}} St.
+Ask the driver to stop at the corner of {{street_name}} St. and {{street_name}} St.
+He lives on the north side of {{street_name}}.
+I used to work for {{organization}} as {{job}}, but quit a few months ago. Now I'm unemployed.
+{{city}} bridge is falling down.
+{{name}} of {{organization}} is the CEO of the year. ABC Business considered several other influential CEOs for this year's honor, including {{name}} of {{organization}}, {{organization}}'s {{name}}, {{name}} of {{organization}}'s, {{name}} of {{organization}}, and {{organization}}'s {{name}}.
+{{organization}} is a design agency based in {{city}}.
+Action & Adventure, Animation, Comedy, Kids & Family, Mystery & Suspense\nDirected By:    {{name}}
+{{first_name}}: What a wife.\n{{first_name}}: Remember me, {{first_name}}? When I killed your brother, I talked just like this!\n{{first_name}}: You saved my life! How can I ever repay you?
+He just turned {{age}} years old
+I'm {{name}}, originally from {{city}}, and i'm {{age}} y/o.
+Patient is a {{age}}-year-old male with a history of headaches
+I just turned {{age}}
+My father retired at the age of {{age}}
+This {{age}} year old female complaining of stomach pain.
+My birthday is on the weekend. I'll turn {{age}}.
+My brother just turned {{age}}
+{{prefix}} {{last_name}} flew to {{city}} on {{day_of_week}} morning.

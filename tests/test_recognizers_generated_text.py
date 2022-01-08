@@ -4,6 +4,7 @@ import pytest
 
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
 
+
 # test case parameters for tests with dataset which was previously generated.
 class GeneratedTextTestCase:
     def __init__(self, test_name, test_input, acceptance_threshold, marks):
@@ -49,7 +50,7 @@ def test_credit_card_recognizer_with_generated_text(test_input, acceptance_thres
     """
     Test credit card recognizer with a generated dataset text file
     :param test_input: input text file location
-    :param acceptance_threshold: minimim precision/recall
+    :param acceptance_threshold: minimum precision/recall
      allowed for tests to pass
     """
 

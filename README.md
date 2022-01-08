@@ -28,7 +28,7 @@ python -m spacy download en_core_web_lg
 pytest
 ```
 
-Note that some dependencies (such as Flair) are not installed to reduce installation complexity.
+Note that some dependencies (such as Flair and Stanza) are not installed to reduce installation complexity.
 
 ## What's in this package?
 

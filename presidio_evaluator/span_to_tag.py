@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import spacy
 from spacy.tokens import Token
@@ -108,8 +108,8 @@ def span_to_tag(
     start: List[int],
     end: List[int],
     tag: List[str],
-    scores: List[float] = None,
-    tokens: List[spacy.tokens.Token] = None,
+    scores: Optional[List[float]] = None,
+    tokens: Optional[List[spacy.tokens.Token]] = None,
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER

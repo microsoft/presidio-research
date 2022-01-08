@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import pytest
 import spacy
+from spacy.tokens import DocBin
 
 from presidio_evaluator import InputSample, Span
 
@@ -7,6 +10,15 @@ from presidio_evaluator.data_generator.faker_extensions import (
     FakerSpansResult,
     FakerSpan,
 )
+
+
+@pytest.fixture(scope="session")
+def small_dataset():
+    dir_path = Path(__file__).parent
+    input_samples = InputSample.read_dataset_json(
+        Path(dir_path, "data", "generated_small.json")
+    )
+    return input_samples
 
 
 @pytest.fixture(scope="session")
@@ -33,50 +45,42 @@ def test_to_conll():
     assert len(sentences) == len(input_samples)
 
 
-def test_to_spacy_all_entities():
-    import os
+def test_to_spacy_all_entities(small_dataset):
+    spacy_ver = InputSample.create_spacy_dataset(small_dataset)
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        os.path.join(dir_path, "data/generated_small.json")
-    )
-
-    spacy_ver = InputSample.create_spacy_dataset(input_samples)
-
-    assert len(spacy_ver) == len(input_samples)
+    assert len(spacy_ver) == len(small_dataset)
 
 
-def test_to_spacy_all_entities_specific_entities():
-    import os
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        os.path.join(dir_path, "data/generated_small.json")
-    )
-
-    spacy_ver = InputSample.create_spacy_dataset(input_samples, entities=["PERSON"])
+def test_to_spacy_all_entities_specific_entities(small_dataset):
+    spacy_ver = InputSample.create_spacy_dataset(small_dataset, entities=["PERSON"])
 
     spacy_ver_with_labels = [
         sample for sample in spacy_ver if len(sample[1]["entities"])
     ]
 
-    assert len(spacy_ver_with_labels) < len(input_samples)
+    assert len(spacy_ver_with_labels) < len(small_dataset)
     assert len(spacy_ver_with_labels) > 0
 
 
-def test_to_spacy_json():
-    import os
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        os.path.join(dir_path, "data/generated_small.json")
+def test_to_spacy_file_and_back(small_dataset):
+    spacy_pipeline = spacy.load("en_core_web_sm")
+    InputSample.create_spacy_dataset(
+        small_dataset,
+        output_path="dataset.spacy",
+        translate_tags=False,
+        spacy_pipeline=spacy_pipeline,
+        alignment_mode = "strict"
     )
 
-    spacy_ver = InputSample.create_spacy_json(input_samples)
-
-    assert len(spacy_ver) == len(input_samples)
-    assert "id" in spacy_ver[0]
-    assert "paragraphs" in spacy_ver[0]
+    db = DocBin()
+    db.from_disk("dataset.spacy")
+    docs = db.get_docs(vocab=spacy_pipeline.vocab)
+    for doc, input_sample in zip(docs, small_dataset):
+        input_ents = sorted(input_sample.spans, key=lambda x: x.start_position)
+        spacy_ents = sorted(doc.ents, key=lambda x: x.start_char)
+        for spacy_ent, input_span in zip(spacy_ents, input_ents):
+            assert spacy_ent.start_char == input_span.start_position
+            assert spacy_ent.end_char == input_span.end_position
 
 
 def test_faker_spans_result_to_input_sample(faker_span_result):

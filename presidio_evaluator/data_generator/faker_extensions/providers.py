@@ -1,11 +1,12 @@
+import random
 from collections import OrderedDict
 from pathlib import Path
-import random
 from typing import Union
 
 import pandas as pd
 from faker.providers import BaseProvider
-from faker.providers.address.en import AddressProvider
+from faker.providers.address.en_US import Provider as AddressProvider
+from faker.providers.phone_number.en_US import Provider as PhoneNumberProvider
 
 
 class NationalityProvider(BaseProvider):
@@ -58,6 +59,9 @@ class OrganizationProvider(BaseProvider):
     def organization(self):
         return self.random_element(self.organizations["organization"].tolist())
 
+    def company(self):
+        return self.organization()
+
 
 class UsDriverLicenseProvider(BaseProvider):
     def __init__(
@@ -90,6 +94,27 @@ class IpAddressProvider(BaseProvider):
             return self.generator.ipv4()
         else:
             return self.generator.ipv6()
+
+
+class AgeProvider(BaseProvider):
+
+    formats = OrderedDict(
+        [
+            ("%#", 0.8),
+            ("%", 0.1),
+            ("1.%", 0.02),
+            ("2.%", 0.02),
+            ("100", 0.02),
+            ("101", 0.01),
+            ("104", 0.01),
+            ("0.%", 0.02),
+        ]
+    )
+
+    def age(self):
+        return self.numerify(
+            self.random_elements(elements=self.formats, length=1, use_weighting=True)[0]
+        )
 
 
 class AddressProviderNew(AddressProvider):
@@ -144,4 +169,75 @@ class AddressProviderNew(AddressProvider):
             ),
             ("{{military_dpo}}\nDPO {{military_state}} {{postcode}}", 1.0),
         )
+    )
+
+
+class PhoneNumberProviderNew(PhoneNumberProvider):
+    """
+    Similar to the default PhoneNumberProvider, with different formats
+    """
+
+    formats = (
+        # US
+        "##########",
+        "##########",
+        "###-###-####",
+        "###-###-####",
+        "###-#######",
+        # UK
+        "07700 ### ###",
+        "07700 ######",
+        "07700######",
+        "(07700) ### ###",
+        "(07700) ######",
+        "(07700)######",
+        "+447700 ### ###",
+        "+447700 ######",
+        "+447700######",
+        # India
+        "+91##########",
+        "0##########",
+        "##########",
+        # Switzerland
+        "+41 2# ### ## ##",
+        "+41 3# ### ## ##",
+        "+41 4# ### ## ##",
+        "+41 5# ### ## ##",
+        "+41 6# ### ## ##",
+        "+41 7# ### ## ##",
+        "+41 8# ### ## ##",
+        "+41 9# ### ## ##",
+        "+41 (0)2# ### ## ##",
+        "+41 (0)3# ### ## ##",
+        "+41 (0)4# ### ## ##",
+        "+41 (0)5# ### ## ##",
+        "+41 (0)6# ### ## ##",
+        "+41 (0)7# ### ## ##",
+        "+41 (0)8# ### ## ##",
+        "+41 (0)9# ### ## ##",
+        "+46 (0)8 ### ### ##",
+        "+46 (0)## ## ## ##",
+        "+46 (0)### ### ##",
+        # Optional 10-digit local phone number format
+        "(###)###-####",
+        "(###)###-####",
+        "(###)###-####",
+        "(###)###-####",
+        # Non-standard 10-digit phone number format
+        "###.###.####",
+        "###.###.####",
+        # Standard 10-digit phone number format with extensions
+        "###-###-####x###",
+        "###-###-####x####",
+        # Optional 10-digit local phone number format with extensions
+        "(###)###-####x###",
+        "(###)###-####x####",
+        # Non-standard 10-digit phone number format with extensions
+        "###.###.####x###",
+        "###.###.####x####",
+        # Standard 11-digit phone number format
+        "+1-###-###-####",
+        "001-###-###-####",
+        # Standard 11-digit phone number format with extensions
+        "+1-###-###-####x###",
     )

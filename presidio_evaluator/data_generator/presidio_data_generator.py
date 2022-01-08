@@ -15,11 +15,13 @@ from presidio_evaluator.data_generator.faker_extensions import (
     FakerSpansResult,
     NationalityProvider,
     OrganizationProvider,
-    RecordGenerator,
     UsDriverLicenseProvider,
     IpAddressProvider,
     AddressProviderNew,
-    SpanGenerator, RecordsFaker,
+    SpanGenerator,
+    RecordsFaker,
+    PhoneNumberProviderNew,
+    AgeProvider,
 )
 
 
@@ -72,7 +74,9 @@ class PresidioDataGenerator:
         if custom_faker:
             self.faker = custom_faker
         else:
-            generator = SpanGenerator() # To allow PresidioDataGenerator to return spans and not just strings
+            generator = (
+                SpanGenerator()
+            )  # To allow PresidioDataGenerator to return spans and not just strings
             self.faker = Faker(local=locale, generator=generator)
         self.lower_case_ratio = lower_case_ratio
 
@@ -238,7 +242,9 @@ if __name__ == "__main__":
     template_file_path = Path(Path(__file__).parent, "raw_data", "templates.txt")
 
     # Read FakeNameGenerator data
-    fake_data_df = pd.read_csv(Path(Path(__file__).parent, "raw_data", "FakeNameGenerator.com_3000.csv"))
+    fake_data_df = pd.read_csv(
+        Path(Path(__file__).parent, "raw_data", "FakeNameGenerator.com_3000.csv")
+    )
     # Convert column names to lowercase to match patterns
     PresidioDataGenerator.update_fake_name_generator_df(fake_data_df)
 
@@ -248,7 +254,9 @@ if __name__ == "__main__":
     faker.add_provider(NationalityProvider)
     faker.add_provider(OrganizationProvider)
     faker.add_provider(UsDriverLicenseProvider)
+    faker.add_provider(AgeProvider)
     faker.add_provider(AddressProviderNew)  # More address formats than Faker
+    faker.add_provider(PhoneNumberProviderNew)  # More phone number formats than Faker
 
     # Create Presidio Data Generator
     data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=0.05)

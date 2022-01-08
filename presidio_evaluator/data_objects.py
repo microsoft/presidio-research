@@ -17,28 +17,23 @@ from presidio_evaluator.data_generator.faker_extensions import (
 
 SPACY_PRESIDIO_ENTITIES = {
     "ORG": "ORGANIZATION",
-    "NORP": "ORGANIZATION",
+    "NORP": "NRP",
     "GPE": "LOCATION",
     "LOC": "LOCATION",
     "FAC": "LOCATION",
     "PERSON": "PERSON",
     "LOCATION": "LOCATION",
     "ORGANIZATION": "ORGANIZATION",
+    "DATE": "DATE_TIME",
+    "TIME": "DATE_TIME",
 }
 PRESIDIO_SPACY_ENTITIES = {
-    "ORGANIZATION": "ORG",
-    "COUNTRY": "GPE",
-    "CITY": "GPE",
-    "LOCATION": "GPE",
     "PERSON": "PERSON",
-    "FIRST_NAME": "PERSON",
-    "LAST_NAME": "PERSON",
-    "NATION_MAN": "GPE",
-    "NATION_WOMAN": "GPE",
-    "NATION_PLURAL": "GPE",
-    "NATIONALITY": "GPE",
+    "LOCATION": "LOC",
     "GPE": "GPE",
-    "ORG": "ORG",
+    "ORGANIZATION": "ORG",
+    "DATE_TIME": "DATE",
+    "NRP": "NORP",
 }
 
 
@@ -373,12 +368,12 @@ class InputSample(object):
     @staticmethod
     def create_spacy_dataset(
         dataset: List["InputSample"],
-        output_path: Optional[str] = "../data/dataset.spacy",
+        output_path: Optional[str] = None,
         entities: List[str] = None,
         sort_by_template_id: bool = False,
         translate_tags: bool = True,
         spacy_pipeline: Optional[Language] = None,
-        alignment_mode:str = "expand",
+        alignment_mode: str = "expand",
     ) -> List[Tuple[str, Dict]]:
         """
         Creates a dataset which can be used to train spaCy models.
@@ -410,14 +405,13 @@ class InputSample(object):
             for sample in dataset
         ]
 
-        # Remove 'O' spans (if certain entities were ignored
-        if translate_tags:
-            for sample in spacy_dataset:
-                if sample[1]["entities"]:
-                    new_entities = [
-                        span for span in sample[1]["entities"] if span[2] != "O"
-                    ]
-                    sample[1]["entities"] = new_entities
+        # Remove 'O' spans (if certain entities were ignored)
+        for sample in spacy_dataset:
+            if sample[1]["entities"]:
+                new_entities = [
+                    span for span in sample[1]["entities"] if span[2] != "O"
+                ]
+                sample[1]["entities"] = new_entities
 
         if output_path:
             db = DocBin()
@@ -426,14 +420,20 @@ class InputSample(object):
                 ents = []
                 for start, end, label in annotations["entities"]:
                     if start >= end:
-                        print(f"Span has zero or negative size, skipping. {(start, end, label)} in text={text}")
+                        print(
+                            f"Span has zero or negative size, skipping. {(start, end, label)} in text={text}"
+                        )
                         continue
                     if label == "O" or not label:
                         print("Skipping missing or non-entity ('O') spans")
                         continue
-                    span = doc.char_span(start, end, label=label, alignment_mode=alignment_mode)
+                    span = doc.char_span(
+                        start, end, label=label, alignment_mode=alignment_mode
+                    )
                     if not span:
-                        print(f"Skipping illegal span {(start, end, label)}, text={text[start:end]}, full text={text}")
+                        print(
+                            f"Skipping illegal span {(start, end, label)}, text={text[start:end]}, full text={text}"
+                        )
                         continue
                     ents.append(span)
                 doc.ents = ents
@@ -455,27 +455,6 @@ class InputSample(object):
         with open("{}".format(output_file), "w+", encoding="utf-8") as f:
             json.dump(examples_json, f, ensure_ascii=False, indent=4)
 
-    def to_spacy_json(self, entities=None, translate_tags=True):
-        token_dicts = []
-        for i, token in enumerate(self.tokens):
-            if entities:
-                tag = self.tags[i] if self.tags[i][2:] in entities else "O"
-            else:
-                tag = self.tags[i]
-
-            if translate_tags:
-                tag = self.translate_tag(
-                    tag, PRESIDIO_SPACY_ENTITIES, ignore_unknown=True
-                )
-            token_dicts.append({"orth": token.text, "tag": token.tag_, "ner": tag})
-
-        spacy_json_sentence = {
-            "raw": self.full_text,
-            "sentences": [{"tokens": token_dicts}],
-        }
-
-        return spacy_json_sentence
-
     def to_spacy_doc(self):
         doc = self.tokens
         spacy_spans = []
@@ -494,27 +473,6 @@ class InputSample(object):
             spacy_spans.append(spacy_span)
         doc.ents = spacy_spans
         return doc
-
-    @staticmethod
-    def create_spacy_json(
-        dataset, entities=None, sort_by_template_id=False, translate_tags=True
-    ):
-        def template_sort(x):
-            if hasattr(x, "template_id"):
-                return x.template_id
-            return x.metadata["template_id"]
-
-        if sort_by_template_id:
-            dataset.sort(key=template_sort)
-
-        json_str = []
-        for i, sample in tqdm(enumerate(dataset)):
-            paragraph = sample.to_spacy_json(
-                entities=entities, translate_tags=translate_tags
-            )
-            json_str.append({"id": i, "paragraphs": [paragraph]})
-
-        return json_str
 
     @staticmethod
     def translate_tag(tag: str, dictionary: Dict[str, str], ignore_unknown: bool):

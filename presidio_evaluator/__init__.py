@@ -7,6 +7,7 @@ from .validation import (
     group_by_template,
     save_to_json,
 )
+from .experiment_tracker import ExperimentTracker
 
 __all__ = [
     "span_to_tag",
@@ -18,4 +19,5 @@ __all__ = [
     "get_samples_by_pattern",
     "group_by_template",
     "save_to_json",
+    "ExperimentTracker",
 ]

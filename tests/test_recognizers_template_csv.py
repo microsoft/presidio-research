@@ -17,7 +17,6 @@ class TemplateTextTestCase:
         test_name,
         pii_csv,
         utterances,
-        dictionary_path,
         num_of_examples,
         acceptance_threshold,
         marks,
@@ -25,7 +24,6 @@ class TemplateTextTestCase:
         self.test_name = test_name
         self.pii_csv = pii_csv
         self.utterances = utterances
-        self.dictionary_path = dictionary_path
         self.num_of_examples = num_of_examples
         self.acceptance_threshold = acceptance_threshold
         self.marks = marks
@@ -34,7 +32,6 @@ class TemplateTextTestCase:
         return pytest.param(
             self.pii_csv,
             self.utterances,
-            self.dictionary_path,
             self.num_of_examples,
             self.acceptance_threshold,
             id=self.test_name,
@@ -49,7 +46,6 @@ cc_test_template_testdata = [
         test_name="fake-names-100",
         pii_csv="{}/data/FakeNameGenerator.com_100.csv",
         utterances="{}/data/templates.txt",
-        dictionary_path="{}/data/Dictionary_test.csv",
         num_of_examples=100,
         acceptance_threshold=0.9,
         marks=pytest.mark.slow,
@@ -61,20 +57,18 @@ cc_test_template_testdata = [
 @pytest.mark.parametrize(
     "pii_csv, "
     "utterances, "
-    "dictionary_path, "
     "num_of_examples, "
     "acceptance_threshold",
     [testcase.to_pytest_param() for testcase in cc_test_template_testdata],
 )
 def test_credit_card_recognizer_with_template(
-    pii_csv, utterances, dictionary_path, num_of_examples, acceptance_threshold
+    pii_csv, utterances, num_of_examples, acceptance_threshold
 ):
     """
     Test credit card recognizer with a dataset generated from
     template and a CSV values file
     :param pii_csv: input csv file location
     :param utterances: template file location
-    :param dictionary_path: dictionary/vocabulary file location
     :param num_of_examples: number of samples to be used from dataset
     to test
     :param acceptance_threshold: minimum precision/recall

@@ -8,6 +8,8 @@ from .providers import (
     UsDriverLicenseProvider,
     IpAddressProvider,
     AddressProviderNew,
+    PhoneNumberProviderNew,
+    AgeProvider
 )
 
 __all__ = [
@@ -20,5 +22,7 @@ __all__ = [
     "UsDriverLicenseProvider",
     "IpAddressProvider",
     "AddressProviderNew",
+    "PhoneNumberProviderNew",
+    "AgeProvider",
     "RecordsFaker"
 ]

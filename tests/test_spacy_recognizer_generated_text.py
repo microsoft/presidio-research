@@ -32,7 +32,7 @@ cc_test_generate_text_testdata = [
         test_name="small-set",
         test_input="{}/data/generated_small.json",
         acceptance_threshold=0.5,
-        marks=pytest.mark.inconclusive,
+        marks=pytest.mark.none,
     ),
     # large dataset - test is slow and inconclusive
     GeneratedTextTestCase(

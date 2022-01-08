@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Dict
 
 from presidio_evaluator import InputSample
 
@@ -35,3 +35,13 @@ class BaseModel(ABC):
                  if not self.use_spans: tags in self.labeling_scheme format
         """
         pass
+
+    def to_log(self) -> Dict:
+        """
+        Returns a dictionary of parameters for logging purposes.
+        :return:
+        """
+        return {
+            "labeling_scheme": self.labeling_scheme,
+            "entities_to_keep": self.entities,
+        }

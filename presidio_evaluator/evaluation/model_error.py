@@ -49,7 +49,7 @@ class ModelError:
         )
 
     def __repr__(self):
-        return r"<ModelError {{0}}>".format(self.__str__())
+        return f"<ModelError {self.__str__()}"
 
     @staticmethod
     def most_common_fp_tokens(errors=List["ModelError"], n: int = 10, entity=None):
@@ -122,14 +122,14 @@ class ModelError:
         return new_errors_df
 
     @staticmethod
-    def get_fps_dataframe(errors=List["ModelError"], entity: str = None):
+    def get_fps_dataframe(errors=List["ModelError"], entity: List[str] = None):
         """
         Get false positive ModelErrors as pd.DataFrame
         """
         return ModelError.get_errors_df(errors, entity, error_type="FP")
 
     @staticmethod
-    def get_fns_dataframe(errors=List["ModelError"], entity: str = None):
+    def get_fns_dataframe(errors=List["ModelError"], entity: List[str] = None):
         """
         Get false negative ModelErrors as pd.DataFrame
         """
