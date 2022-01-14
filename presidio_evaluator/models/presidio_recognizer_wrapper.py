@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Dict
 
 from presidio_analyzer import EntityRecognizer
 from presidio_analyzer.nlp_engine import NlpEngine
@@ -16,6 +16,7 @@ class PresidioRecognizerWrapper(BaseModel):
         entities_to_keep: List[str] = None,
         labeling_scheme: str = "BILUO",
         with_nlp_artifacts: bool = False,
+        entity_mapping: Optional[Dict[str, str]] = None,
         verbose: bool = False,
     ):
         """
@@ -32,6 +33,7 @@ class PresidioRecognizerWrapper(BaseModel):
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
+            entity_mapping=entity_mapping
         )
         self.with_nlp_artifacts = with_nlp_artifacts
         self.recognizer = recognizer
@@ -62,14 +64,12 @@ class PresidioRecognizerWrapper(BaseModel):
             tags.append(res.entity_type)
             scores.append(res.score)
         response_tags = span_to_tag(
-            scheme=self.labeling_scheme,
+            scheme="IO",
             text=sample.full_text,
-            start=starts,
-            end=ends,
-            tag=tags,
+            starts=starts,
+            ends=ends,
+            tags=tags,
             tokens=sample.tokens,
             scores=scores,
         )
-        if len(sample.tags) == 0:
-            sample.tags = ["0" for _ in response_tags]
         return response_tags

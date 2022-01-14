@@ -231,9 +231,9 @@ class InputSample(object):
         labels = span_to_tag(
             scheme=scheme,
             text=self.full_text,
-            tag=tags,
-            start=start_indices,
-            end=end_indices,
+            tags=tags,
+            starts=start_indices,
+            ends=end_indices,
             tokens=tokens,
         )
 
@@ -526,8 +526,8 @@ class InputSample(object):
             for tag in self.tags
         ]
         for span in self.spans:
-            if span.entity_value in PRESIDIO_SPACY_ENTITIES:
-                span.entity_value = PRESIDIO_SPACY_ENTITIES[span.entity_value]
+            if span.entity_value in dictionary:
+                span.entity_value = dictionary[span.entity_value]
             elif ignore_unknown:
                 span.entity_value = "O"
 

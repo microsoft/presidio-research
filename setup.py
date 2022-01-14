@@ -18,7 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     version=__version__,
     packages=find_packages(exclude=["tests"]),
-    url="https://www.github.com/microsoft/presidio",
+    url="https://www.github.com/microsoft/presidio-research",
     license="MIT",
     description="PII dataset generator, model evaluator for Presidio and PII data in general",
     data_files=[
@@ -46,5 +46,6 @@ setup(
         "schwifty",
         "faker",
         "sklearn_crfsuite",
+        "python-dotenv"
     ],
 )

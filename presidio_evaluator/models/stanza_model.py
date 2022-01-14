@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional, Dict
 
 import spacy
 
-from presidio_evaluator import InputSample, Span, span_to_tag, tokenize
+from presidio_evaluator import InputSample, span_to_tag, tokenize
+from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
 
 try:
     import spacy_stanza
@@ -20,7 +21,7 @@ class StanzaModel(SpacyModel):
         entities_to_keep: List[str] = None,
         verbose: bool = False,
         labeling_scheme: str = "BIO",
-        translate_to_spacy_entities=True,
+        entity_mapping: Optional[Dict[str, str]] = PRESIDIO_SPACY_ENTITIES,
     ):
         if not model and not model_name:
             raise ValueError("Either model_name or model object must be supplied")
@@ -35,12 +36,10 @@ class StanzaModel(SpacyModel):
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
-            translate_to_spacy_entities=translate_to_spacy_entities,
+            entity_mapping=entity_mapping,
         )
 
     def predict(self, sample: InputSample) -> List[str]:
-        if self.translate_to_spacy_entities:
-            sample.translate_input_sample_tags()
 
         doc = self.model(sample.full_text)
         if doc.ents:
@@ -57,10 +56,10 @@ class StanzaModel(SpacyModel):
             tags = span_to_tag(
                 scheme=self.labeling_scheme,
                 text=sample.full_text,
-                start=start,
-                end=end,
-                tag=tags,
-                tokens=sample.tokens
+                starts=start,
+                ends=end,
+                tags=tags,
+                tokens=sample.tokens,
             )
         else:
             tags = ["O" for _ in range(len(sample.tokens))]

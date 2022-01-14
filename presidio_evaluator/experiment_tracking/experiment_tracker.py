@@ -1,6 +1,6 @@
-import hashlib
 import json
-from typing import Dict
+import time
+from typing import Dict, List
 
 
 class ExperimentTracker:
@@ -8,7 +8,8 @@ class ExperimentTracker:
         self.parameters = None
         self.metrics = None
         self.dataset_info = None
-        self.dataset_hash = None
+        self.confusion_matrix = None
+        self.labels = None
 
     def log_parameter(self, key: str, value: object):
         self.parameters[key] = value
@@ -24,17 +25,29 @@ class ExperimentTracker:
         for k, v in metrics.values():
             self.log_metric(k, v)
 
-    def log_dataset_hash(self, dataset_hash):
-        self.dataset_hash = dataset_hash
+    def log_dataset_hash(self, data: str):
+        pass
 
-    def log_dataset_info(self, dataset_info):
-        self.dataset_info = dataset_info
+    def log_dataset_info(self, name: str):
+        self.dataset_info = name
 
     def __str__(self):
         return json.dumps(self.__dict__)
+
+    def log_confusion_matrix(
+        self,
+        matrix: List[List[int]],
+        labels=List[str],
+    ):
+        self.confusion_matrix = matrix
+        self.labels=labels
 
     def start(self):
         pass
 
     def end(self):
-        pass
+        datetime_val = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"experiment_{datetime_val}.json"
+        print(f"saving experiment data to {filename}")
+        with open(filename) as json_file:
+            json.dump(self.__dict__, json_file)

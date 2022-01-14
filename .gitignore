@@ -188,4 +188,5 @@ datasets/
 /model-outputs/
 /data
 
-.spacy
+*.spacy
+*.pickle

@@ -115,8 +115,8 @@ def test_span_to_bio_multiple_entities():
 
     tag = ["NAME", "NAME"]
 
-    bilou = span_to_tag(scheme=BIO_SCHEME, text=text, start=start,
-                        end=end, tag=tag)
+    bilou = span_to_tag(scheme=BIO_SCHEME, text=text, starts=start,
+                        ends=end, tags=tag)
 
     print(bilou)
 
@@ -180,7 +180,7 @@ def test_overlapping_entities_second_embedded_in_first_with_lower_score():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'PHONE_NUMBER',
                 'PHONE_NUMBER', 'PHONE_NUMBER',
                  'O', 'O', 'O', 'O']
-    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
 
 
@@ -193,7 +193,7 @@ def test_overlapping_entities_second_embedded_in_first_has_higher_score():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'US_PHONE_NUMBER',
                 'PHONE_NUMBER', 'PHONE_NUMBER',
                  'O', 'O', 'O', 'O']
-    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
 
 
@@ -206,7 +206,7 @@ def test_overlapping_entities_second_embedded_in_first_has_lower_score():
     expected = ['O', 'O', 'O', 'O', 'O', 'PHONE_NUMBER', 'PHONE_NUMBER',
                 'PHONE_NUMBER', 'PHONE_NUMBER',
                 'O', 'O', 'O', 'O']
-    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
 
 
@@ -218,7 +218,7 @@ def test_overlapping_entities_pyramid():
     tag = ["A1", "B2", "C3"]
     expected = ['O', 'O', 'O', 'O', 'O', 'A1', 'B2', 'C3', 'B2',
                  'A1', 'O', 'O', 'O', 'O']
-    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
 
 
@@ -232,6 +232,6 @@ def test_token_contains_span():
     scores = [1.0]
     tag = ["DOMAIN_NAME"]
     expected = ["O", "O", "O", "DOMAIN_NAME"]
-    io = span_to_tag(scheme=IO_SCHEME, text=text, start=start, end=end, tag=tag, scores=scores)
+    io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
 # fmt: on

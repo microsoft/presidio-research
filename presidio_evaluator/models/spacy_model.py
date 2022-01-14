@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional, Dict
 
 import spacy
 
-from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
 from presidio_evaluator import InputSample
+from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
 from presidio_evaluator.models import BaseModel
 
 
@@ -15,12 +15,13 @@ class SpacyModel(BaseModel):
         entities_to_keep: List[str] = None,
         verbose: bool = False,
         labeling_scheme: str = "BIO",
-        translate_to_spacy_entities=True,
+        entity_mapping: Optional[Dict[str, str]] = PRESIDIO_SPACY_ENTITIES,
     ):
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
+            entity_mapping=entity_mapping
         )
 
         if model is None:
@@ -30,18 +31,7 @@ class SpacyModel(BaseModel):
         else:
             self.model = model
 
-        self.translate_to_spacy_entities = translate_to_spacy_entities
-        if self.translate_to_spacy_entities:
-            print(
-                "Translating entites using this dictionary: {}".format(
-                    PRESIDIO_SPACY_ENTITIES
-                )
-            )
-
     def predict(self, sample: InputSample) -> List[str]:
-        if self.translate_to_spacy_entities:
-            sample.translate_input_sample_tags()
-
         doc = self.model(sample.full_text)
         tags = self.get_tags_from_doc(doc)
         if len(doc) != len(sample.tokens):

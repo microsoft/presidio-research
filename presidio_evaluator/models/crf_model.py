@@ -1,5 +1,5 @@
 import pickle
-from typing import List
+from typing import List, Dict
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.models import BaseModel
@@ -11,10 +11,12 @@ class CRFModel(BaseModel):
         model_pickle_path: str = "../models/crf.pickle",
         entities_to_keep: List[str] = None,
         verbose: bool = False,
+        entity_mapping: Dict[str, str] = None,
     ):
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
+            entity_mapping=entity_mapping
         )
 
         if model_pickle_path is None:
@@ -26,12 +28,8 @@ class CRFModel(BaseModel):
     def predict(self, sample: InputSample) -> List[str]:
         tags = CRFModel.crf_predict(sample, self.model)
 
-        if self.entities:
-            tags = [tag for tag in tags if tag in self.entities]
-
         if len(tags) != len(sample.tokens):
             print("mismatch between previous tokens and new tokens")
-        # translated_tags = sample.rename_from_spacy_tags(tags)
         return tags
 
     @staticmethod

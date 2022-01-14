@@ -5,8 +5,8 @@ from presidio_evaluator.evaluation import Evaluator
 
 try:
     from flair.models import SequenceTagger
-except:
-    ImportError("Flair is not installed by default")
+except ImportError:
+    pytest.skip("Flair not available", allow_module_level=True)
 
 
 from presidio_evaluator.models.flair_model import FlairModel
@@ -15,7 +15,6 @@ import numpy as np
 
 
 # no-unit because flair is not a dependency by default
-@pytest.mark.skip(reason="Flair not installed by default")
 def test_flair_simple():
     import os
 
@@ -24,9 +23,8 @@ def test_flair_simple():
         os.path.join(dir_path, "data/generated_small.json")
     )
 
-    model = SequenceTagger.load("ner-ontonotes-fast")  # .load('ner')
 
-    flair_model = FlairModel(model=model, entities_to_keep=["PERSON"])
+    flair_model = FlairModel(model_path="ner", entities_to_keep=["PERSON"])
     evaluator = Evaluator(model=flair_model)
     evaluation_results = evaluator.evaluate_all(input_samples)
     scores = evaluator.calculate_score(evaluation_results)

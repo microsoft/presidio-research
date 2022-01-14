@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from presidio_analyzer import AnalyzerEngine
 
@@ -15,6 +15,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         labeling_scheme: str = "BIO",
         score_threshold: float = 0.4,
         language: str = "en",
+        entity_mapping:Optional[Dict[str,str]]=None
     ):
         """
         Evaluation wrapper for the Presidio Analyzer
@@ -24,6 +25,7 @@ class PresidioAnalyzerWrapper(BaseModel):
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
+            entity_mapping=entity_mapping
         )
         self.score_threshold = score_threshold
         self.language = language
@@ -53,19 +55,20 @@ class PresidioAnalyzerWrapper(BaseModel):
             scores.append(res.score)
 
         response_tags = span_to_tag(
-            scheme=self.labeling_scheme,
+            scheme="IO",
             text=sample.full_text,
-            start=starts,
-            end=ends,
+            starts=starts,
+            ends=ends,
             tokens=sample.tokens,
             scores=scores,
-            tag=tags,
+            tags=tags,
         )
         return response_tags
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
     presidio_entities_map = {
         "PERSON": "PERSON",
+        "GPE": "LOCATION",
         "EMAIL_ADDRESS": "EMAIL_ADDRESS",
         "CREDIT_CARD": "CREDIT_CARD",
         "FIRST_NAME": "PERSON",
@@ -84,8 +87,12 @@ class PresidioAnalyzerWrapper(BaseModel):
         "IP_ADDRESS": "IP_ADDRESS",
         "ORGANIZATION": "ORG",
         "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
-        "TITLE": "O",
-        "PREFIX": "O",
+        "NRP": "NRP",
+        "TITLE": "O",  # not supported
+        "PREFIX": "O",  # not supported
+        "STREET_ADDRESS": "O",  # not supported
+        "ZIP_CODE": "O",  # not supported
+        "AGE": "O",  # not supported
         "O": "O",
     }
 
