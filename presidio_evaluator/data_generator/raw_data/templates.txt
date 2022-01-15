@@ -96,7 +96,7 @@ have you heard {{person}} speak yet?
 Have you been to a {{person}} concert before?
 I'm so jealous! said {{first_name}} to {{first_name}}
 The true gender of {{first_name}} has been under debate for years, but the riff and building energy is a rock masterpiece regardless.
-For my take on {{prefix_female}}. {{last_name_female}}, see Guilty Pleasures: 5 Musicians Of The 70s You're Supposed To Hate (But Secretly Love)
+For my take on {{prefix_female}} {{last_name_female}}, see Guilty Pleasures: 5 Musicians Of The 70s You're Supposed To Hate (But Secretly Love)
 Unlike the {{last_name}} novel, it's not about necrophilia. What it is about, I suppose is anyone's guess. A brilliant piece of baroque pop.
 One of the most depressing songs on the list. He's injured from the waist down from {{country}}, but {{first_name}} just has to get laid. Don't go to town, {{first_name}}!
 Is there a better crafted pop song on this list? {{last_name}} and {{last_name}} were precision engineers.
@@ -187,7 +187,7 @@ We are proud {{nation_plural}}
 The {{nationality}} Border Force have detained top-flight tennis player {{name_female}} over visa disputes.
 You will be responsible for the husbandry and care of a large variety of species including lemurs, antelope, camels, and more
 {{name}}\n\n{{job}}\n\nPersonal Info:\nPhone:\n{{phone_number}}\n\nE-mail:\n{{email}}\n\nWebsite:\n{{url}}\n\nAddress:\n{{address}}.
-{{name}}\n\n{{city}}\n{{state}}
+{{name}}\n\n{{city}}\n{{country}}
 Title VII of the Civil Rights Act of {{year}} protects individuals against employment discrimination on the basis of race and color as well as national origin, sex, or religion.
 Energetic and driven salesperson with 8+ years of professional experience in inbound and outbound sales. Awarded Salesperson of the Month three times. Helped increase inbound sales by 16% within the first year of employment. Looking to support {{organization}} in {{city}} {{zipcode}} in its mission to become a market-leading solution.
 The bus drops you off at {{building_number}} {{street_name}} St.
