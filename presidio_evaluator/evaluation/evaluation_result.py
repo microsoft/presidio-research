@@ -72,7 +72,7 @@ class EvaluationResult:
         return_str += "\n" + row_format.format(
             "PII",
             self.pii_precision,
-            self.pii_precision,
+            self.pii_recall,
             self.n,
         )
 
