@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from faker import Faker
 from faker.providers import BaseProvider
+from pandas import DataFrame
 from tqdm import tqdm
 
 from presidio_evaluator.data_generator.faker_extensions import (
@@ -194,7 +195,7 @@ class PresidioDataGenerator:
         self.faker.add_provider(new_provider)
 
     @staticmethod
-    def update_fake_name_generator_df(fake_data: pd.DataFrame) -> None:
+    def update_fake_name_generator_df(fake_data: pd.DataFrame) -> DataFrame:
         """
         Turns column names from CamelCase to snake_case and renames a few columns
         :param fake_data: a pd.DataFrame with loaded data from FakeNameGenerator.com
@@ -206,6 +207,39 @@ class PresidioDataGenerator:
             name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
             return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
+        def full_name(row):
+            if random.random() > 0.2:
+                return str(row.first_name) + " " + str(row.last_name)
+            else:
+                space_after_initials = " " if random.random() > 0.5 else ". "
+                return (
+                    str(row.first_name)
+                    + " "
+                    + str(row.middle_initial)
+                    + space_after_initials
+                    + str(row.last_name)
+                )
+
+        def name_gendered(row):
+            first_name_female, prefix_female, last_name_female = (
+                (row.first_name, row.prefix, row.last_name)
+                if row.gender == "female"
+                else ("", "", "")
+            )
+            first_name_male, prefix_male, last_name_male = (
+                (row.first_name, row.prefix, row.last_name)
+                if row.gender == "male"
+                else ("", "", "")
+            )
+            return (
+                first_name_female,
+                first_name_male,
+                prefix_female,
+                prefix_male,
+                last_name_female,
+                last_name_male,
+            )
+
         fake_data.columns = [camel_to_snake(col) for col in fake_data.columns]
 
         # Update some column names to fit Faker
@@ -215,7 +249,8 @@ class PresidioDataGenerator:
 
         fake_data.rename(
             columns={
-                "country": "country_full",
+                "country_full": "country",
+                "name_set": "nationality",
                 "street_address": "street_name",
                 "state_full": "state",
                 "given_name": "first_name",
@@ -231,9 +266,29 @@ class PresidioDataGenerator:
                 "occupation": "job",
                 "domain": "domain_name",
                 "username": "user_name",
+                "zip_code": "zipcode",
             },
             inplace=True,
         )
+        fake_data["person"] = fake_data.apply(full_name, axis=1)
+        fake_data["name"] = fake_data["person"]
+        genderized = fake_data.apply(
+            lambda x: pd.Series(
+                name_gendered(x),
+                index=[
+                    "first_name_female",
+                    "first_name_male",
+                    "prefix_female",
+                    "prefix_male",
+                    "last_name_female",
+                    "last_name_male"
+                ],
+            ),
+            axis=1,
+            result_type="expand",
+        )
+        fake_data = pd.concat([fake_data, genderized], axis="columns")
+        return fake_data
 
 
 if __name__ == "__main__":
@@ -246,7 +301,7 @@ if __name__ == "__main__":
         Path(Path(__file__).parent, "raw_data", "FakeNameGenerator.com_3000.csv")
     )
     # Convert column names to lowercase to match patterns
-    PresidioDataGenerator.update_fake_name_generator_df(fake_data_df)
+    fake_data_df = PresidioDataGenerator.update_fake_name_generator_df(fake_data_df)
 
     # Create a RecordsFaker (Faker object which prefers samples multiple objects from one record)
     faker = RecordsFaker(records=fake_data_df, local="en_US")

@@ -111,7 +111,7 @@ class RecordGenerator(SpanGenerator):
     def format(self, formatter: str, *args: Any, **kwargs: Any) -> str:
         """Fill in fake data. If the input record has the requested entity, return its value."""
         record = kwargs.get("record")
-        if not record or (formatter not in record):
+        if not record or not record.get(formatter):  # type not in record, go to default faker
             return super().format(formatter)
 
         return record[formatter]
