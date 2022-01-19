@@ -23,7 +23,6 @@ def test_flair_simple():
         os.path.join(dir_path, "data/generated_small.json")
     )
 
-
     flair_model = FlairModel(model_path="ner", entities_to_keep=["PERSON"])
     evaluator = Evaluator(model=flair_model)
     evaluation_results = evaluator.evaluate_all(input_samples)

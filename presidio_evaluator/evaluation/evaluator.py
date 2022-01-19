@@ -143,7 +143,9 @@ class Evaluator:
     def evaluate_all(self, dataset: List[InputSample]) -> List[EvaluationResult]:
         evaluation_results = []
         if self.model.entity_mapping:
-            print(f"Mapping entity values using this dictionary: {self.model.entity_mapping}")
+            print(
+                f"Mapping entity values using this dictionary: {self.model.entity_mapping}"
+            )
         for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
 
             # Align tag values to the ones expected by the model

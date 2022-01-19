@@ -15,7 +15,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         labeling_scheme: str = "BIO",
         score_threshold: float = 0.4,
         language: str = "en",
-        entity_mapping:Optional[Dict[str,str]]=None
+        entity_mapping: Optional[Dict[str, str]] = None,
     ):
         """
         Evaluation wrapper for the Presidio Analyzer
@@ -25,7 +25,7 @@ class PresidioAnalyzerWrapper(BaseModel):
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
-            entity_mapping=entity_mapping
+            entity_mapping=entity_mapping,
         )
         self.score_threshold = score_threshold
         self.language = language

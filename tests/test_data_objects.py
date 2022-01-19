@@ -69,7 +69,7 @@ def test_to_spacy_file_and_back(small_dataset):
         output_path="dataset.spacy",
         translate_tags=False,
         spacy_pipeline=spacy_pipeline,
-        alignment_mode = "strict"
+        alignment_mode="strict",
     )
 
     db = DocBin()

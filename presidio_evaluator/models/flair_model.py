@@ -16,6 +16,15 @@ from presidio_evaluator.models import BaseModel
 
 
 class FlairModel(BaseModel):
+    """
+    Evaluator for Flair models
+    :param model: model of type SequenceTagger
+    :param model_path:
+    :param entities_to_keep:
+    :param verbose:
+    and model expected entity types
+    """
+
     def __init__(
         self,
         model=None,
@@ -24,14 +33,7 @@ class FlairModel(BaseModel):
         verbose: bool = False,
         entity_mapping: Dict[str, str] = PRESIDIO_SPACY_ENTITIES,
     ):
-        """
-        Evaluator for Flair models
-        :param model: model of type SequenceTagger
-        :param model_path:
-        :param entities_to_keep:
-        :param verbose:
-        and model expected entity types
-        """
+
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,

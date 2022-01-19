@@ -9,6 +9,17 @@ from presidio_evaluator.span_to_tag import span_to_tag
 
 
 class PresidioRecognizerWrapper(BaseModel):
+    """
+    Class wrapper for one specific PII recognizer
+    To evaluate the entire set of recognizers, refer to PresidioAnaylzerWrapper
+    :param recognizer: An object of type EntityRecognizer (in presidio-analyzer)
+    :param nlp_engine: An object of type NlpEngine, e.g. SpacyNlpEngine (in presidio-analyzer)
+    :param entities_to_keep: List of entity types to focus on while ignoring all the rest.
+    Default=None would look at all entity types
+    :param with_nlp_artifacts: Whether NLP artifacts should be obtained
+        (faster if not, but some recognizers need it)
+    """
+
     def __init__(
         self,
         recognizer: EntityRecognizer,
@@ -19,21 +30,12 @@ class PresidioRecognizerWrapper(BaseModel):
         entity_mapping: Optional[Dict[str, str]] = None,
         verbose: bool = False,
     ):
-        """
-        Evaluator for one specific PII recognizer
-        To evaluate the entire set of recognizers, refer to PresidioAnaylzerWrapper
-        :param recognizer: An object of type EntityRecognizer (in presidio-analyzer)
-        :param nlp_engine: An object of type NlpEngine, e.g. SpacyNlpEngine (in presidio-analyzer)
-        :param entities_to_keep: List of entity types to focus on while ignoring all the rest.
-        Default=None would look at all entity types
-        :param with_nlp_artifacts: Whether NLP artifacts should be obtained
-            (faster if not, but some recognizers need it)
-        """
+
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
-            entity_mapping=entity_mapping
+            entity_mapping=entity_mapping,
         )
         self.with_nlp_artifacts = with_nlp_artifacts
         self.recognizer = recognizer

@@ -16,7 +16,7 @@ class CRFModel(BaseModel):
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
-            entity_mapping=entity_mapping
+            entity_mapping=entity_mapping,
         )
 
         if model_pickle_path is None:

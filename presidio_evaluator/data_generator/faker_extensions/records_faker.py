@@ -7,7 +7,6 @@ from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
 
 
 class RecordsFaker(Faker):
-    
     def __init__(self, records: Union[pd.DataFrame, List[Dict]], **kwargs):
         if isinstance(records, pd.DataFrame):
             records = records.to_dict(orient="records")

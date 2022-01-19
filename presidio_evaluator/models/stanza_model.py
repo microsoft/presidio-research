@@ -14,6 +14,17 @@ from presidio_evaluator.models import SpacyModel
 
 
 class StanzaModel(SpacyModel):
+    """
+    Class wrapping Stanza models, using spacy_stanza.
+
+    :param model: spaCy Language object representing a stanza model
+    :param model_name: Name of model, e.g. "en"
+    :param entities_to_keep: List of entities to predict on
+    :param verbose: Whether to print more
+    :param labeling_scheme: Whether to return IO, BIO or BILUO tags
+    :param entity_mapping: Mapping between input dataset entities and entities expected by the model
+    """
+
     def __init__(
         self,
         model: spacy.language.Language = None,
@@ -23,6 +34,7 @@ class StanzaModel(SpacyModel):
         labeling_scheme: str = "BIO",
         entity_mapping: Optional[Dict[str, str]] = PRESIDIO_SPACY_ENTITIES,
     ):
+
         if not model and not model_name:
             raise ValueError("Either model_name or model object must be supplied")
         if not model:
@@ -40,6 +52,12 @@ class StanzaModel(SpacyModel):
         )
 
     def predict(self, sample: InputSample) -> List[str]:
+        """
+        Predict the tags using a stanza model.
+
+        :param sample: InputSample with text
+        :return: list of tags
+        """
 
         doc = self.model(sample.full_text)
         if doc.ents:
@@ -48,7 +66,8 @@ class StanzaModel(SpacyModel):
             )
 
             # Stanza tokens might not be consistent with spaCy's tokens.
-            # Use spacy tokenization and not stanza to maintain consistency with other models:
+            # Use spacy tokenization and not stanza
+            # to maintain consistency with other models:
             if not sample.tokens:
                 sample.tokens = tokenize(sample.full_text)
 

@@ -55,10 +55,7 @@ cc_test_template_testdata = [
 
 # credit card recognizer tests on template-generates data
 @pytest.mark.parametrize(
-    "pii_csv, "
-    "utterances, "
-    "num_of_examples, "
-    "acceptance_threshold",
+    "pii_csv, " "utterances, " "num_of_examples, " "acceptance_threshold",
     [testcase.to_pytest_param() for testcase in cc_test_template_testdata],
 )
 def test_credit_card_recognizer_with_template(

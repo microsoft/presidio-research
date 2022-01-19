@@ -21,7 +21,7 @@ class SpacyModel(BaseModel):
             entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
-            entity_mapping=entity_mapping
+            entity_mapping=entity_mapping,
         )
 
         if model is None:
@@ -32,14 +32,19 @@ class SpacyModel(BaseModel):
             self.model = model
 
     def predict(self, sample: InputSample) -> List[str]:
+        """
+        Predict a list of tags for an inpuit sample.
+        :param sample: InputSample
+        :return: list of tags
+        """
         doc = self.model(sample.full_text)
-        tags = self.get_tags_from_doc(doc)
+        tags = self._get_tags_from_doc(doc)
         if len(doc) != len(sample.tokens):
             print("mismatch between input tokens and new tokens")
 
         return tags
 
     @staticmethod
-    def get_tags_from_doc(doc):
+    def _get_tags_from_doc(doc):
         tags = [token.ent_type_ if token.ent_type_ != "" else "O" for token in doc]
         return tags

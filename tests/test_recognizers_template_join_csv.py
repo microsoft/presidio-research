@@ -77,7 +77,7 @@ rocket_test_template_testdata = [
         utterances="{}/data/rocket_example_sentences.txt",
         num_of_examples=100,
         acceptance_threshold=0,
-        max_mistakes_number=100
+        max_mistakes_number=100,
     ),
     PatternRecognizerTestCase(
         test_name="rocket-some-errors",

@@ -1,5 +1,7 @@
 from typing import List
 
+import pandas as pd
+
 try:
     from flair.data import Corpus, Sentence
     from flair.datasets import ColumnCorpus
@@ -21,11 +23,20 @@ from os import path
 
 
 class FlairTrainer:
+    """
+    Helper class for training Flair models
+    """
+
     @staticmethod
-    def to_flair_row(text, pos, label):
+    def to_flair_row(text: str, pos: str, label: str) -> str:
+        """
+        Turn text, part of speech and label into one row.
+        :return: str
+        """
         return "{} {} {}".format(text, pos, label)
 
-    def to_flair(self, df, outfile="flair_train.txt"):
+    def to_flair(self, df: pd.DataFrame, outfile: str = "flair_train.txt") -> None:
+        """Translate a pd.DataFrame to a flair dataset."""
         sentence = 0
         flair = []
         for row in df.itertuples():
@@ -43,10 +54,19 @@ class FlairTrainer:
     def create_flair_corpus(
         self, train_samples_path, test_samples_path, val_samples_path
     ):
+        """
+        Create a flair Corpus object and saive it to train, test, validation files.
+        :param train_samples_path: Path to train samples
+        :param test_samples_path: Path to test samples
+        :param val_samples_path: Path to validation samples
+        :return:
+        """
         if not path.exists("flair_train.txt"):
             train_samples = InputSample.read_dataset_json(train_samples_path)
             train_tagged = [sample for sample in train_samples if len(sample.spans) > 0]
-            print(f"Kept {len(train_tagged)} train samples after removal of non-tagged samples")
+            print(
+                f"Kept {len(train_tagged)} train samples after removal of non-tagged samples"
+            )
             train_data = InputSample.create_conll_dataset(train_tagged)
             self.to_flair(train_data, outfile="flair_train.txt")
 
@@ -61,7 +81,12 @@ class FlairTrainer:
             self.to_flair(val_data, outfile="flair_val.txt")
 
     @staticmethod
-    def read_corpus(data_folder):
+    def read_corpus(data_folder: str):
+        """
+        Read Flair Corpus object.
+        :param data_folder: Path with files
+        :return: Corpus object
+        """
         columns = {0: "text", 1: "pos", 2: "ner"}
         corpus = ColumnCorpus(
             data_folder,
@@ -73,7 +98,12 @@ class FlairTrainer:
         return corpus
 
     @staticmethod
-    def train(corpus):
+    def train(corpus: Corpus):
+        """
+        Train a Flair model
+        :param corpus: Corpus object
+        :return:
+        """
         print(corpus)
 
         # 2. what tag do we want to predict?

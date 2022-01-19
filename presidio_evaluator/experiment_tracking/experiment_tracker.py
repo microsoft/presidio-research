@@ -40,7 +40,7 @@ class ExperimentTracker:
         labels=List[str],
     ):
         self.confusion_matrix = matrix
-        self.labels=labels
+        self.labels = labels
 
     def start(self):
         pass

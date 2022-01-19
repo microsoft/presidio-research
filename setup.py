@@ -20,12 +20,12 @@ setup(
     packages=find_packages(exclude=["tests"]),
     url="https://www.github.com/microsoft/presidio-research",
     license="MIT",
-    description="PII dataset generator, model evaluator for Presidio and PII data in general",
+    description="PII dataset generator, model evaluator for Presidio and PII data in general",  # noqa
     data_files=[
         (
             "presidio_evaluator/data_generator/raw_data",
             [
-                "presidio_evaluator/data_generator/raw_data/FakeNameGenerator.com_3000.csv",
+                "presidio_evaluator/data_generator/raw_data/FakeNameGenerator.com_3000.csv",  # noqa
                 "presidio_evaluator/data_generator/raw_data/templates.txt",
                 "presidio_evaluator/data_generator/raw_data/organizations.csv",
                 "presidio_evaluator/data_generator/raw_data/nationalities.csv",
@@ -46,6 +46,6 @@ setup(
         "schwifty",
         "faker",
         "sklearn_crfsuite",
-        "python-dotenv"
+        "python-dotenv",
     ],
 )

@@ -5,7 +5,7 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 import pandas as pd
 import spacy
 from spacy import Language
-from spacy.tokens import Token, Doc, DocBin
+from spacy.tokens import Doc, DocBin
 from spacy.training import iob_to_biluo
 from tqdm import tqdm
 
@@ -137,14 +137,14 @@ class InputSample(object):
         :param full_text: The raw text of this sample
         :param masked: Masked/Templated version of the raw text
         :param spans: List of spans for entities
-        :param create_tags_from_span: True if tags (tokens+taks) should be added
+        :param create_tags_from_span: True if tags (tokens+tags) should be added
         :param scheme: IO, BIO/IOB or BILOU. Only applicable if span_to_tag=True
         :param tokens: spaCy Doc object
         :param tags: list of strings representing the label for each token,
         given the scheme
         :param metadata: A dictionary of additional metadata on the sample,
         in the English (or other language) vocabulary
-        :param template_id: Original template (utterance) of sample, in case it was generated
+        :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
         """
         if tags is None:
             tags = []
@@ -532,7 +532,7 @@ class InputSample(object):
                 span.entity_value = "O"
 
     @staticmethod
-    def create_flair_dataset(dataset):
+    def create_flair_dataset(dataset: List["InputSample"]) -> List[str]:
         flair_samples = []
         for sample in dataset:
             flair_samples.append(sample.to_flair())

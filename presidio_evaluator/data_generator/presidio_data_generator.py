@@ -281,7 +281,7 @@ class PresidioDataGenerator:
                     "prefix_female",
                     "prefix_male",
                     "last_name_female",
-                    "last_name_male"
+                    "last_name_male",
                 ],
             ),
             axis=1,
