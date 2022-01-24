@@ -101,7 +101,7 @@ def test_faker_spans_to_input_sample_with_tags(faker_span_result):
     )
     assert input_sample.tags
     assert input_sample.tokens
-    assert any(["I-name" in tag for tag in input_sample.tags])
+    assert any(["U-name" in tag for tag in input_sample.tags])
 
 
 def test_from_spacy_doc():

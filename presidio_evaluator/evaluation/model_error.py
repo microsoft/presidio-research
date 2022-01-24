@@ -54,7 +54,8 @@ class ModelError:
     @staticmethod
     def most_common_fp_tokens(errors=List["ModelError"], n: int = 10, entity=None):
         """
-        Print the n most common false positive tokens (tokens thought to be an entity)
+        Print the n most common false positive tokens
+        (tokens thought to be an entity)
         """
         fps = ModelError.get_false_positives(errors, entity)
 
@@ -73,7 +74,8 @@ class ModelError:
     @staticmethod
     def most_common_fn_tokens(errors=List["ModelError"], n: int = 10, entity=None):
         """
-        Print all tokens that were missed by the model, including an example of the full text in which they appear
+        Print all tokens that were missed by the model,
+        including an example of the full text in which they appear.
         """
         fns = ModelError.get_false_negatives(errors, entity)
 
@@ -81,7 +83,7 @@ class ModelError:
         from collections import Counter
 
         by_frequency_fns = Counter(fns_tokens)
-        most_common_fns = by_frequency_fns.most_common(50)
+        most_common_fns = by_frequency_fns.most_common(n)
         print(most_common_fns)
         for tok, val in most_common_fns:
             with_tok = [err for err in fns if err.token.text == tok]

@@ -123,10 +123,10 @@ class Evaluator:
     @staticmethod
     def _to_io(tags):
         """
-        Translates BILOU/BIO/IOB to IO - only In or Out of entity.
+        Translates BILUO/BIO/IOB to IO - only In or Out of entity.
         ['B-PERSON','I-PERSON','L-PERSON'] is translated into
         ['PERSON','PERSON','PERSON']
-        :param tags: the input tags in BILOU/IOB/BIO format
+        :param tags: the input tags in BILUO/IOB/BIO format
         :return: a new list of IO tags
         """
         return [tag[2:] if "-" in tag else tag for tag in tags]

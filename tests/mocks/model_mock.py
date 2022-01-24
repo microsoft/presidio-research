@@ -4,6 +4,12 @@ from presidio_evaluator import InputSample
 from presidio_evaluator.models import BaseModel
 
 
+class MockModel(BaseModel):
+
+    def predict(self, sample: InputSample) -> List[str]:
+        pass
+
+
 class MockTokensModel(BaseModel):
     """
     Simulates a real model, returns the prediction given in the constructor

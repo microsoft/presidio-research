@@ -1,14 +1,24 @@
 import pickle
-from typing import List, Dict
+from typing import List, Dict, Optional
+
+try:
+    import sklearn_crfsuite
+except ImportError:
+    sklearn_crfsuite = None
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.models import BaseModel
 
 
 class CRFModel(BaseModel):
+    """
+    Wrapper for a CRF model.
+    :param model_pickle_path: Path to pickled trained model
+    """
+
     def __init__(
         self,
-        model_pickle_path: str = "../models/crf.pickle",
+        model_pickle_path: Optional[str] = None,
         entities_to_keep: List[str] = None,
         verbose: bool = False,
         entity_mapping: Dict[str, str] = None,
@@ -19,11 +29,61 @@ class CRFModel(BaseModel):
             entity_mapping=entity_mapping,
         )
 
-        if model_pickle_path is None:
-            raise ValueError("model_pickle_path must be supplied")
+        if model_pickle_path:
+            with open(model_pickle_path, "rb") as f:
+                self.model = pickle.load(f)
+        else:
+            self.model = None
 
-        with open(model_pickle_path, "rb") as f:
-            self.model = pickle.load(f)
+    def fit(
+        self,
+        train_samples: List[InputSample],
+        algorithm="lbfgs",
+        c1=0.1,
+        c2=0.1,
+        max_iterations=100,
+        all_possible_transitions=True,
+        **kwargs
+    ):
+        """
+        Trains a simple CRF model
+        :param train_samples: Training samples to train with
+        :param algorithm: see `sklearn_crfsuite.CRF`
+        :param c1: see `sklearn_crfsuite.CRF`
+        :param c2: see `sklearn_crfsuite.CRF`
+        :param max_iterations: see `sklearn_crfsuite.CRF`
+        :param all_possible_transitions: see `sklearn_crfsuite.CRF`
+        :return:
+        """
+
+        if not sklearn_crfsuite:
+            raise ValueError("sklearn_crfsuite not installed")
+
+        # Ignore entities not requested
+        train_samples_filtered = self._ignore_unwanted_entities(train_samples)
+
+        X_train, y_train = self._to_feature_set(train_samples_filtered)
+
+        self.model = sklearn_crfsuite.CRF(
+            algorithm=algorithm,
+            c1=c1,
+            c2=c2,
+            max_iterations=max_iterations,
+            all_possible_transitions=all_possible_transitions,
+            **kwargs
+        )
+        self.model.fit(X_train, y_train)
+
+    def _to_feature_set(self, dataset: List[InputSample]):
+
+        samples_conll = InputSample.create_conll_dataset(dataset)
+        sentences = samples_conll.groupby("sentence")[["text", "pos", "label"]].apply(
+            lambda x: x.values.tolist()
+        )
+
+        X_train = [self.sent2features(s) for s in sentences]
+        y_train = [self.sent2labels(s) for s in sentences]
+        return X_train, y_train
 
     def predict(self, sample: InputSample) -> List[str]:
         tags = CRFModel.crf_predict(sample, self.model)

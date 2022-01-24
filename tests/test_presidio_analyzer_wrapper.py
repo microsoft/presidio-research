@@ -30,6 +30,13 @@ analyzer_test_generate_text_testdata = [
         test_input="{}/data/generated_small.json",
         acceptance_threshold=0.3,
         marks=pytest.mark.none,
+    ),
+    # small set fixture which expects all results.
+    GeneratedTextTestCase(
+        test_name="large-set",
+        test_input="{}/data/generated_large.json",
+        acceptance_threshold=0.3,
+        marks=pytest.mark.slow,
     )
 ]
 

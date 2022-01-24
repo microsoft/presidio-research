@@ -197,7 +197,7 @@ class PresidioDataGenerator:
     @staticmethod
     def update_fake_name_generator_df(fake_data: pd.DataFrame) -> DataFrame:
         """
-        Turns column names from CamelCase to snake_case and renames a few columns
+        Adapts the csv from FakeNameGenerator to fit the data generation process used here.
         :param fake_data: a pd.DataFrame with loaded data from FakeNameGenerator.com
         :return: None
         """
@@ -287,6 +287,10 @@ class PresidioDataGenerator:
             axis=1,
             result_type="expand",
         )
+
+        # Remove credit card data, rely on Faker's as it is more realistic
+        del fake_data["credit_card_number"]
+
         fake_data = pd.concat([fake_data, genderized], axis="columns")
         return fake_data
 

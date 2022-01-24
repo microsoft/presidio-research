@@ -1,8 +1,11 @@
-from presidio_evaluator import span_to_tag
+import pytest
 
-BILOU_SCHEME = "BILOU"
+from presidio_evaluator import span_to_tag, io_to_scheme
+
+BILUO_SCHEME = "BILUO"
 BIO_SCHEME = "BIO"
 IO_SCHEME = "IO"
+
 
 # fmt: off
 def test_span_to_bio_multiple_tokens():
@@ -26,30 +29,26 @@ def test_span_to_bio_single_at_end():
     end = 15
     tag = "NAME"
 
-    bilou = span_to_tag(BIO_SCHEME, text, [start], [end], [tag], )
+    biluo = span_to_tag(BIO_SCHEME, text, [start], [end], [tag], )
 
-    print(bilou)
-
-    expected = ['O', 'O', 'O', 'I-NAME']
-    assert bilou == expected
+    expected = ['O', 'O', 'O', 'B-NAME']
+    assert biluo == expected
 
 
-def test_span_to_bilou_multiple_tokens():
+def test_span_to_biluo_multiple_tokens():
     text = "My Address is 409 Bob st. Manhattan NY. I just moved in"
     start = 14
     end = 38
     tag = "ADDRESS"
 
-    bilou = span_to_tag(BILOU_SCHEME, text, [start], [end], [tag])
-
-    print(bilou)
+    biluo = span_to_tag(BILUO_SCHEME, text, [start], [end], [tag])
 
     expected = ['O', 'O', 'O', 'B-ADDRESS', 'I-ADDRESS', 'I-ADDRESS',
                 'I-ADDRESS', 'I-ADDRESS', 'L-ADDRESS', 'O', 'O', 'O', 'O', 'O']
-    assert bilou == expected
+    assert biluo == expected
 
 
-def test_span_to_bilou_adjacent_entities():
+def test_span_to_biluo_adjacent_entities():
     text = "Mr. Tree"
     start1 = 0
     end1 = 2
@@ -61,29 +60,29 @@ def test_span_to_bilou_adjacent_entities():
 
     tag = ["TITLE", "NAME"]
 
-    bilou = span_to_tag(BILOU_SCHEME, text, start, end, tag)
+    biluo = span_to_tag(BILUO_SCHEME, text, start, end, tag)
 
-    print(bilou)
+    print(biluo)
 
     expected = ['U-TITLE', 'U-NAME']
-    assert bilou == expected
+    assert biluo == expected
 
 
-def test_span_to_bilou_single_at_end():
+def test_span_to_biluo_single_at_end():
     text = "My name is Josh"
     start = 11
     end = 15
     tag = "NAME"
 
-    bilou = span_to_tag(BILOU_SCHEME, text, [start], [end], [tag])
+    biluo = span_to_tag(BILUO_SCHEME, text, [start], [end], [tag])
 
-    print(bilou)
+    print(biluo)
 
     expected = ['O', 'O', 'O', 'U-NAME']
-    assert bilou == expected
+    assert biluo == expected
 
 
-def test_span_to_bilou_multiple_entities():
+def test_span_to_biluo_multiple_entities():
     text = "My name is Josh or David"
     start1 = 11
     end1 = 15
@@ -95,12 +94,12 @@ def test_span_to_bilou_multiple_entities():
 
     tag = ["NAME", "NAME"]
 
-    bilou = span_to_tag(BILOU_SCHEME, text, start, end, tag)
+    biluo = span_to_tag(BILUO_SCHEME, text, start, end, tag)
 
-    print(bilou)
+    print(biluo)
 
     expected = ['O', 'O', 'O', 'U-NAME', 'O', 'U-NAME']
-    assert bilou == expected
+    assert biluo == expected
 
 
 def test_span_to_bio_multiple_entities():
@@ -115,13 +114,13 @@ def test_span_to_bio_multiple_entities():
 
     tag = ["NAME", "NAME"]
 
-    bilou = span_to_tag(scheme=BIO_SCHEME, text=text, starts=start,
+    biluo = span_to_tag(scheme=BIO_SCHEME, text=text, starts=start,
                         ends=end, tags=tag)
 
-    print(bilou)
+    print(biluo)
 
-    expected = ['O', 'O', 'O', 'I-NAME', 'O', 'I-NAME']
-    assert bilou == expected
+    expected = ['O', 'O', 'O', 'B-NAME', 'O', 'B-NAME']
+    assert biluo == expected
 
 
 def test_span_to_bio_specific_input():
@@ -132,11 +131,11 @@ def test_span_to_bio_specific_input():
     expected = ['O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O',
                 'O', 'O', 'B-PERSON', 'I-PERSON']
     tag = ["PERSON"]
-    bilou = span_to_tag(BIO_SCHEME, text, [start], [end], tag)
-    assert bilou == expected
+    biluo = span_to_tag(BIO_SCHEME, text, [start], [end], tag)
+    assert biluo == expected
 
 
-def test_span_to_bilou_specific_input():
+def test_span_to_biluo_specific_input():
     text = "Someone stole my credit card. The number is 5277716201469117 and " \
            "the my name is Mary Anguiano"
     start = 80
@@ -144,18 +143,18 @@ def test_span_to_bilou_specific_input():
     expected = ['O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O',
                 'O', 'O', 'B-PERSON', 'L-PERSON']
     tag = ["PERSON"]
-    bilou = span_to_tag(BILOU_SCHEME, text, [start], [end], tag)
-    assert bilou == expected
+    biluo = span_to_tag(BILUO_SCHEME, text, [start], [end], tag)
+    assert biluo == expected
 
 
-def test_span_to_bilou_adjecent_identical_entities():
+def test_span_to_biluo_adjecent_identical_entities():
     text = "May I get access to Jessica Gump's account?"
     start = 20
     end = 32
     expected = ['O', 'O', 'O', 'O', 'O', 'B-PERSON', 'L-PERSON', 'O', 'O', 'O']
     tag = ["PERSON"]
-    bilou = span_to_tag(BILOU_SCHEME, text, [start], [end], tag)
-    assert bilou == expected
+    biluo = span_to_tag(BILUO_SCHEME, text, [start], [end], tag)
+    assert biluo == expected
 
 
 def test_overlapping_entities_first_ends_in_mid_second():
@@ -234,4 +233,27 @@ def test_token_contains_span():
     expected = ["O", "O", "O", "DOMAIN_NAME"]
     io = span_to_tag(scheme=IO_SCHEME, text=text, starts=start, ends=end, tags=tag, scores=scores)
     assert io == expected
+
+
+@pytest.mark.parametrize(
+    "tags, expected_tags, scheme",
+    [
+        (["O", "O"], ["O", "O"], "IO"),
+        (["O", "O"], ["O", "O"], "BIO"),
+        (["O", "O"], ["O", "O"], "BILUO"),
+        (["name", "name", "name"], ["name", "name", "name"], "IO"),
+        (["name", "name", "name"], ["B-name", "I-name", "I-name"], "BIO"),
+        (["name", "name", "name"], ["B-name", "I-name", "L-name"], "BILUO"),
+        (["name", "name", "name", "O", "phone"], ["B-name", "I-name", "L-name", "O", "U-phone"], "BILUO"),
+        (["O", "name", "O"], ["O", "B-name", "O"], "BIO"),
+        (["O", "name", "O"], ["O", "U-name", "O"], "BILUO"),
+        (["O", "name", "O"], ["O", "U-name", "O"], "BILOU"),
+    ],
+)
+def test_io_to_scheme(tags, expected_tags, scheme):
+    actual_tags = io_to_scheme(io_tags=tags, scheme=scheme)
+    assert actual_tags == expected_tags
+
 # fmt: on
+
+

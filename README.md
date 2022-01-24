@@ -47,7 +47,7 @@ See [Data Generator README](presidio_evaluator/data_generator/README.md) for mor
 The data generation process receives a file with templates,0
 e.g. `My name is [FIRST_NAME]` and a data frame with fake PII data.
 Then, it creates new synthetic sentences by sampling templates and PII values. 
-Furthermore, it tokenizes the data, creates tags (either IO/IOB/BILOU) and spans for the newly created samples.
+Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans for the newly created samples.
 
 - For information on data generation/augmentation, 
 - see the data generator [README](presidio_evaluator/data_generator/README.md).

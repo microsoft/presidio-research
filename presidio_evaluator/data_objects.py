@@ -138,7 +138,7 @@ class InputSample(object):
         :param masked: Masked/Templated version of the raw text
         :param spans: List of spans for entities
         :param create_tags_from_span: True if tags (tokens+tags) should be added
-        :param scheme: IO, BIO/IOB or BILOU. Only applicable if span_to_tag=True
+        :param scheme: IO, BIO or BILUO. Only applicable if span_to_tag=True
         :param tokens: spaCy Doc object
         :param tags: list of strings representing the label for each token,
         given the scheme
@@ -293,7 +293,7 @@ class InputSample(object):
         i = 0
         for sample in tqdm(dataset):
             if to_bio:
-                sample.bilou_to_bio()
+                sample.biluo_to_bio()
             conll = sample.to_conll(translate_tags=translate_tags)
             for token in conll:
                 token["sentence"] = i
@@ -488,7 +488,7 @@ class InputSample(object):
             else:
                 return tag
 
-    def bilou_to_bio(self):
+    def biluo_to_bio(self):
         new_tags = []
         for tag in self.tags:
             new_tag = tag
@@ -521,15 +521,22 @@ class InputSample(object):
     def translate_input_sample_tags(self, dictionary=None, ignore_unknown=True):
         if dictionary is None:
             dictionary = PRESIDIO_SPACY_ENTITIES
+
+        # Translate tags
         self.tags = [
             InputSample.translate_tag(tag, dictionary, ignore_unknown=ignore_unknown)
             for tag in self.tags
         ]
+
+        # Translate spans
         for span in self.spans:
-            if span.entity_value in dictionary:
-                span.entity_value = dictionary[span.entity_value]
+            if span.entity_type in dictionary:
+                span.entity_type = dictionary[span.entity_type]
             elif ignore_unknown:
                 span.entity_value = "O"
+
+        # Remove spans if they were changed to "O"
+        self.spans = [span for span in self.spans if span.entity_type != "O"]
 
     @staticmethod
     def create_flair_dataset(dataset: List["InputSample"]) -> List[str]:

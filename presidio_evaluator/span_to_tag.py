@@ -19,7 +19,7 @@ def tokenize(text, model_version="en_core_web_sm") -> Doc:
 
 def _get_detailed_tags_for_span(scheme: str, cur_tags: List[str]) -> List[str]:
     """
-    Replace IO tags (e.g. O PERSON PERSON) with IOB/BIO/BILOU tags.
+    Replace IO tags (e.g. O PERSON PERSON) with BIO/BILUO tags.
     """
 
     if all([tag == "O" for tag in cur_tags]):
@@ -27,17 +27,17 @@ def _get_detailed_tags_for_span(scheme: str, cur_tags: List[str]) -> List[str]:
 
     return_tags = []
     if len(cur_tags) == 1:
-        if scheme == "BILOU":
+        if scheme == "BILUO":
             return_tags.append(f"U-{cur_tags[0]}")
         else:
-            return_tags.append(f"I-{cur_tags[0]}")
+            return_tags.append(f"B-{cur_tags[0]}")
     elif len(cur_tags) > 0:
         tg = cur_tags[0]
         for j in range(0, len(cur_tags)):
             if j == 0:
                 return_tags.append(f"B-{tg}")
             elif j == len(cur_tags) - 1:
-                if scheme == "BILOU":
+                if scheme == "BILUO":
                     return_tags.append(f"L-{tg}")
                 else:
                     return_tags.append(f"I-{tg}")
@@ -110,15 +110,15 @@ def span_to_tag(
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
-    tagging (BILOU,BIO/IOB)
-    :param scheme: labeling scheme, either BILOU, BIO/IOB or IO
+    tagging (BILUO,BIO/IOB)
+    :param scheme: labeling scheme, either BILUO, BIO/IOB or IO
     :param text: input text
     :param tokens: text tokenized to tokens
     :param starts: list of indices where entities in the text start
     :param ends: list of indices where entities in the text end
     :param tags: list of entity names
     :param scores: score of tag (confidence)
-    :return: list of strings, representing either BILOU or BIO for the input
+    :return: list of strings, representing either BILUO or BIO for the input
     """
 
     if not scores:
@@ -163,10 +163,18 @@ def span_to_tag(
 
 
 def io_to_scheme(io_tags: List[str], scheme: str) -> List[str]:
-    """Set tagging based on scheme (BIO/IOB or BILOU).
+    """Set tagging based on scheme (BIO or BILUO).
     :param io_tags: List of tags in IO (e.g. O O O PERSON PERSON O)
     :param scheme: Requested scheme (IO, BILUO or BIO)
     """
+
+    if scheme == "IO":
+        return io_tags
+
+    if scheme == "BILOU":
+        scheme = "BILUO"
+
+
     current_tag = ""
     span_index = 0
     changes = []

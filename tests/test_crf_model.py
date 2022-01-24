@@ -1,35 +1,31 @@
-import numpy as np
+import os
+import sys
+
 import pytest
 
-from presidio_evaluator import InputSample
+from presidio_evaluator import split_dataset
 from presidio_evaluator.evaluation import Evaluator
 from presidio_evaluator.models.crf_model import CRFModel
+from tests.conftest import assert_model_results_gt
+
+try:
+    import sklearn_crfsuite
+except ImportError:
+    sklearn_crfsuite = None
 
 
-# no_test since the CRF model is not supplied with the package
-@pytest.mark.skip(reason="CRF suite is not installed by default")
-def test_test_crf_simple():
-    import os
+@pytest.mark.skipif(
+    sklearn_crfsuite is None, reason="requires the sklearn_crfsuite library"
+)
+def test_crf_simple(small_dataset):
+    train_test_ratios = [0.7, 0.3]
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        os.path.join(dir_path, "data/generated_small.json")
-    )
+    train, test = split_dataset(small_dataset, train_test_ratios)
 
-    model_path = os.path.abspath(
-        os.path.join(dir_path, "..", "model-outputs/crf.pickle")
-    )
-
-    crf_model = CRFModel(model_pickle_path=model_path, entities_to_keep=["PERSON"])
+    crf_model = CRFModel(model_pickle_path=None, entities_to_keep=["PERSON"])
+    crf_model.fit(train)
     evaluator = Evaluator(model=crf_model)
-    evaluation_results = evaluator.evaluate_all(input_samples)
+    evaluation_results = evaluator.evaluate_all(test)
     scores = evaluator.calculate_score(evaluation_results)
 
-    np.testing.assert_almost_equal(
-        scores.pii_precision, scores.entity_precision_dict["PERSON"]
-    )
-    np.testing.assert_almost_equal(
-        scores.pii_recall, scores.entity_recall_dict["PERSON"]
-    )
-    assert scores.pii_recall > 0
-    assert scores.pii_precision > 0
+    assert_model_results_gt(scores, "PERSON", 0)

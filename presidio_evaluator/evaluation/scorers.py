@@ -87,7 +87,7 @@ def score_presidio_recognizer(
 
     if not input_samples:
         print("Reading dataset")
-        input_samples = InputSample.read_dataset_json("../../data/synth_dataset.txt")
+        input_samples = InputSample.read_dataset_json("../../data/synth_dataset_v2.json")
     else:
         input_samples = list(input_samples)
 
@@ -111,51 +111,3 @@ def score_presidio_recognizer(
         verbose=verbose,
     )
 
-
-def score_presidio_analyzer(
-    input_samples: Optional[List[InputSample]] = None,
-    entities_to_keep: Optional[List[str]] = None,
-    labeling_scheme: str = "BILUO",
-    verbose: bool = True,
-) -> EvaluationResult:
-    """"""
-    if not input_samples:
-        print("Reading dataset")
-        input_samples = InputSample.read_dataset_json("../../data/synth_dataset.txt")
-    else:
-        input_samples = list(input_samples)
-
-    print("Preparing dataset by aligning entity names to Presidio's entity names")
-
-    updated_samples = Evaluator.align_entity_types(
-        input_samples, entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map
-    )
-
-    flatten = lambda l: [item for sublist in l for item in sublist]
-    from collections import Counter
-
-    count_per_entity = Counter(
-        [
-            span.entity_type
-            for span in flatten(
-                [input_sample.spans for input_sample in updated_samples]
-            )
-        ]
-    )
-    if verbose:
-        print("Count per entity:")
-        print(count_per_entity)
-    analyzer = PresidioAnalyzerWrapper(
-        entities_to_keep=entities_to_keep, labeling_scheme=labeling_scheme
-    )
-
-    return score_model(
-        model=analyzer,
-        entities_to_keep=list(count_per_entity.keys()),
-        input_samples=updated_samples,
-        verbose=verbose,
-    )
-
-
-if __name__ == "__main__":
-    score_presidio_analyzer()

@@ -1,3 +1,4 @@
+import copy
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 
@@ -49,10 +50,13 @@ class BaseModel(ABC):
         if self.entity_mapping:
             sample.translate_input_sample_tags(dictionary=self.entity_mapping)
 
-    def align_prediction_types(self, tags: List[str]) -> List[str]:
+    def align_prediction_types(
+        self, tags: List[str], ignore_unknown: bool = True
+    ) -> List[str]:
         """
         Turns the model's output from the model tags to the input tags.
         :param tags: List of tags (entity names in IO or "O")
+        :param ignore_unknown: True if entity types not in entity_mapping should be translated to "O"
         :return: New tags
         """
         if not self.entity_mapping:
@@ -61,7 +65,7 @@ class BaseModel(ABC):
         inverse_mapping = {v: k for k, v in self.entity_mapping.items()}
         new_tags = [
             InputSample.translate_tag(
-                tag, dictionary=inverse_mapping, ignore_unknown=True
+                tag, dictionary=inverse_mapping, ignore_unknown=ignore_unknown
             )
             for tag in tags
         ]
@@ -87,6 +91,29 @@ class BaseModel(ABC):
         io_tags = [self._to_io(tag) for tag in tags]
 
         return io_to_scheme(io_tags=io_tags, scheme=self.labeling_scheme)
+
+    def _ignore_unwanted_entities(
+        self, dataset: List[InputSample]
+    ) -> List[InputSample]:
+        """
+        Copy dataset and turn non-requested entity types into "O"
+        :param dataset: Input dataset
+        :return: Copy of dataset with requested entity types and "O" otherwise
+        """
+        entities_in_dataset = set()
+        for sample in dataset:
+            entities_in_dataset.update(set([span.entity_type for span in sample.spans]))
+        entities_in_dataset.add("O")
+
+        entities_to_keep = set(self.entities).intersection(entities_in_dataset)
+        entities_to_ignore = entities_in_dataset.difference(self.entities)
+        self.entity_mapping = {v: "O" for v in entities_to_ignore}
+        self.entity_mapping.update({v: v for v in entities_to_keep})
+
+        dataset = copy.copy(dataset)
+
+        [self.align_entity_types(sample) for sample in dataset]
+        return dataset
 
     @staticmethod
     def _to_io(tag):
