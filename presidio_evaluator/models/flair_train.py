@@ -98,7 +98,7 @@ class FlairTrainer:
         return corpus
 
     @staticmethod
-    def train(corpus: Corpus):
+    def train(corpus):
         """
         Train a Flair model
         :param corpus: Corpus object
