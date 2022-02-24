@@ -40,14 +40,4 @@ steps:
 - script: |
     pip install pytest pytest-azurepipelines
     pytest
-  displayName: 'pytest base'
-
-- script: |
-    pip install -r requirements_all.txt
-
-  displayName: 'Install additional dependencies'
-
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest
-  displayName: 'pytest all'
+  displayName: 'pytest'
