@@ -7,7 +7,6 @@ haikunator>=2.1.0
 schwifty
 faker>=9.6.0
 scikit_learn<0.24
-sklearn_crfsuite>=0.3.6
 pytest>=6.2.3
 presidio_analyzer
 presidio_anonymizer
