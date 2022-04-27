@@ -3,20 +3,23 @@
 This package features data-science related tasks for developing new recognizers for 
 [Presidio](https://github.com/microsoft/presidio).
 It is used for the evaluation of the entire system, 
-as well as for evaluating specific PII recognizers or PII detection models
+as well as for evaluating specific PII recognizers or PII detection models. 
 In addition, it contains a fake data generator which creates fake sentences based on templates and fake PII.
+
 ## Who should use it?
 
-- Anyone interested in **developing or evaluating a PII detection model**, an existing Presidio instance or a Presidio PII recognizer.
-- Anyone interested in **generating new data based on previous datasets** or sentence templates (e.g. to increase the coverage of entity values) for Named Entity Recognition models.
+- Anyone interested in **developing or evaluating PII detection models**, an existing Presidio instance or a Presidio PII recognizer.
+- Anyone interested in **generating new data based on previous datasets or sentence templates** (e.g. to increase the coverage of entity values) for Named Entity Recognition models.
 
 ## Getting started
 
-To install the package, clone the repo and install all dependencies, preferably in a virtual environment:
+To install the package:
+1. Clone the repo
+2. Install all dependencies, preferably in a virtual environment:
 
 ``` sh
 # Create conda env (optional)
-conda create --name presidio python=3.8
+conda create --name presidio python=3.9
 conda activate presidio
 
 # Install package+dependencies
@@ -30,7 +33,7 @@ python -m spacy download en_core_web_lg
 pytest
 ```
 
-Note that some dependencies (such as Flair and Stanza) are not installed to reduce installation complexity.
+Note that some dependencies (such as Flair and Stanza) are not automatically installed to reduce installation complexity.
 
 ## What's in this package?
 
@@ -44,19 +47,13 @@ Note that some dependencies (such as Flair and Stanza) are not installed to redu
 
 See [Data Generator README](presidio_evaluator/data_generator/README.md) for more details.
 
-The data generation process receives a file with templates,0
-e.g. `My name is [FIRST_NAME]` and a data frame with fake PII data.
+The data generation process receives a file with templates, e.g. `My name is {{name}}`. 
 Then, it creates new synthetic sentences by sampling templates and PII values. 
 Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans for the newly created samples.
 
-- For information on data generation/augmentation, 
-- see the data generator [README](presidio_evaluator/data_generator/README.md).
-
-- For an example for running the generation process, 
-- see [this notebook](notebooks/1_Generate_data.ipynb).
-
-- For an understanding of the underlying fake PII data used, 
-see this [exploratory data analysis notebook](notebooks/2_PII_EDA.ipynb).
+- For information on data generation/augmentation, see the data generator [README](presidio_evaluator/data_generator/README.md).
+- For an example for running the generation process, see [this notebook](notebooks/1_Generate_data.ipynb).
+- For an understanding of the underlying fake PII data used, see this [exploratory data analysis notebook](notebooks/2_PII_EDA.ipynb).
 
 Once data is generated, it could be split into train/test/validation sets 
 while ensuring that each template only exists in one set. 
@@ -90,7 +87,7 @@ InputSample.create_spacy_dataset(dataset, output_path="dataset.spacy")
 ```python
 from presidio_evaluator import InputSample
 dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-flair = InputSample.create_flair_dataset()(dataset)
+flair = InputSample.create_flair_dataset(dataset)
 ```
 
 - json
@@ -103,14 +100,14 @@ InputSample.to_json(dataset, output_file="dataset_json")
 ## 3. PII models evaluation
 
 The presidio-evaluator framework allows you to evaluate Presidio as a system, a NER model, 
-or a specific PII recognizer for precision and recall.
+or a specific PII recognizer for precision and recall and error-analysis.
 
 
 ### Examples:
 - [Evaluate Presidio](notebooks/4_Evaluate_Presidio_Analyzer.ipynb)
 - [Evaluate spaCy models](notebooks/models/Evaluate%20spacy%20models.ipynb)
 - [Evaluate Stanza models](notebooks/models/Evaluate%20stanza%20models.ipynb)
-- [Evaluate CRF models](notebooks/models/Evaluate%20crf%20models.ipynb)
+- [Evaluate CRF models](notebooks/models/Evaluate%20CRF%20models.ipynb)
 - [Evaluate Flair models](notebooks/models/Evaluate%20flair%20models.ipynb)
 
 
