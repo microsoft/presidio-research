@@ -515,7 +515,7 @@ class InputSample(object):
         )
 
     def to_flair(self):
-        for token, i in enumerate(self.tokens):
+        for i, token in enumerate(self.tokens):
             return f"{token} {token.pos_} {self.tags[i]}"
 
     def translate_input_sample_tags(self, dictionary=None, ignore_unknown=True):

@@ -143,8 +143,10 @@ corpus = trainer.read_corpus("")
 trainer.train(corpus)
 ```
 
+> Note that the three json files are created using `InputSample.to_json`.
 
 ## For more information
+
 
 - [Blog post on NLP approaches to data anonymization](https://towardsdatascience.com/nlp-approaches-to-data-anonymization-1fb5bde6b929)
 - [Conference talk about leveraging Presidio and utilizing NLP approaches for data anonymization](https://youtu.be/Tl773LANRwY)
