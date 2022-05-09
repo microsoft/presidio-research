@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from presidio_evaluator import InputSample, Span
-from presidio_evaluator.data_generator import read_synth_dataset
+
 from presidio_evaluator.evaluation import EvaluationResult, Evaluator
 from tests.mocks import (
     IdentityTokensMockModel,
@@ -265,8 +265,8 @@ def test_dataset_to_metric_identity_model():
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(
-        "{}/data/generated_small.txt".format(dir_path), length=10
+    input_samples = InputSample.read_dataset_json(
+        "{}/data/generated_small.json".format(dir_path), length=10
     )
 
     model = IdentityTokensMockModel()
@@ -282,8 +282,8 @@ def test_dataset_to_metric_50_50_model():
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(
-        "{}/data/generated_small.txt".format(dir_path), length=100
+    input_samples = InputSample.read_dataset_json(
+        "{}/data/generated_small.json".format(dir_path), length=100
     )
 
     # Replace 50% of the predictions with a list of "O"

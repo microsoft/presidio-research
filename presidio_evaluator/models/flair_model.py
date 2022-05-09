@@ -1,6 +1,8 @@
-from typing import List, Optional, Dict
+from typing import List, Dict
 
 import spacy
+
+from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
 
 try:
     from flair.data import Sentence
@@ -9,30 +11,33 @@ try:
 except ImportError:
     print("Flair is not installed by default")
 
-from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
-from presidio_evaluator import InputSample
+from presidio_evaluator import InputSample, tokenize, span_to_tag
 from presidio_evaluator.models import BaseModel
 
 
 class FlairModel(BaseModel):
+    """
+    Evaluator for Flair models
+    :param model: model of type SequenceTagger
+    :param model_path:
+    :param entities_to_keep:
+    :param verbose:
+    and model expected entity types
+    """
+
     def __init__(
         self,
         model=None,
         model_path: str = None,
         entities_to_keep: List[str] = None,
         verbose: bool = False,
+        entity_mapping: Dict[str, str] = PRESIDIO_SPACY_ENTITIES,
     ):
-        """
-        Evaluator for Flair models
-        :param model: model of type SequenceTagger
-        :param model_path:
-        :param entities_to_keep:
-        :param verbose:
-        and model expected entity types
-        """
+
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
+            entity_mapping=entity_mapping,
         )
         if model is None:
             if model_path is None:
@@ -41,30 +46,41 @@ class FlairModel(BaseModel):
         else:
             self.model = model
 
-        self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_lg"))
+        self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_sm"))
 
     def predict(self, sample: InputSample) -> List[str]:
 
         sentence = Sentence(text=sample.full_text, use_tokenizer=self.spacy_tokenizer)
         self.model.predict(sentence)
 
-        tags = self.get_tags_from_sentence(sentence)
-        if len(tags) != len(sample.tokens):
-            print("mismatch between previous tokens and new tokens")
+        ents = sentence.get_spans("ner")
+        if ents:
+            tags, texts, start, end = zip(
+                *[(ent.tag, ent.text, ent.start_pos, ent.end_pos) for ent in ents]
+            )
 
-        if self.entities:
-            tags = [tag for tag in tags if tag in self.entities]
+            tags = [
+                tag if tag != "PER" else "PERSON" for tag in tags
+            ]  # Flair's tag for PERSON is PER
+
+            # Flair tokens might not be consistent with spaCy's tokens (even when using spacy tokenizer)
+            # Use spacy tokenization and not stanza to maintain consistency with other models:
+            if not sample.tokens:
+                sample.tokens = tokenize(sample.full_text)
+
+            # Create tags (label per token) based on stanza spans and spacy tokens
+            tags = span_to_tag(
+                scheme="IO",
+                text=sample.full_text,
+                starts=start,
+                ends=end,
+                tags=tags,
+                tokens=sample.tokens,
+            )
+        else:
+            tags = ["O" for _ in range(len(sample.tokens))]
+
+        if len(tags) != len(sample.tokens):
+            print("mismatch between input tokens and new tokens")
 
         return tags
-
-    @staticmethod
-    def get_tags_from_sentence(sentence):
-        tags = []
-        for token in sentence:
-            tags.append(token.get_tag("ner").value)
-
-        new_tags = []
-        for tag in tags:
-            new_tags.append("PERSON" if tag == "PER" else tag)
-
-        return new_tags

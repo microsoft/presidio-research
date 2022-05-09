@@ -21,6 +21,8 @@ strategy:
       python.version: '3.8'
     Python39:
       python.version: '3.9'
+    Python310:
+      python.version: '3.10'
 steps:
 - task: UsePythonVersion@0
   inputs:
@@ -33,7 +35,7 @@ steps:
     pip install -r requirements.txt
     python -m spacy download en_core_web_lg
 
-  displayName: 'Install dependencies'
+  displayName: 'Install base dependencies'
 
 - script: |
     pip install pytest pytest-azurepipelines

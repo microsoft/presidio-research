@@ -1,8 +1,9 @@
-from presidio_evaluator.data_generator import read_synth_dataset
+from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 import pytest
 
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
+
 
 # test case parameters for tests with dataset which was previously generated.
 class GeneratedTextTestCase:
@@ -26,14 +27,14 @@ cc_test_generate_text_testdata = [
     # small set fixture which expects all type results.
     GeneratedTextTestCase(
         test_name="small-set",
-        test_input="{}/data/generated_small.txt",
+        test_input="{}/data/generated_small.json",
         acceptance_threshold=1,
         marks=pytest.mark.none,
     ),
     # large set fixture which expects all type results. marked as "slow"
     GeneratedTextTestCase(
         test_name="large_set",
-        test_input="{}/data/generated_large.txt",
+        test_input="{}/data/generated_large.json",
         acceptance_threshold=1,
         marks=pytest.mark.slow,
     ),
@@ -49,7 +50,7 @@ def test_credit_card_recognizer_with_generated_text(test_input, acceptance_thres
     """
     Test credit card recognizer with a generated dataset text file
     :param test_input: input text file location
-    :param acceptance_threshold: minimim precision/recall
+    :param acceptance_threshold: minimum precision/recall
      allowed for tests to pass
     """
 
@@ -57,7 +58,7 @@ def test_credit_card_recognizer_with_generated_text(test_input, acceptance_thres
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(test_input.format(dir_path))
+    input_samples = InputSample.read_dataset_json(test_input.format(dir_path))
     scores = score_presidio_recognizer(
         recognizer=CreditCardRecognizer(),
         entities_to_keep=["CREDIT_CARD"],

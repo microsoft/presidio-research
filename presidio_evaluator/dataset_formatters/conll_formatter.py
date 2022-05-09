@@ -62,7 +62,9 @@ class CONLL2003Formatter(DatasetFormatter):
                 input_samples.append(InputSample.from_spacy_doc(doc=doc))
 
         if not files_found:
-            raise FileNotFoundError(f"No files found for pattern {self.glob_pattern} and fold {fold}")
+            raise FileNotFoundError(
+                f"No files found for pattern {self.glob_pattern} and fold {fold}"
+            )
 
         return input_samples
 

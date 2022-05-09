@@ -9,7 +9,7 @@ from presidio_evaluator import InputSample
 
 def split_dataset(dataset: List[InputSample], ratios):
     """
-    Splits a provided dataset into n groups, by the Template# attribute in each sample's metadata
+    Splits a provided dataset into n groups, by the template_id attribute
     :param dataset: List of InputSamples to be splitted
     :param ratios:  list of percentages. The len of the list would be the len of the splits returned,
     e.g. [0.7,0.2,0.1] for train, test, validation
@@ -41,7 +41,7 @@ def group_by_template(dataset: List[InputSample]) -> Dict[str, List[InputSample]
     """
     Creates a dict of key = template ID and value = List[InputSamples] for this template id
     """
-    samples_pattern_tup = [(sample.metadata["Template#"], sample) for sample in dataset]
+    samples_pattern_tup = [(sample.template_id, sample) for sample in dataset]
 
     group_by_template = defaultdict(list)
     for sample in samples_pattern_tup:

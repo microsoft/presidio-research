@@ -1,14 +1,15 @@
-from presidio_evaluator.data_generator import read_synth_dataset
-from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
-
 import pytest
 from presidio_analyzer.predefined_recognizers.spacy_recognizer import SpacyRecognizer
+
+from presidio_evaluator import InputSample
+from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 
 
 class GeneratedTextTestCase:
     """
     Test case parameters for tests with dataset which was previously generated.
     """
+
     def __init__(self, test_name, test_input, acceptance_threshold, marks):
         self.test_name = test_name
         self.test_input = test_input
@@ -29,14 +30,14 @@ cc_test_generate_text_testdata = [
     # small dataset, inconclusive results
     GeneratedTextTestCase(
         test_name="small-set",
-        test_input="{}/data/generated_small.txt",
+        test_input="{}/data/generated_small.json",
         acceptance_threshold=0.5,
-        marks=pytest.mark.inconclusive,
+        marks=pytest.mark.none,
     ),
     # large dataset - test is slow and inconclusive
     GeneratedTextTestCase(
         test_name="large-set",
-        test_input="{}/data/generated_large.txt",
+        test_input="{}/data/generated_large.json",
         acceptance_threshold=0.5,
         marks=pytest.mark.slow,
     ),
@@ -60,7 +61,7 @@ def test_spacy_recognizer_with_generated_text(test_input, acceptance_threshold):
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = read_synth_dataset(test_input.format(dir_path))
+    input_samples = InputSample.read_dataset_json(test_input.format(dir_path))
     scores = score_presidio_recognizer(
         SpacyRecognizer(), ["PERSON"], input_samples, with_nlp_artifacts=True
     )

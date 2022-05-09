@@ -29,10 +29,12 @@ def get_mock_fake_df(**kwargs):
         "NationalID": "14124",
         "Occupation": "Hunter",
         "Company": "Lolo and sons",
-        "Domain": "lolo.com"}
+        "Domain": "lolo.com",
+    }
 
     dict.update(kwargs)
 
     import pandas as pd
+
     fake_pii_df = pd.DataFrame(dict, index=[0])
     return fake_pii_df

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import EvaluationResult, ModelError
-from presidio_evaluator.models import BaseModel, PresidioAnalyzerWrapper
+from presidio_evaluator.models import BaseModel
 
 
 class Evaluator:
@@ -81,34 +81,34 @@ class Evaluator:
                 if prediction[i] == "O":
                     mistakes.append(
                         ModelError(
-                            "FN",
-                            new_annotation[i],
-                            prediction[i],
-                            tokens[i],
-                            input_sample.full_text,
-                            input_sample.metadata,
+                            error_type="FN",
+                            annotation=new_annotation[i],
+                            prediction=prediction[i],
+                            token=tokens[i],
+                            full_text=input_sample.full_text,
+                            metadata=input_sample.metadata,
                         )
                     )
                 elif new_annotation[i] == "O":
                     mistakes.append(
                         ModelError(
-                            "FP",
-                            new_annotation[i],
-                            prediction[i],
-                            tokens[i],
-                            input_sample.full_text,
-                            input_sample.metadata,
+                            error_type="FP",
+                            annotation=new_annotation[i],
+                            prediction=prediction[i],
+                            token=tokens[i],
+                            full_text=input_sample.full_text,
+                            metadata=input_sample.metadata,
                         )
                     )
                 else:
                     mistakes.append(
                         ModelError(
-                            "Wrong entity",
-                            new_annotation[i],
-                            prediction[i],
-                            tokens[i],
-                            input_sample.full_text,
-                            input_sample.metadata,
+                            error_type="Wrong entity",
+                            annotation=new_annotation[i],
+                            prediction=prediction[i],
+                            token=tokens[i],
+                            full_text=input_sample.full_text,
+                            metadata=input_sample.metadata,
                         )
                     )
 
@@ -117,14 +117,16 @@ class Evaluator:
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
             return [tag if tag in self.entities_to_keep else "O" for tag in tags]
+        else:
+            return tags
 
     @staticmethod
     def _to_io(tags):
         """
-        Translates BILOU/BIO/IOB to IO - only In or Out of entity.
+        Translates BILUO/BIO/IOB to IO - only In or Out of entity.
         ['B-PERSON','I-PERSON','L-PERSON'] is translated into
         ['PERSON','PERSON','PERSON']
-        :param tags: the input tags in BILOU/IOB/BIO format
+        :param tags: the input tags in BILUO/IOB/BIO format
         :return: a new list of IO tags
         """
         return [tag[2:] if "-" in tag else tag for tag in tags]
@@ -140,8 +142,24 @@ class Evaluator:
 
     def evaluate_all(self, dataset: List[InputSample]) -> List[EvaluationResult]:
         evaluation_results = []
-        for sample in tqdm(dataset, desc="Evaluating {}".format(self.__class__)):
+        if self.model.entity_mapping:
+            print(
+                f"Mapping entity values using this dictionary: {self.model.entity_mapping}"
+            )
+        for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
+
+            # Align tag values to the ones expected by the model
+            self.model.align_entity_types(sample)
+
+            # Predict
             prediction = self.model.predict(sample)
+
+            # Remove entities not requested
+            prediction = self.model.filter_tags_in_supported_entities(prediction)
+
+            # Switch to requested labeling scheme (IO/BIO/BILUO)
+            prediction = self.model.to_scheme(prediction)
+
             evaluation_result = self.evaluate_sample(
                 sample=sample, prediction=prediction
             )
@@ -152,10 +170,8 @@ class Evaluator:
     @staticmethod
     def align_entity_types(
         input_samples: List[InputSample],
-        entities_mapping: Dict[
-            str, str
-        ] = None,
-        allow_missing_mappings: bool = False
+        entities_mapping: Dict[str, str] = None,
+        allow_missing_mappings: bool = False,
     ) -> List[InputSample]:
         """
         Change input samples to conform with Presidio's entities
@@ -180,7 +196,9 @@ class Evaluator:
                     new_spans.append(span)
                 else:
                     if not allow_missing_mappings:
-                        raise ValueError(f"Key {span.entity_type} cannot be found in the provided entities_mapping")
+                        raise ValueError(
+                            f"Key {span.entity_type} cannot be found in the provided entities_mapping"
+                        )
             input_sample.spans = new_spans
 
             # Update tags in case this sample has relevant entities for evaluation
@@ -212,7 +230,7 @@ class Evaluator:
         beta: float = 2.5,
     ) -> EvaluationResult:
         """
-        Returns the pii_precision, pii_recall and f_measure either for each entity
+        Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
         or for all entities (ignore_entity_type = True)
         :param evaluation_results: List of EvaluationResult
         :param entities: List of entities to calculate score to. Default is None: all entities
@@ -227,6 +245,7 @@ class Evaluator:
         # compute pii_recall per entity
         entity_recall = {}
         entity_precision = {}
+        n = {}
         if not entities:
             entities = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
 
@@ -234,6 +253,7 @@ class Evaluator:
             # all annotation of given type
             annotated = sum([all_results[x] for x in all_results if x[0] == entity])
             predicted = sum([all_results[x] for x in all_results if x[1] == entity])
+            n[entity] = annotated
             tp = all_results[(entity, entity)]
 
             if annotated > 0:
@@ -285,12 +305,17 @@ class Evaluator:
             if res.model_errors:
                 errors.extend(res.model_errors)
 
-        evaluation_result = EvaluationResult(results=all_results, model_errors=errors)
-        evaluation_result.pii_precision = pii_precision
-        evaluation_result.pii_recall = pii_recall
-        evaluation_result.entity_recall_dict = entity_recall
-        evaluation_result.entity_precision_dict = entity_precision
-        evaluation_result.pii_f = pii_f_beta
+        evaluation_result = EvaluationResult(
+            results=all_results,
+            model_errors=errors,
+            pii_precision=pii_precision,
+            pii_recall=pii_recall,
+            entity_recall_dict=entity_recall,
+            entity_precision_dict=entity_precision,
+            n_dict=n,
+            pii_f=pii_f_beta,
+            n=sum(n.values()),
+        )
 
         return evaluation_result
 

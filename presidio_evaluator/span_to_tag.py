@@ -1,28 +1,25 @@
-from typing import List
+from typing import List, Optional
 
 import spacy
-from spacy.tokens import Token
+from spacy.tokens import Doc
 
 loaded_spacy = {}
 
 
-def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_lg"):
+def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_sm"):
     if model_version not in loaded_spacy:
         print("loading model {}".format(model_version))
         loaded_spacy[model_version] = spacy.load(model_version)
     return loaded_spacy[model_version]
 
 
-def tokenize(text, model_version="en_core_web_lg"):
+def tokenize(text, model_version="en_core_web_sm") -> Doc:
     return get_spacy(model_version=model_version)(text)
 
 
-def _get_detailed_tags(scheme, cur_tags):
+def _get_detailed_tags_for_span(scheme: str, cur_tags: List[str]) -> List[str]:
     """
-    Replaces IO tags (e.g. PERSON PERSON) with IOB/BIO/BILOU tags
-    :param cur_tags:
-    :param scheme:
-    :return:
+    Replace IO tags (e.g. O PERSON PERSON) with BIO/BILUO tags.
     """
 
     if all([tag == "O" for tag in cur_tags]):
@@ -30,22 +27,22 @@ def _get_detailed_tags(scheme, cur_tags):
 
     return_tags = []
     if len(cur_tags) == 1:
-        if scheme == "BILOU":
-            return_tags.append("U-{}".format(cur_tags[0]))
+        if scheme == "BILUO":
+            return_tags.append(f"U-{cur_tags[0]}")
         else:
-            return_tags.append("I-{}".format(cur_tags[0]))
+            return_tags.append(f"B-{cur_tags[0]}")
     elif len(cur_tags) > 0:
         tg = cur_tags[0]
         for j in range(0, len(cur_tags)):
             if j == 0:
-                return_tags.append("B-{}".format(tg))
+                return_tags.append(f"B-{tg}")
             elif j == len(cur_tags) - 1:
-                if scheme == "BILOU":
-                    return_tags.append("L-{}".format(tg))
+                if scheme == "BILUO":
+                    return_tags.append(f"L-{tg}")
                 else:
-                    return_tags.append("I-{}".format(tg))
+                    return_tags.append(f"I-{tg}")
             else:
-                return_tags.append("I-{}".format(tg))
+                return_tags.append(f"I-{tg}")
     return return_tags
 
 
@@ -105,30 +102,30 @@ def _handle_overlaps(start, end, tag, score):
 def span_to_tag(
     scheme: str,
     text: str,
-    start: List[int],
-    end: List[int],
-    tag: List[str],
-    scores: List[float] = None,
-    tokens: List[spacy.tokens.Token] = None,
+    starts: List[int],
+    ends: List[int],
+    tags: List[str],
+    scores: Optional[List[float]] = None,
+    tokens: Optional[Doc] = None,
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
-    tagging (BILOU,BIO/IOB)
-    :param scheme: labeling scheme, either BILOU, BIO/IOB or IO
+    tagging (BILUO,BIO/IOB)
+    :param scheme: labeling scheme, either BILUO, BIO/IOB or IO
     :param text: input text
     :param tokens: text tokenized to tokens
-    :param start: list of indices where entities in the text start
-    :param end: list of indices where entities in the text end
-    :param tag: list of entity names
+    :param starts: list of indices where entities in the text start
+    :param ends: list of indices where entities in the text end
+    :param tags: list of entity names
     :param scores: score of tag (confidence)
-    :return: list of strings, representing either BILOU or BIO for the input
+    :return: list of strings, representing either BILUO or BIO for the input
     """
 
     if not scores:
         # assume all scores are of equal weight
-        scores = [0.5 for start in start]
+        scores = [0.5 for start in starts]
 
-    start, end, tag, scores = _handle_overlaps(start, end, tag, scores)
+    starts, ends, tags, scores = _handle_overlaps(starts, ends, tags, scores)
 
     if not tokens:
         tokens = tokenize(text)
@@ -136,10 +133,24 @@ def span_to_tag(
     io_tags = []
     for token in tokens:
         found = False
-        for span_index in range(0, len(start)):
-            if start[span_index] <= token.idx < end[span_index]:
-                io_tags.append(tag[span_index])
+        for span_index in range(0, len(starts)):
+            span_start_in_token = (
+                token.idx <= starts[span_index] <= token.idx + len(token.text)
+            )
+            span_end_in_token = (
+                token.idx <= ends[span_index] <= token.idx + len(token.text)
+            )
+            if (
+                starts[span_index] <= token.idx < ends[span_index]
+            ):  # token start is between start and end
+                io_tags.append(tags[span_index])
                 found = True
+            elif (
+                span_start_in_token and span_end_in_token
+            ):  # span is within token boundaries (special case)
+                io_tags.append(tags[span_index])
+                found = True
+            if found:
                 break
 
         if not found:
@@ -147,8 +158,23 @@ def span_to_tag(
 
     if scheme == "IO":
         return io_tags
+    else:
+        return io_to_scheme(io_tags, scheme)
 
-    # Set tagging based on scheme (BIO/IOB or BILOU)
+
+def io_to_scheme(io_tags: List[str], scheme: str) -> List[str]:
+    """Set tagging based on scheme (BIO or BILUO).
+    :param io_tags: List of tags in IO (e.g. O O O PERSON PERSON O)
+    :param scheme: Requested scheme (IO, BILUO or BIO)
+    """
+
+    if scheme == "IO":
+        return io_tags
+
+    if scheme == "BILOU":
+        scheme = "BILUO"
+
+
     current_tag = ""
     span_index = 0
     changes = []
@@ -158,13 +184,11 @@ def span_to_tag(
         span_index += 1
         current_tag = io_tag
     changes.append(len(io_tags))
-
     new_return_tags = []
     for i in range(len(changes) - 1):
         new_return_tags.extend(
-            _get_detailed_tags(
+            _get_detailed_tags_for_span(
                 scheme=scheme, cur_tags=io_tags[changes[i] : changes[i + 1]]
             )
         )
-
     return new_return_tags

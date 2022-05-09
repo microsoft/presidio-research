@@ -4,15 +4,25 @@ from presidio_evaluator import InputSample
 from presidio_evaluator.models import BaseModel
 
 
+class MockModel(BaseModel):
+
+    def predict(self, sample: InputSample) -> List[str]:
+        pass
+
+
 class MockTokensModel(BaseModel):
     """
     Simulates a real model, returns the prediction given in the constructor
     """
 
-    def __init__(self, prediction: Optional[List[str]], entities_to_keep: List = None,
-                 verbose: bool = False, **kwargs):
-        super().__init__(entities_to_keep=entities_to_keep, verbose=verbose,
-                         **kwargs)
+    def __init__(
+        self,
+        prediction: Optional[List[str]],
+        entities_to_keep: List = None,
+        verbose: bool = False,
+        **kwargs
+    ):
+        super().__init__(entities_to_keep=entities_to_keep, verbose=verbose, **kwargs)
         self.prediction = prediction
 
     def predict(self, sample: InputSample) -> List[str]:
@@ -37,8 +47,7 @@ class FiftyFiftyIdentityTokensMockModel(BaseModel):
     alternately
     """
 
-    def __init__(self, entities_to_keep: List = None,
-                 verbose: bool = False):
+    def __init__(self, entities_to_keep: List = None, verbose: bool = False):
         super().__init__(entities_to_keep=entities_to_keep, verbose=verbose)
         self.counter = 0
 

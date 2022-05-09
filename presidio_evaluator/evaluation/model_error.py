@@ -1,8 +1,7 @@
 from typing import Dict, List
 
-from presidio_evaluator.data_objects import SimpleToken
-
 import pandas as pd
+from spacy.tokens import Token
 
 
 class ModelError:
@@ -11,7 +10,7 @@ class ModelError:
         error_type: str,
         annotation: str,
         prediction: str,
-        token: SimpleToken,
+        token: Token,
         full_text: str,
         metadata: Dict,
     ):
@@ -50,12 +49,13 @@ class ModelError:
         )
 
     def __repr__(self):
-        return r"<ModelError {{0}}>".format(self.__str__())
+        return f"<ModelError {self.__str__()}"
 
     @staticmethod
     def most_common_fp_tokens(errors=List["ModelError"], n: int = 10, entity=None):
         """
-        Print the n most common false positive tokens (tokens thought to be an entity)
+        Print the n most common false positive tokens
+        (tokens thought to be an entity)
         """
         fps = ModelError.get_false_positives(errors, entity)
 
@@ -74,7 +74,8 @@ class ModelError:
     @staticmethod
     def most_common_fn_tokens(errors=List["ModelError"], n: int = 10, entity=None):
         """
-        Print all tokens that were missed by the model, including an example of the full text in which they appear
+        Print all tokens that were missed by the model,
+        including an example of the full text in which they appear.
         """
         fns = ModelError.get_false_negatives(errors, entity)
 
@@ -82,7 +83,7 @@ class ModelError:
         from collections import Counter
 
         by_frequency_fns = Counter(fns_tokens)
-        most_common_fns = by_frequency_fns.most_common(50)
+        most_common_fns = by_frequency_fns.most_common(n)
         print(most_common_fns)
         for tok, val in most_common_fns:
             with_tok = [err for err in fns if err.token.text == tok]
@@ -123,14 +124,14 @@ class ModelError:
         return new_errors_df
 
     @staticmethod
-    def get_fps_dataframe(errors=List["ModelError"], entity: str = None):
+    def get_fps_dataframe(errors=List["ModelError"], entity: List[str] = None):
         """
         Get false positive ModelErrors as pd.DataFrame
         """
         return ModelError.get_errors_df(errors, entity, error_type="FP")
 
     @staticmethod
-    def get_fns_dataframe(errors=List["ModelError"], entity: str = None):
+    def get_fns_dataframe(errors=List["ModelError"], entity: List[str] = None):
         """
         Get false negative ModelErrors as pd.DataFrame
         """
