@@ -35,6 +35,8 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
+        "presidio_analyzer",
+        "presidio_anonymizer",
         "spacy>=3.0.0",
         "requests",
         "numpy",
