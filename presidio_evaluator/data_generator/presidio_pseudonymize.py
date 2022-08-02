@@ -1,11 +1,9 @@
-from typing import List, Set, Dict
+from typing import List
 
 from presidio_analyzer import RecognizerResult
 from presidio_anonymizer import AnonymizerEngine
 
 from presidio_evaluator.data_generator import PresidioDataGenerator
-
-import pandas as pd
 
 
 class PresidioPseudonymization(PresidioDataGenerator):
@@ -33,10 +31,10 @@ class PresidioPseudonymization(PresidioDataGenerator):
             self.add_provider_alias("date_time", "DATE_TIME")
 
     def pseudonymize(
-        self,
-        original_text: str,
-        presidio_response: List[RecognizerResult],
-        count: int,
+            self,
+            original_text: str,
+            presidio_response: List[RecognizerResult],
+            count: int,
     ):
         """
 
