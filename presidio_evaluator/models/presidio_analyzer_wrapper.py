@@ -66,35 +66,32 @@ class PresidioAnalyzerWrapper(BaseModel):
         return response_tags
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
-    presidio_entities_map = {
-        "PERSON": "PERSON",
-        "GPE": "LOCATION",
-        "EMAIL_ADDRESS": "EMAIL_ADDRESS",
-        "CREDIT_CARD": "CREDIT_CARD",
-        "FIRST_NAME": "PERSON",
-        "LAST_NAME": "PERSON",
-        "PHONE_NUMBER": "PHONE_NUMBER",
-        "BIRTHDAY": "DATE_TIME",
-        "DATE_TIME": "DATE_TIME",
-        "DOMAIN_NAME": "DOMAIN_NAME",
-        "CITY": "LOCATION",
-        "ADDRESS": "LOCATION",
-        "NATIONALITY": "LOCATION",
-        "LOCATION": "LOCATION",
-        "IBAN_CODE": "IBAN_CODE",
-        "URL": "DOMAIN_NAME",
-        "US_SSN": "US_SSN",
-        "IP_ADDRESS": "IP_ADDRESS",
-        "ORGANIZATION": "ORG",
-        "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
-        "NRP": "NRP",
-        "TITLE": "O",  # not supported
-        "PREFIX": "O",  # not supported
-        "STREET_ADDRESS": "O",  # not supported
-        "ZIP_CODE": "O",  # not supported
-        "AGE": "O",  # not supported
-        "O": "O",
-    }
+    presidio_entities_map = dict(PERSON="PERSON",
+                                 GPE="LOCATION",
+                                 EMAIL_ADDRESS="EMAIL_ADDRESS",
+                                 CREDIT_CARD="CREDIT_CARD",
+                                 FIRST_NAME="PERSON",
+                                 LAST_NAME="PERSON",
+                                 PHONE_NUMBER="PHONE_NUMBER",
+                                 BIRTHDAY="DATE_TIME",
+                                 DATE_TIME="DATE_TIME",
+                                 DOMAIN_NAME="URL",
+                                 CITY="LOCATION",
+                                 ADDRESS="LOCATION",
+                                 NATIONALITY="NRP",
+                                 LOCATION="LOCATION",
+                                 IBAN_CODE="IBAN_CODE",
+                                 US_SSN="US_SSN",
+                                 IP_ADDRESS="IP_ADDRESS",
+                                 ORGANIZATION="O",
+                                 US_DRIVER_LICENSE="US_DRIVER_LICENSE",
+                                 NRP="NRP",
+                                 TITLE="O",  # not supported
+                                 PREFIX="O",  # not supported
+                                 STREET_ADDRESS="O",  # not supported
+                                 ZIP_CODE="O",  # not supported
+                                 AGE="O",  # not supported
+                                 O="O")
 
     def _update_recognizers_based_on_entities_to_keep(
         self, analyzer_engine: AnalyzerEngine
