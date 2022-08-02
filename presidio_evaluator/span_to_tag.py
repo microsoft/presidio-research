@@ -107,6 +107,7 @@ def span_to_tag(
     tags: List[str],
     scores: Optional[List[float]] = None,
     tokens: Optional[Doc] = None,
+    token_model_version: str = "en_core_web_sm"
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
@@ -118,6 +119,7 @@ def span_to_tag(
     :param ends: list of indices where entities in the text end
     :param tags: list of entity names
     :param scores: score of tag (confidence)
+    :param token_model_version: version of the model used for tokenization if no tokens provided
     :return: list of strings, representing either BILUO or BIO for the input
     """
 
@@ -128,7 +130,7 @@ def span_to_tag(
     starts, ends, tags, scores = _handle_overlaps(starts, ends, tags, scores)
 
     if not tokens:
-        tokens = tokenize(text)
+        tokens = tokenize(text, token_model_version)
 
     io_tags = []
     for token in tokens:
