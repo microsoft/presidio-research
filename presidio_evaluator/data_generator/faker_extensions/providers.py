@@ -7,15 +7,16 @@ import pandas as pd
 from faker.providers import BaseProvider
 from faker.providers.address.en_US import Provider as AddressProvider
 from faker.providers.phone_number.en_US import Provider as PhoneNumberProvider
+from presidio_evaluator.data_generator import raw_data
+
+_raw_data_dir = Path(raw_data.__path__[0])
 
 
 class NationalityProvider(BaseProvider):
     def __init__(self, generator, nationality_file: Union[str, Path] = None):
         super().__init__(generator=generator)
         if not nationality_file:
-            nationality_file = Path(
-                Path(__file__).parent.parent, "raw_data", "nationalities.csv"
-            ).resolve()
+            nationality_file = (_raw_data_dir / "nationalities.csv").resolve()
 
         self.nationality_file = nationality_file
         self.nationalities = self.load_nationalities()
@@ -47,9 +48,7 @@ class OrganizationProvider(BaseProvider):
     ):
         super().__init__(generator=generator)
         if not organizations_file:
-            organizations_file = Path(
-                Path(__file__).parent.parent, "raw_data", "organizations.csv"
-            ).resolve()
+            organizations_file = (_raw_data_dir / "organizations.csv").resolve()
         self.organizations_file = organizations_file
         self.organizations = self.load_organizations()
 
@@ -71,9 +70,7 @@ class UsDriverLicenseProvider(BaseProvider):
     ):
         super().__init__(generator=generator)
         if not us_driver_license_file:
-            us_driver_license_file = Path(
-                Path(__file__).parent.parent, "raw_data", "us_driver_licenses.csv"
-            ).resolve()
+            us_driver_license_file = (_raw_data_dir / "us_driver_licenses.csv").resolve()
         self.us_driver_license_file = us_driver_license_file
         self.us_driver_licenses = self.load_us_driver_licenses()
 
