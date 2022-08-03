@@ -1,4 +1,4 @@
-from .presidio_data_generator import PresidioDataGenerator
+from .presidio_data_generator import PresidioDataGenerator, PresidioFakeRecordGenerator
 from .presidio_pseudonymize import PresidioPseudonymization
 
 
@@ -8,4 +8,4 @@ def read_synth_dataset():
     )
 
 
-__all__ = ["PresidioDataGenerator", "PresidioPseudonymization", "read_synth_dataset"]
+__all__ = ["PresidioDataGenerator", "PresidioFakeRecordGenerator", "PresidioPseudonymization", "read_synth_dataset"]

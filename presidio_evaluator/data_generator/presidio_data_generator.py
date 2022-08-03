@@ -9,9 +9,11 @@ import numpy as np
 import pandas as pd
 from faker import Faker
 from faker.providers import BaseProvider
+from faker.typing import SeedType
 from pandas import DataFrame
 from tqdm import tqdm
 
+from presidio_evaluator.data_generator import raw_data
 from presidio_evaluator.data_generator.faker_extensions import (
     FakerSpansResult,
     NationalityProvider,
@@ -28,10 +30,10 @@ from presidio_evaluator.data_generator.faker_extensions import (
 
 class PresidioDataGenerator:
     def __init__(
-        self,
-        custom_faker: Faker = None,
-        locale: Optional[List[str]] = None,
-        lower_case_ratio: float = 0.05,
+            self,
+            custom_faker: Faker = None,
+            locale: Optional[List[str]] = None,
+            lower_case_ratio: float = 0.05,
     ):
         """
         Fake data generator.
@@ -82,7 +84,7 @@ class PresidioDataGenerator:
         self.lower_case_ratio = lower_case_ratio
 
     def parse(
-        self, template: str, template_id: Optional[int] = None, add_spans: bool = True
+            self, template: str, template_id: Optional[int] = None, add_spans: bool = True
     ) -> Union[FakerSpansResult, str]:
         """
         This function replaces known PII {{tokens}} in a template sentence
@@ -136,8 +138,8 @@ class PresidioDataGenerator:
         templates = [
             (
                 re.sub(r"\[.*?\]", make_lower_case, template.strip())
-                .replace("[", "{" + "{")
-                .replace("]", "}" + "}")
+                    .replace("[", "{" + "{")
+                    .replace("]", "}" + "}")
             )
             for template in raw_templates
         ]
@@ -145,7 +147,7 @@ class PresidioDataGenerator:
         return templates
 
     def generate_fake_data(
-        self, templates: List[str], n_samples: int
+            self, templates: List[str], n_samples: int
     ) -> Union[Generator[FakerSpansResult, None, None], Generator[str, None, None]]:
         """
         Generates fake PII data whenever it encounters known faker entities in a template.
@@ -173,9 +175,9 @@ class PresidioDataGenerator:
                 span.value = str(span.value).lower()
             return pattern
 
-    @staticmethod
-    def seed(seed_value=42):
+    def seed(self, seed_value=42):
         Faker.seed(seed_value)
+        self.faker.seed_instance(seed_value)
         random.seed(seed_value)
         np.random.seed(seed_value)
 
@@ -209,16 +211,10 @@ class PresidioDataGenerator:
 
         def full_name(row):
             if random.random() > 0.2:
-                return str(row.first_name) + " " + str(row.last_name)
+                return f'{row.first_name} {row.last_name}'
             else:
                 space_after_initials = " " if random.random() > 0.5 else ". "
-                return (
-                    str(row.first_name)
-                    + " "
-                    + str(row.middle_initial)
-                    + space_after_initials
-                    + str(row.last_name)
-                )
+                return f'{row.first_name} {row.middle_initial}{space_after_initials}{row.last_name}'
 
         def name_gendered(row):
             first_name_female, prefix_female, last_name_female = (
@@ -295,48 +291,117 @@ class PresidioDataGenerator:
         return fake_data
 
 
+class PresidioFakeRecordGenerator:
+    """
+    Fake record generator.
+    Leverages PresidioDataGenerator and the existing templates and new providers in this library to give a high level
+    interface for generating a list of fake records.
+    :param: locale: The faker locale to use e.g. 'en_US'
+    :param lower_case_ratio: Percentage of names that should start with lower case
+    :param: additional_entity_providers: Custom entity providers beyond those existing in this library
+    :param: additional_sentence_templates: Custom sentence templates beyond those existing in this library
+    :param: random_seed: A seed to make results reproducible between runs
+    """
+
+    faker_to_presidio_entity_type = dict(person="PERSON",
+                                         ip_address="IP_ADDRESS",
+                                         us_driver_license="US_DRIVER_LICENSE",
+                                         organization="ORGANIZATION",
+                                         name_female="PERSON",
+                                         address="STREET_ADDRESS",
+                                         country="GPE",
+                                         state="GPE",
+                                         credit_card_number="CREDIT_CARD",
+                                         city="GPE",
+                                         street_name="STREET_ADDRESS",
+                                         building_number="STREET_ADDRESS",
+                                         name="PERSON",
+                                         iban="IBAN_CODE",
+                                         last_name="PERSON",
+                                         last_name_male="PERSON",
+                                         last_name_female="PERSON",
+                                         first_name="PERSON",
+                                         first_name_male="PERSON",
+                                         first_name_female="PERSON",
+                                         phone_number="PHONE_NUMBER",
+                                         url="DOMAIN_NAME",
+                                         ssn="US_SSN",
+                                         email="EMAIL_ADDRESS",
+                                         date_time="DATE_TIME",
+                                         date_of_birth="DATE_TIME",
+                                         day_of_week="DATE_TIME",
+                                         year="DATE_TIME",
+                                         name_male="PERSON",
+                                         prefix_male="TITLE",
+                                         prefix_female="TITLE",
+                                         prefix="TITLE",
+                                         nationality="NRP",
+                                         nation_woman="NRP",
+                                         nation_man="NRP",
+                                         nation_plural="NRP",
+                                         first_name_nonbinary="PERSON",
+                                         postcode="STREET_ADDRESS",
+                                         secondary_address="STREET_ADDRESS",
+                                         job="TITLE",
+                                         zipcode="ZIP_CODE",
+                                         state_abbr="GPE",
+                                         age="AGE")
+
+    def __init__(self,
+                 locale: str,
+                 lower_case_ratio: float,
+                 additional_entity_providers: List[BaseProvider] = [],
+                 additional_sentence_templates: List[str] = [],
+                 random_seed: SeedType = None):
+        raw_data_dir = Path(raw_data.__path__[0])
+
+        presidio_templates_file_path = raw_data_dir / "templates.txt"
+        self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
+        self._sentence_templates.extend(additional_sentence_templates)
+
+        presidio_additional_entity_providers = [IpAddressProvider,
+                                                NationalityProvider,
+                                                OrganizationProvider,
+                                                UsDriverLicenseProvider,
+                                                AgeProvider,
+                                                AddressProviderNew,
+                                                PhoneNumberProviderNew]
+        additional_entity_providers.extend(presidio_additional_entity_providers)
+
+        fake_person_data_path = raw_data_dir / "FakeNameGenerator.com_3000.csv"
+        fake_person_df = pd.read_csv(fake_person_data_path)
+        fake_person_df = PresidioDataGenerator.update_fake_name_generator_df(fake_person_df)
+        faker = RecordsFaker(records=fake_person_df, locale=locale)
+
+        for entity_provider in additional_entity_providers:
+            faker.add_provider(entity_provider)
+
+        self._data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=lower_case_ratio)
+        self._data_generator.seed(random_seed)
+        provider_aliases = dict(name='person', credit_card_number='credit_card', date_of_birth='birthday')
+        for provider, alias in provider_aliases.items():
+            self._data_generator.add_provider_alias(provider_name=provider, new_name=alias)
+
+        self.fake_records = None
+
+    def generate_new_fake_records(self, num_samples: int) -> List[FakerSpansResult]:
+        self.fake_records = list(self._data_generator.generate_fake_data(templates=self._sentence_templates,
+                                                                         n_samples=num_samples))
+        # Map faker generated entity types to Presidio entity types
+        for sample in self.fake_records:
+            for span in sample.spans:
+                span.type = self.faker_to_presidio_entity_type[span.type]
+            for key, value in self.faker_to_presidio_entity_type.items():
+                sample.template = sample.template.replace("{{%s}}" % key, "{{%s}}" % value)
+        return self.fake_records
+
+
 if __name__ == "__main__":
-    PresidioDataGenerator.seed(42)
-
-    template_file_path = Path(Path(__file__).parent, "raw_data", "templates.txt")
-
-    # Read FakeNameGenerator data
-    fake_data_df = pd.read_csv(
-        Path(Path(__file__).parent, "raw_data", "FakeNameGenerator.com_3000.csv")
-    )
-    # Convert column names to lowercase to match patterns
-    fake_data_df = PresidioDataGenerator.update_fake_name_generator_df(fake_data_df)
-
-    # Create a RecordsFaker (Faker object which prefers samples multiple objects from one record)
-    faker = RecordsFaker(records=fake_data_df, local="en_US")
-    faker.add_provider(IpAddressProvider)
-    faker.add_provider(NationalityProvider)
-    faker.add_provider(OrganizationProvider)
-    faker.add_provider(UsDriverLicenseProvider)
-    faker.add_provider(AgeProvider)
-    faker.add_provider(AddressProviderNew)  # More address formats than Faker
-    faker.add_provider(PhoneNumberProviderNew)  # More phone number formats than Faker
-
-    # Create Presidio Data Generator
-    data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=0.05)
-    data_generator.add_provider_alias(provider_name="name", new_name="person")
-    data_generator.add_provider_alias(
-        provider_name="credit_card_number", new_name="credit_card"
-    )
-    data_generator.add_provider_alias(
-        provider_name="date_of_birth", new_name="birthday"
-    )
-
-    sentence_templates = PresidioDataGenerator.read_template_file(template_file_path)
-    fake_patterns = data_generator.generate_fake_data(
-        templates=sentence_templates, n_samples=10000
-    )
-
-    # save to json
-    output_file = Path(
-        Path(__file__).parent.parent.parent, "data", "presidio_data_generator_data.json"
-    )
-
+    entity_generator = PresidioFakeRecordGenerator(locale="en_US", lower_case_ratio=0.05,
+                                                   random_seed=42)
+    fake_patterns = entity_generator.generate_new_fake_records(num_samples=10000)
+    repo_root = Path(__file__).parent.parent.parent
+    output_file = repo_root / "data/presidio_data_generator_data.json"
     to_json = [dataclasses.asdict(pattern) for pattern in fake_patterns]
     with open("{}".format(output_file), "w+", encoding="utf-8") as f:
         json.dump(to_json, f, ensure_ascii=False, indent=2)
