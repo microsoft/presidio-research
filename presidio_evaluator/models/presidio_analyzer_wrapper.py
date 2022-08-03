@@ -28,15 +28,17 @@ class PresidioAnalyzerWrapper(BaseModel):
             entity_mapping=entity_mapping,
         )
         self.score_threshold = score_threshold
-        self.language = language
 
-        if not analyzer_engine:
-            analyzer_engine = AnalyzerEngine()
-            self._update_recognizers_based_on_entities_to_keep(analyzer_engine)
+        if analyzer_engine:
+            assert language in analyzer_engine.supported_languages,\
+                f'Provided analyzer supports {analyzer_engine.supported_languages} which does not include {language}'
+        else:
+            analyzer_engine = AnalyzerEngine(supported_languages=[language])
+        self.language = language
+        self._update_recognizers_based_on_entities_to_keep(analyzer_engine)
         self.analyzer_engine = analyzer_engine
 
     def predict(self, sample: InputSample) -> List[str]:
-
         results = self.analyzer_engine.analyze(
             text=sample.full_text,
             entities=self.entities,
@@ -47,7 +49,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         ends = []
         scores = []
         tags = []
-        #
+
         for res in results:
             starts.append(res.start)
             ends.append(res.end)
@@ -98,30 +100,21 @@ class PresidioAnalyzerWrapper(BaseModel):
     ):
         """Check if there are any entities not supported by this presidio instance.
         Add ORGANIZATION as it is removed by default
-
         """
-        supported_entities = analyzer_engine.get_supported_entities(
-            language=self.language
-        )
+        supported_entities = analyzer_engine.get_supported_entities(language=self.language)
         print("Entities supported by this Presidio Analyzer instance:")
         print(", ".join(supported_entities))
 
         if not self.entities:
             self.entities = supported_entities
-
         for entity in self.entities:
             if entity not in supported_entities:
-                print(
-                    f"Entity {entity} is not supported by this instance of Presidio Analyzer Engine"
-                )
+                print(f"Entity {entity} is not supported by this instance of Presidio Analyzer Engine")
 
         if "ORGANIZATION" in self.entities and "ORGANIZATION" not in supported_entities:
             recognizers = analyzer_engine.get_recognizers()
-            spacy_recognizer = [
-                rec
-                for rec in recognizers
-                if rec.name == "SpacyRecognizer" or rec.name == "StanzaRecognizer"
-            ]
+            spacy_recognizer = [rec for rec in recognizers
+                                if rec.name == "SpacyRecognizer" or rec.name == "StanzaRecognizer"]
             if len(spacy_recognizer):
                 spacy_recognizer = spacy_recognizer[0]
                 spacy_recognizer.supported_entities.append("ORGANIZATION")
