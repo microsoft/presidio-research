@@ -31,10 +31,10 @@ class PresidioPseudonymization(PresidioDataGenerator):
             self.add_provider_alias("date_time", "DATE_TIME")
 
     def pseudonymize(
-            self,
-            original_text: str,
-            presidio_response: List[RecognizerResult],
-            count: int,
+        self,
+        original_text: str,
+        presidio_response: List[RecognizerResult],
+        count: int,
     ):
         """
 
