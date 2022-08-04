@@ -39,7 +39,7 @@ PRESIDIO_SPACY_ENTITIES = {
 
 class Span:
     """
-    Holds information about the start, end, type nad value
+    Holds information about the start, end, type and value
     of an entity in a text
     """
 
@@ -126,6 +126,7 @@ class InputSample(object):
         tokens: Optional[Doc] = None,
         tags: Optional[List[str]] = None,
         create_tags_from_span=False,
+        token_model_version="en_core_web_sm",
         scheme="IO",
         metadata=None,
         template_id=None,
@@ -142,6 +143,7 @@ class InputSample(object):
         :param tokens: spaCy Doc object
         :param tags: list of strings representing the label for each token,
         given the scheme
+        :param token_model_version: The name of the model to use for tokenization if no tokens provided
         :param metadata: A dictionary of additional metadata on the sample,
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
@@ -162,7 +164,7 @@ class InputSample(object):
             self.template_id = template_id
 
         if create_tags_from_span:
-            tokens, tags = self.get_tags(scheme)
+            tokens, tags = self.get_tags(scheme, token_model_version)
             self.tokens = tokens
             self.tags = tags
         else:
@@ -217,16 +219,16 @@ class InputSample(object):
         }
 
     @classmethod
-    def from_json(cls, data):
+    def from_json(cls, data, **kwargs):
         if "spans" in data:
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
-        return cls(**data, create_tags_from_span=True)
+        return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self, scheme="IOB"):
+    def get_tags(self, scheme="IOB", model_version="en_core_web_sm"):
         start_indices = [span.start_position for span in self.spans]
         end_indices = [span.end_position for span in self.spans]
         tags = [span.entity_type for span in self.spans]
-        tokens = tokenize(self.full_text)
+        tokens = tokenize(self.full_text, model_version)
 
         labels = span_to_tag(
             scheme=scheme,
@@ -276,6 +278,7 @@ class InputSample(object):
         dataset: Union[List["InputSample"], List[FakerSpansResult]],
         translate_tags=False,
         to_bio=True,
+        token_model_version="en_core_web_sm"
     ) -> pd.DataFrame:
 
         if len(dataset) <= 1:
@@ -284,7 +287,7 @@ class InputSample(object):
         if isinstance(dataset[0], FakerSpansResult):
             dataset = [
                 InputSample.from_faker_spans_result(
-                    record, create_tags_from_span=True, scheme="BILUO"
+                    record, create_tags_from_span=True, scheme="BILUO", token_model_version=token_model_version
                 )
                 for record in tqdm(dataset, desc="Translating spans into tokens")
             ]
@@ -548,7 +551,7 @@ class InputSample(object):
 
     @staticmethod
     def read_dataset_json(
-        filepath: Union[Path, str] = None, length: Optional[int] = None
+        filepath: Union[Path, str] = None, length: Optional[int] = None, **kwargs
     ) -> List["InputSample"]:
         """
         Reads an existing dataset, stored in json into a list of InputSample objects
@@ -563,7 +566,7 @@ class InputSample(object):
             dataset = dataset[:length]
 
         input_samples = [
-            InputSample.from_json(row) for row in tqdm(dataset, desc="tokenizing input")
+            InputSample.from_json(row, **kwargs) for row in tqdm(dataset, desc="tokenizing input")
         ]
 
         return input_samples

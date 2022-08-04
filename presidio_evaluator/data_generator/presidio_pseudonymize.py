@@ -1,11 +1,9 @@
-from typing import List, Set, Dict
+from typing import List
 
 from presidio_analyzer import RecognizerResult
 from presidio_anonymizer import AnonymizerEngine
 
 from presidio_evaluator.data_generator import PresidioDataGenerator
-
-import pandas as pd
 
 
 class PresidioPseudonymization(PresidioDataGenerator):
