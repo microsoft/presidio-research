@@ -588,7 +588,7 @@ class InputSample(object):
         for sample in dataset:
             supported = True
             for span in sample.spans:
-                if not span.entity_type in entity_mapping.keys():
+                if span.entity_type not in entity_mapping.keys():
                     supported = False
                     if span.entity_type not in excluded_entities:
                         print(f"Filtering out unsupported entity {span.entity_type}")
