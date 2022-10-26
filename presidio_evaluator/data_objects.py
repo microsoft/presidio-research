@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any, Tuple
+from collections import Counter
 
 import pandas as pd
 import spacy
@@ -570,3 +571,29 @@ class InputSample(object):
         ]
 
         return input_samples
+
+    @classmethod
+    def count_entities(cls, input_samples: List["InputSample"]) -> Counter:
+        count_per_entity_new = Counter()
+        for record in input_samples:
+            for span in record.spans:
+                count_per_entity_new[span.entity_type] += 1
+        return count_per_entity_new.most_common()
+
+    @classmethod
+    def remove_unsupported_entities(cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]) -> None:
+        """Remove records with unsupported entities using passed in entity mapping translator."""
+        filtered_records = []
+        excluded_entities = set()
+
+        for sample in dataset:
+            supported = True
+            for span in sample.spans:
+                if not span.entity_type in entity_mapping.keys():
+                    supported = False
+                    if span.entity_type not in excluded_entities:
+                        print(f"Filtering out unsupported entity {span.entity_type}")
+                    excluded_entities.add(span.entity_type)
+            if supported:
+                filtered_records.append(sample)
+        return filtered_records
