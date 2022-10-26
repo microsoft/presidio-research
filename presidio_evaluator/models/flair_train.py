@@ -99,7 +99,7 @@ class FlairTrainer:
         return corpus
 
     @staticmethod
-    def train_with_flair_embeddings(corpus, checkpoint_path="", fast=False):
+    def train_with_flair_embeddings(corpus, checkpoint_path=""):
         """
         Train a Flair model
         :param corpus: Corpus object
@@ -116,18 +116,11 @@ class FlairTrainer:
         print("Tag dictionary: ", tag_dictionary)
 
         # 4. initialize embeddings
-        if fast:
-            embedding_types: List[TokenEmbeddings] = [
-                WordEmbeddings("glove"),
-                FlairEmbeddings("news-forward-fast"),
-                FlairEmbeddings("news-backward-fast"),
-            ]
-        else:
-            embedding_types: List[TokenEmbeddings] = [
-                WordEmbeddings("glove"),
-                FlairEmbeddings("news-forward"),
-                FlairEmbeddings("news-backward"),
-            ]
+        embedding_types: List[TokenEmbeddings] = [
+            WordEmbeddings("glove"),
+            FlairEmbeddings("news-forward"),
+            FlairEmbeddings("news-backward"),
+        ]
 
         embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
 
@@ -148,10 +141,7 @@ class FlairTrainer:
                 model=trained_model,
             )
         else:
-            if fast:
-                path = "resources/taggers/presidio-ner-flair-fast",
-            else:
-                path = "resources/taggers/presidio-ner-flair",
+            path = "resources/taggers/presidio-ner",
             trainer.train(
                 path,
                 learning_rate=0.1,
@@ -216,7 +206,7 @@ class FlairTrainer:
             trainer.resume(model=trained_model)
         # 7. run fine-tuning
         else:
-            trainer.fine_tune('resources/taggers/presidio-ner-flair-transformers',
+            trainer.fine_tune('resources/taggers/presidio-ner',
                               learning_rate=5.0e-6,
                               mini_batch_size=4,
                               max_epochs=20,
