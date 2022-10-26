@@ -111,7 +111,8 @@ class FlairTrainer:
         tag_type = "ner"
 
         # 3. make the label dictionary from the corpus
-        tag_dictionary = corpus.make_label_dictionary(label_type=tag_type, add_unk=False)
+        tag_dictionary = corpus.make_label_dictionary(
+            label_type=tag_type, add_unk=False)
         print("Tag dictionary: ", tag_dictionary)
 
         # 4. initialize embeddings
@@ -183,7 +184,8 @@ class FlairTrainer:
         tag_type = "ner"
 
         # 3. make the tag dictionary from the corpus
-        tag_dictionary = corpus.make_label_dictionary(label_type=tag_type, add_unk=False)
+        tag_dictionary = corpus.make_label_dictionary(
+            label_type=tag_type, add_unk=False)
         print(tag_dictionary)
 
         # 4. initialize fine-tuneable transformer embeddings WITH document context
