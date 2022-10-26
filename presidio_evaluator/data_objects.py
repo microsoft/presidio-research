@@ -585,7 +585,6 @@ class InputSample(object):
         """Remove records with unsupported entities using passed in entity mapping translator."""
         filtered_records = []
         excluded_entities = set()
-
         for sample in dataset:
             supported = True
             for span in sample.spans:
@@ -597,3 +596,13 @@ class InputSample(object):
             if supported:
                 filtered_records.append(sample)
         return filtered_records
+
+    @classmethod
+    def convert_faker_spans(cls, fake_records: List[FakerSpansResult], create_tags_from_span=True, scheme="BILUO", token_model_version="en_core_web_sm") -> List["InputSample"]:
+        """tokenize and transform fake samples to list of InputSample objects"""
+        input_samples = [
+            InputSample.from_faker_spans_result(
+                faker_spans_result=fake_record, create_tags_from_span=create_tags_from_span, scheme=scheme, token_model_version=token_model_version)
+            for fake_record in tqdm(fake_records)
+        ]
+        return input_samples
