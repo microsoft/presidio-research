@@ -56,6 +56,7 @@ class FakerSpansResult:
 
     @classmethod
     def count_entities(cls, fake_records: List["FakerSpansResult"]) -> Counter:
+        """Count frequency of entity types in a list of FakerSpansResult."""
         count_per_entity_new = Counter()
         for record in fake_records:
             for span in record.spans:

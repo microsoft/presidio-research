@@ -574,6 +574,7 @@ class InputSample(object):
 
     @classmethod
     def count_entities(cls, input_samples: List["InputSample"]) -> Counter:
+        """Count frequency of entities in a list of InputSample objects"""
         count_per_entity_new = Counter()
         for record in input_samples:
             for span in record.spans:
@@ -599,7 +600,7 @@ class InputSample(object):
 
     @classmethod
     def convert_faker_spans(cls, fake_records: List[FakerSpansResult], create_tags_from_span=True, scheme="BILUO", token_model_version="en_core_web_sm") -> List["InputSample"]:
-        """tokenize and transform fake samples to list of InputSample objects"""
+        """Tokenize and transform FakerSpansResult records to list of InputSample objects"""
         input_samples = [
             InputSample.from_faker_spans_result(
                 faker_spans_result=fake_record, create_tags_from_span=create_tags_from_span, scheme=scheme, token_model_version=token_model_version)
