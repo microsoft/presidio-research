@@ -35,7 +35,6 @@ class Evaluator:
             self.entities_to_keep = self.model.entities
 
     def compare(self, input_sample: InputSample, prediction: List[str]):
-
         """
         Compares ground truth tags (annotation) and predicted (prediction)
         :param input_sample: input sample containing list of tags with scheme
@@ -344,3 +343,156 @@ class Evaluator:
         return ((1 + beta ** 2) * precision * recall) / (
             ((beta ** 2) * precision) + recall
         )
+
+    class ErrorAnalyzer:
+        def __init__(self, model, results, errors, output_folder, model_name):
+            self.model = model
+            self.results = results
+            self.errors = errors
+            self.output_folder = output_folder
+            self.model_name = model_name.replace("/", "-")
+
+        def plot_recall_precision_f2(self) -> None:
+            """Plot per-entity recall and precision"""
+            d = {}
+            d['entity'] = deepcopy(list(self.results.entity_recall_dict.keys()))
+            d['recall'] = deepcopy(list(self.results.entity_recall_dict.values()))
+            d['precision'] = deepcopy(
+                list(self.results.entity_precision_dict.values()))
+            d['count'] = deepcopy(list(self.results.n_dict.values()))
+            d['f2_score'] = [Evaluator.f_beta(precision=precision, recall=recall, beta=2.5)
+                             for recall, precision in zip(d['recall'], d['precision'])]
+            df = pd.DataFrame(d)
+            df['model'] = self.model_name
+            # self._plot(df, plot_type="Recall")
+            # self._plot(df, plot_type="Precision")
+            self._plot(df, plot_type="F2_Score")
+
+            scores_output = self.output_folder / \
+                f"scores-dict-{self.model_name}.json"
+            df.to_csv(scores_output, index=False)
+
+        def _plot(self, df, plot_type: str) -> None:
+            fig = px.bar(df, text_auto=".2", y='entity', orientation="h",
+                         x=f'{plot_type.lower()}', color='count', barmode='group', title=f"Per-entity {plot_type} for {self.model_name}")
+            fig.update_layout(barmode='group', yaxis={
+                'categoryorder': 'total ascending'})
+            fig.update_layout(yaxis_title=f"{plot_type}", xaxis_title="PII Entity")
+            fig.update_traces(textfont_size=12, textangle=0,
+                              textposition="outside", cliponaxis=False)
+            fig.update_layout(
+                plot_bgcolor="#FFF",
+                xaxis=dict(
+                    title="PII entity",
+                    linecolor="#BCCCDC",  # Sets color of X-axis line
+                    showgrid=False  # Removes X-axis grid lines
+                ),
+                yaxis=dict(
+                    title=f"{plot_type}",
+                    linecolor="#BCCCDC",  # Sets color of X-axis line
+                    showgrid=False  # Removes X-axis grid lines
+                ),
+            )
+            filename = self.output_folder / \
+                f"{plot_type.lower()}_{self.model_name}.html"
+            plotly.offline.plot(
+                fig, filename=str(filename))
+            filename = self.output_folder / \
+                f"{plot_type.lower()}_{self.model_name}.png"
+            fig.write_image(filename)
+
+        def _plot_multiple_models(score_files: List[Path], model_name: str, plot_type: str) -> None:
+            """Plot per-entity Recall, Precision or F2 Score for multiple models given dataframes saved to csv during evaluation"""
+            df = pd.read_csv(score_files[0])
+            # combine score dataframes
+            for file in score_files[1:]:
+                df = pd.concat([df, pd.read_csv(file)])
+
+            fig = px.bar(df, text_auto=".2", x='entity',
+                         y=f'{plot_type.lower()}', color='model', barmode='group', title=f"Per-entity {plot_type} for {model_name}")
+            fig.update_layout(barmode='group', xaxis={
+                'categoryorder': 'total ascending'})
+            fig.update_layout(yaxis_title=f"{plot_type}", xaxis_title="PII Entity")
+            fig.update_traces(textfont_size=12, textangle=0,
+                              textposition="outside", cliponaxis=False)
+            fig.update_layout(
+                plot_bgcolor="#FFF",
+                xaxis=dict(
+                    title="PII entity",
+                    linecolor="#BCCCDC",  # Sets color of X-axis line
+                    showgrid=False  # Removes X-axis grid lines
+                ),
+                yaxis=dict(
+                    title="Recall",
+                    linecolor="#BCCCDC",  # Sets color of X-axis line
+                    showgrid=False  # Removes X-axis grid lines
+                ),
+            )
+            fig.show()
+
+        def save_errors(self):
+            ModelError.most_common_fp_tokens(self.errors)
+
+            for entity in self.model.entity_mapping.values():
+                fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
+                if fps_df is not None:
+                    fps_df.to_csv(self.output_folder /
+                                  f"{self.model_name}-{entity}-fps.csv")
+                    fps_df = pd.read_csv(self.output_folder /
+                                         f"{self.model_name}-{entity}-fps.csv")
+                fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
+                if fns_df is not None:
+                    fns_df.to_csv(self.output_folder /
+                                  f"{self.model_name}-{entity}-fns.csv")
+                    fns_df = pd.read_csv(self.output_folder /
+                                         f"{self.model_name}-{entity}-fns.csv")
+
+        def graph_most_common_tokens(self):
+
+            def group(df):
+                return df.groupby(['token', 'annotation']).size().to_frame(
+                ).sort_values([0], ascending=False).head(30).reset_index()
+
+            def generate_graph(type, type_title):
+                df_loc = pd.read_csv(self.output_folder /
+                                     f"{self.model_name}-LOC-{type}.csv")
+                df_loc = group(df_loc)
+
+                if "presidio" in self.model_name:
+                    df_org = pd.read_csv(self.output_folder /
+                                         f"{self.model_name}-NRP-{type}.csv")
+                    df_org = group(df_org)
+                else:
+                    df_org = pd.read_csv(self.output_folder /
+                                         f"{self.model_name}-ORG-{type}.csv")
+                    df_org = group(df_org)
+                df_person = pd.read_csv(self.output_folder /
+                                        f"{self.model_name}-PERSON-{type}.csv")
+                df_person = group(df_person)
+                dfg = pd.concat([df_loc.head(3), df_org.head(3), df_person.head(3)])
+
+                fig = px.histogram(dfg, x=0, y="token", orientation='h', color='annotation',
+                                   title=f"Most common {type_title} for {self.model_name}")
+
+                fig.update_layout(yaxis_title=f"count", xaxis_title="PII Entity")
+                fig.update_traces(textfont_size=12, textangle=0,
+                                  textposition="outside", cliponaxis=False)
+                fig.update_layout(
+                    plot_bgcolor="#FFF",
+                    xaxis=dict(
+                        title="Count",
+                        linecolor="#BCCCDC",  # Sets color of X-axis line
+                        showgrid=False  # Removes X-axis grid lines
+                    ),
+                    yaxis=dict(
+                        title=f"Tokens",
+                        linecolor="#BCCCDC",  # Sets color of X-axis line
+                        showgrid=False  # Removes X-axis grid lines
+                    ),
+                )
+                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                fig.write_image(self.output_folder /
+                                f"{self.model_name}-most-common-{type}.png")
+
+            generate_graph(type="fns", type_title="false negatives")
+            generate_graph(type="fps", type_title="false positives")
