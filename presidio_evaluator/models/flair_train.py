@@ -10,7 +10,7 @@ try:
         WordEmbeddings,
         StackedEmbeddings,
         FlairEmbeddings,
-        BertEmbeddings,
+        TransformerWordEmbeddings,
     )
     from flair.models import SequenceTagger
     from flair.trainers import ModelTrainer
@@ -81,7 +81,7 @@ class FlairTrainer:
             self.to_flair(val_data, outfile="flair_val.txt")
 
     @staticmethod
-    def read_corpus(data_folder: str):
+    def read_corpus(data_folder: str, in_memory=True):
         """
         Read Flair Corpus object.
         :param data_folder: Path with files
@@ -94,24 +94,26 @@ class FlairTrainer:
             train_file="flair_train.txt",
             test_file="flair_val.txt",
             dev_file="flair_test.txt",
+            in_memory=in_memory,
         )
         return corpus
 
     @staticmethod
-    def train(corpus):
+    def train_with_flair_embeddings(corpus, checkpoint_path=""):
         """
         Train a Flair model
         :param corpus: Corpus object
         :return:
         """
-        print(corpus)
+        print("Corpus: ", corpus)
 
         # 2. what tag do we want to predict?
         tag_type = "ner"
 
-        # 3. make the tag dictionary from the corpus
-        tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
-        print(tag_dictionary.idx2item)
+        # 3. make the label dictionary from the corpus
+        tag_dictionary = corpus.make_label_dictionary(
+            label_type=tag_type, add_unk=False)
+        print("Tag dictionary: ", tag_dictionary)
 
         # 4. initialize embeddings
         embedding_types: List[TokenEmbeddings] = [
@@ -123,8 +125,7 @@ class FlairTrainer:
         embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
 
         # 5. initialize sequence tagger
-
-        tagger: SequenceTagger = SequenceTagger(
+        tagger = SequenceTagger(
             hidden_size=256,
             embeddings=embeddings,
             tag_dictionary=tag_dictionary,
@@ -133,18 +134,85 @@ class FlairTrainer:
         )
 
         # 6. initialize trainer
+        trainer = ModelTrainer(tagger, corpus)
+        if checkpoint_path:
+            trained_model = SequenceTagger.load(checkpoint_path)
+            trainer.resume(
+                model=trained_model,
+            )
+        else:
+            path = "resources/taggers/presidio-ner",
+            trainer.train(
+                path,
+                learning_rate=0.1,
+                mini_batch_size=32,
+                max_epochs=150,
+                checkpoint=True,
+            )
 
+        sentence = Sentence("I am from Jerusalem")
+        # run NER over sentence
+        tagger.predict(sentence)
+
+        print(sentence)
+        print("The following NER tags are found:")
+
+        # iterate over entities and print
+        for entity in sentence.get_spans("ner"):
+            print(entity)
+
+    @staticmethod
+    def train_with_transformers(corpus, checkpoint_path=""):
+        """
+        Train a Flair model
+        :param corpus: Corpus object
+        :return:
+        """
+        print(corpus)
+
+        # 2. what tag do we want to predict?
+        tag_type = "ner"
+
+        # 3. make the tag dictionary from the corpus
+        tag_dictionary = corpus.make_label_dictionary(
+            label_type=tag_type, add_unk=False)
+        print(tag_dictionary)
+
+        # 4. initialize fine-tuneable transformer embeddings WITH document context
+        embedding_types: List[TokenEmbeddings] = [TransformerWordEmbeddings(model="xlm-roberta-large",
+                                                                            layers="-1",
+                                                                            subtoken_pooling="first",
+                                                                            fine_tune=True,
+                                                                            use_context=True,
+                                                                            )]
+
+        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
+
+        # 5. initialize bare-bones sequence tagger (no CRF, no RNN, no reprojection)
+        tagger = SequenceTagger(hidden_size=256,
+                                embeddings=embeddings,
+                                tag_dictionary=tag_dictionary,
+                                tag_type='ner',
+                                use_crf=False,
+                                use_rnn=False,
+                                reproject_embeddings=False,
+                                )
+
+        # 6. initialize trainer
         trainer: ModelTrainer = ModelTrainer(tagger, corpus)
 
-        checkpoint = "resources/taggers/presidio-ner/checkpoint.pt"
-        # trainer = ModelTrainer.load_checkpoint(checkpoint, corpus)
-        trainer.train(
-            "resources/taggers/presidio-ner",
-            learning_rate=0.1,
-            mini_batch_size=32,
-            max_epochs=150,
-            checkpoint=True,
-        )
+        if checkpoint_path:
+            trained_model = SequenceTagger.load(checkpoint_path)
+            trainer.resume(model=trained_model)
+        # 7. run fine-tuning
+        else:
+            trainer.fine_tune('resources/taggers/presidio-ner',
+                              learning_rate=5.0e-6,
+                              mini_batch_size=4,
+                              max_epochs=20,
+                              mini_batch_chunk_size=1,  # remove this parameter to speed up computation if you have a big GPU
+                              checkpoint=True,
+                              )
 
         sentence = Sentence("I am from Jerusalem")
         # run NER over sentence
@@ -167,4 +235,5 @@ if __name__ == "__main__":
     trainer.create_flair_corpus(train_samples, test_samples, val_samples)
 
     corpus = trainer.read_corpus("")
-    trainer.train(corpus)
+    trainer.train_with_flair_embeddings(corpus)
+    trainer.train_with_transformers(corpus)
