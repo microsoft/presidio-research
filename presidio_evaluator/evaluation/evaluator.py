@@ -429,12 +429,12 @@ class Evaluator:
 
             def group_tokens(df):
                 return df.groupby(['token', 'annotation']).size().to_frame(
-                ).sort_values([0], ascending=False).head(30).reset_index()
+                ).sort_values([0], ascending=False).head(3).reset_index()
 
             fps_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)).head(3) for df_path in fps_frames])
+                [group_tokens(pd.read_csv(df_path)) for df_path in fps_frames])
             fns_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)).head(3) for df_path in fns_frames])
+                [group_tokens(pd.read_csv(df_path)) for df_path in fns_frames])
 
             def generate_graph(title, tokens_df):
                 fig = px.histogram(tokens_df, x=0, y="token", orientation='h', color='annotation',
