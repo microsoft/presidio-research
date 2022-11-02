@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import List, Dict
+from typing import List, Optional, Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -38,6 +38,7 @@ class Evaluator:
             self.entities_to_keep = self.model.entities
 
     def compare(self, input_sample: InputSample, prediction: List[str]):
+        
         """
         Compares ground truth tags (annotation) and predicted (prediction)
         :param input_sample: input sample containing list of tags with scheme
