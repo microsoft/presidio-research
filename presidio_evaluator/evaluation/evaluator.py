@@ -1,9 +1,11 @@
 from collections import Counter
-from typing import List, Optional, Dict
-from enum import Enum
+from typing import List, Dict
 
 import numpy as np
 from tqdm import tqdm
+
+import plotly.express as px
+import pandas as pd
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import EvaluationResult, ModelError
@@ -346,38 +348,40 @@ class Evaluator:
         )
 
     class Plotter:
-        def __init__(self, model, results, errors, output_folder, model_name):
+        """
+        Plot scores (f2, precision, recall) and errors (false-positivies, false-negatives) 
+        for a PII detection model evaluated via Evaluator
+
+        :param model: Instance of a fitted model (of base type BaseModel)
+        :param results: results given by evaluator.calculate_score(evaluation_results)
+        :param output_folder: folder to store plots and errors in
+        :param model_name: name of the model to be used in the plot title
+        """
+
+        def __init__(self, model, results, output_folder, model_name):
             self.model = model
             self.results = results
-            self.errors = errors
             self.output_folder = output_folder
             self.model_name = model_name.replace("/", "-")
+            self.errors = results.model_errors
 
-        class PlotType(Enum):
-            PRECISION = "precision"
-            RECALL = "recall"
-            F2_SCORE = "f2_score"
-
-        def plot(self, plot_type=self.PlotType.F2_SCORE) -> None:
+        def plot_scores(self) -> None:
             """
             Plots per-entity recall, precision, or F2 score for evaluated model. 
             :param plot_type: which metric to graph (default is F2 score)
             """
             scores = {}
-            scores['entity'] = deepcopy(list(self.results.entity_recall_dict.keys()))
-            scores['recall'] = deepcopy(list(self.results.entity_recall_dict.values()))
-            scores['precision'] = deepcopy(
-                list(self.results.entity_precision_dict.values()))
-            scores['count'] = deepcopy(list(self.results.n_dict.values()))
+            scores['entity'] = list(self.results.entity_recall_dict.keys())
+            scores['recall'] = list(self.results.entity_recall_dict.values())
+            scores['precision'] = list(self.results.entity_precision_dict.values())
+            scores['count'] = list(self.results.n_dict.values())
             scores['f2_score'] = [Evaluator.f_beta(precision=precision, recall=recall, beta=2.5)
                                   for recall, precision in zip(scores['recall'], scores['precision'])]
             df = pd.DataFrame(scores)
             df['model'] = self.model_name
-            self._plot(df, plot_type=plot_type)
-            # save scores dict to disk, useful when plotting multiple models
-            scores_output = self.output_folder / \
-                f"scores-dict-{self.model_name}.json"
-            df.to_csv(scores_output, index=False)
+            self._plot(df, plot_type="f2_score")
+            self._plot(df, plot_type="precision")
+            self._plot(df, plot_type="recall")
 
         def _plot(self, df, plot_type) -> None:
             fig = px.bar(df, text_auto=".2", y='entity', orientation="h",
@@ -404,61 +408,37 @@ class Evaluator:
             filename = self.output_folder / f"{plot_type}_{self.model_name}.png"
             fig.write_image(filename)
 
-        def save_errors(self) -> None:
-            """Save false positive and false negative errors dataframes to csv."""
-            ModelError.most_common_fp_tokens(self.errors)
-
-            for entity in self.model.entity_mapping.values():
-                fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
-                if fps_df is not None:
-                    fps_df.to_csv(self.output_folder /
-                                  f"{self.model_name}-{entity}-fps.csv")
-                fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
-                if fns_df is not None:
-                    fns_df.to_csv(self.output_folder /
-                                  f"{self.model_name}-{entity}-fns.csv")
-
-        def graph_most_common_tokens(self) -> None:
+        def plot_most_common_tokens(self) -> None:
             """Graph most common false positive and false negative tokens for each entity."""
-
             ModelError.most_common_fp_tokens(self.errors)
             fps_frames = []
             fns_frames = []
-
             for entity in self.model.entity_mapping.values():
                 fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
                 if fps_df is not None:
-                    # fps_df.to_csv(self.output_folder /
-                    #               f"{self.model_name}-{entity}-fps.csv")
+                    fps_path = self.output_folder / \
+                        f"{self.model_name}-{entity}-fps.csv"
+                    fps_df.to_csv(fps_path)
+                    fps_frames.append(fps_path)
                 fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
                 if fns_df is not None:
-                    # fns_df.to_csv(self.output_folder /
-                    #               f"{self.model_name}-{entity}-fns.csv")
+                    fns_path = self.output_folder / \
+                        f"{self.model_name}-{entity}-fns.csv"
+                    fns_df.to_csv(fns_path)
+                    fns_frames.append(fns_path)
 
-            def group(df):
+            def group_tokens(df):
                 return df.groupby(['token', 'annotation']).size().to_frame(
                 ).sort_values([0], ascending=False).head(30).reset_index()
 
-            def generate_graph(type, type_title):
-                df_loc = pd.read_csv(self.output_folder /
-                                     f"{self.model_name}-LOC-{type}.csv")
-                df_loc = group(df_loc)
+            fps_tokens_df = pd.concat(
+                [group_tokens(pd.read_csv(df_path)).head(3) for df_path in fps_frames])
+            fns_tokens_df = pd.concat(
+                [group_tokens(pd.read_csv(df_path)).head(3) for df_path in fns_frames])
 
-                if "presidio" in self.model_name:
-                    df_org = pd.read_csv(self.output_folder /
-                                         f"{self.model_name}-NRP-{type}.csv")
-                    df_org = group(df_org)
-                else:
-                    df_org = pd.read_csv(self.output_folder /
-                                         f"{self.model_name}-ORG-{type}.csv")
-                    df_org = group(df_org)
-                df_person = pd.read_csv(self.output_folder /
-                                        f"{self.model_name}-PERSON-{type}.csv")
-                df_person = group(df_person)
-                dfg = pd.concat([df_loc.head(3), df_org.head(3), df_person.head(3)])
-
-                fig = px.histogram(dfg, x=0, y="token", orientation='h', color='annotation',
-                                   title=f"Most common {type_title} for {self.model_name}")
+            def generate_graph(title, tokens_df):
+                fig = px.histogram(tokens_df, x=0, y="token", orientation='h', color='annotation',
+                                   title=f"Most common {title} for {self.model_name}")
 
                 fig.update_layout(yaxis_title=f"count", xaxis_title="PII Entity")
                 fig.update_traces(textfont_size=12, textangle=0,
@@ -477,8 +457,8 @@ class Evaluator:
                     ),
                 )
                 fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                fig.show()
                 fig.write_image(self.output_folder /
-                                f"{self.model_name}-most-common-{type}.png")
-
-            generate_graph(type="fns", type_title="false negatives")
-            generate_graph(type="fps", type_title="false positives")
+                                f"{self.model_name}-most-common-{title}.png")
+            generate_graph(title="false-negatives", tokens_df=fns_tokens_df)
+            generate_graph(title="false-positives", tokens_df=fps_tokens_df)
