@@ -47,8 +47,10 @@ class OrganizationProvider(BaseProvider):
     ):
         super().__init__(generator=generator)
         if not organizations_file:
+            # company names assembled from stock exchange listings (aex, bse, cnq, ger, lse, nasdaq, nse, nyse, par, tyo),
+            # US government websites like https://www.sec.gov/rules/other/4-460list.htm, and other sources
             organizations_file = Path(
-                Path(__file__).parent.parent, "raw_data", "organizations.csv"
+                Path(__file__).parent.parent, "raw_data", "companies_and_organizations.csv"
             ).resolve()
         self.organizations_file = organizations_file
         self.organizations = self.load_organizations()
@@ -64,26 +66,30 @@ class OrganizationProvider(BaseProvider):
 
 
 class UsDriverLicenseProvider(BaseProvider):
-    def __init__(
-        self,
-        generator,
-        us_driver_license_file: Union[str, Path] = None,
-    ):
+    def __init__(self, generator):
         super().__init__(generator=generator)
-        if not us_driver_license_file:
-            us_driver_license_file = Path(
-                Path(__file__).parent.parent, "raw_data", "us_driver_licenses.csv"
-            ).resolve()
-        self.us_driver_license_file = us_driver_license_file
-        self.us_driver_licenses = self.load_us_driver_licenses()
+        us_driver_license_file = Path(
+            Path(__file__).parent.parent, "raw_data", "us_driver_license_format.yaml"
+        ).resolve()
+        formats = yaml.safe_load(open(us_driver_license_file))
+        self.formats = formats['en']['faker']['driving_license']['usa']
 
-    def us_driver_license(self):
-        return self.random_element(
-            self.us_driver_licenses["us_driver_license"].tolist()
-        )
+    def driver_license(self) -> str:
+        # US driver's licenses patterns vary by state. Here we sample a random state and format
+        us_state = random.choice(list(self.formats))
+        us_state_format = random.choice(self.formats[us_state])
+        return self.bothify(text=us_state_format)
 
-    def load_us_driver_licenses(self):
-        return pd.read_csv(self.us_driver_license_file, delimiter="\t")
+
+class ReligionProvider(BaseProvider):
+    def religion(self) -> str:
+        """Return a random (major) religion."""
+        religions_file = Path(
+            Path(__file__).parent.parent, "raw_data", "religions.csv"
+        ).resolve()
+        with open(religions_file, 'r') as f:
+            religions = f.readlines()
+        return random.choice(religions)
 
 
 class IpAddressProvider(BaseProvider):
