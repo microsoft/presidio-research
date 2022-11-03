@@ -2,6 +2,7 @@ import random
 from collections import OrderedDict
 from pathlib import Path
 from typing import Union
+import yaml
 
 import pandas as pd
 from faker.providers import BaseProvider
@@ -82,14 +83,25 @@ class UsDriverLicenseProvider(BaseProvider):
 
 
 class ReligionProvider(BaseProvider):
+    def __init__(
+        self,
+        generator,
+        religions_file: Union[str, Path] = None,
+    ):
+        super().__init__(generator=generator)
+        if not religions_file:
+            religions_file = Path(
+                Path(__file__).parent.parent, "raw_data", "religions.csv"
+            ).resolve()
+        self.religions_file = religions_file
+        self.religions = self.load_religions()
+
+    def load_religions(self):
+        return pd.read_csv(self.religions_file, delimiter="\t")
+
     def religion(self) -> str:
         """Return a random (major) religion."""
-        religions_file = Path(
-            Path(__file__).parent.parent, "raw_data", "religions.csv"
-        ).resolve()
-        with open(religions_file, 'r') as f:
-            religions = f.readlines()
-        return random.choice(religions)
+        return self.random_element(self.religions["Religions"].tolist())
 
 
 class IpAddressProvider(BaseProvider):
