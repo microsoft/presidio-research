@@ -69,7 +69,6 @@ class OrganizationProvider(BaseProvider):
 class UsDriverLicenseProvider(BaseProvider):
     def __init__(self, generator):
         super().__init__(generator=generator)
-        # Driving license yaml adapted from faker-ruby https://github.com/faker-ruby/faker/blob/main/lib/locales/en/driving_license.yml License: MIT
         us_driver_license_file = Path(
             Path(__file__).parent.parent, "raw_data", "us_driver_license_format.yaml"
         ).resolve()
