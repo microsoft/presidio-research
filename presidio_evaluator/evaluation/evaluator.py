@@ -1,5 +1,6 @@
 from collections import Counter
 from typing import List, Optional, Dict
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -359,12 +360,13 @@ class Evaluator:
         :param model_name: name of the model to be used in the plot title
         """
 
-        def __init__(self, model, results, output_folder, model_name):
+        def __init__(self, model, results, output_folder: Path, model_name: str, beta: float):
             self.model = model
             self.results = results
             self.output_folder = output_folder
             self.model_name = model_name.replace("/", "-")
             self.errors = results.model_errors
+            self.beta = beta
 
         def plot_scores(self) -> None:
             """
@@ -376,7 +378,7 @@ class Evaluator:
             scores['recall'] = list(self.results.entity_recall_dict.values())
             scores['precision'] = list(self.results.entity_precision_dict.values())
             scores['count'] = list(self.results.n_dict.values())
-            scores['f2_score'] = [Evaluator.f_beta(precision=precision, recall=recall, beta=2.5)
+            scores['f2_score'] = [Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
                                   for recall, precision in zip(scores['recall'], scores['precision'])]
             df = pd.DataFrame(scores)
             df['model'] = self.model_name
@@ -406,8 +408,6 @@ class Evaluator:
                 ),
             )
             fig.show()
-            filename = self.output_folder / f"{plot_type}_{self.model_name}.png"
-            fig.write_image(filename)
 
         def plot_most_common_tokens(self) -> None:
             """Graph most common false positive and false negative tokens for each entity."""
@@ -459,7 +459,5 @@ class Evaluator:
                 )
                 fig.update_layout(yaxis={'categoryorder': 'total ascending'})
                 fig.show()
-                fig.write_image(self.output_folder /
-                                f"{self.model_name}-most-common-{title}.png")
             generate_graph(title="false-negatives", tokens_df=fns_tokens_df)
             generate_graph(title="false-positives", tokens_df=fps_tokens_df)

@@ -18,4 +18,3 @@ requests>=2.25.1
 xmltodict>=0.12.0
 python-dotenv
 plotly
-kaleido
