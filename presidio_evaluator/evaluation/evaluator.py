@@ -378,7 +378,7 @@ class Evaluator:
             scores['recall'] = list(self.results.entity_recall_dict.values())
             scores['precision'] = list(self.results.entity_precision_dict.values())
             scores['count'] = list(self.results.n_dict.values())
-            scores['f2_score'] = [Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
+            scores[f"f{self.beta}_score"] = [Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
                                   for recall, precision in zip(scores['recall'], scores['precision'])]
             df = pd.DataFrame(scores)
             df['model'] = self.model_name
