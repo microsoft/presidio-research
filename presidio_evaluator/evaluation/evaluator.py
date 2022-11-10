@@ -358,6 +358,8 @@ class Evaluator:
         :param results: results given by evaluator.calculate_score(evaluation_results)
         :param output_folder: folder to store plots and errors in
         :param model_name: name of the model to be used in the plot title
+        :param beta: a float with the beta parameter of the F measure,
+        which gives more or less weight to precision vs. recall
         """
 
         def __init__(self, model, results, output_folder: Path, model_name: str, beta: float):
