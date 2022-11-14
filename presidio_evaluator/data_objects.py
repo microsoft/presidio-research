@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any, Tuple
+from collections import Counter
 
 import pandas as pd
 import spacy
@@ -569,4 +570,40 @@ class InputSample(object):
             InputSample.from_json(row, **kwargs) for row in tqdm(dataset, desc="tokenizing input")
         ]
 
+        return input_samples
+
+    @classmethod
+    def count_entities(cls, input_samples: List["InputSample"]) -> Counter:
+        """Count frequency of entities in a list of InputSample objects"""
+        count_per_entity_new = Counter()
+        for record in input_samples:
+            for span in record.spans:
+                count_per_entity_new[span.entity_type] += 1
+        return count_per_entity_new.most_common()
+
+    @classmethod
+    def remove_unsupported_entities(cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]) -> None:
+        """Remove records with unsupported entities using passed in entity mapping translator."""
+        filtered_records = []
+        excluded_entities = set()
+        for sample in dataset:
+            supported = True
+            for span in sample.spans:
+                if span.entity_type not in entity_mapping.keys():
+                    supported = False
+                    if span.entity_type not in excluded_entities:
+                        print(f"Filtering out unsupported entity {span.entity_type}")
+                    excluded_entities.add(span.entity_type)
+            if supported:
+                filtered_records.append(sample)
+        return filtered_records
+
+    @classmethod
+    def convert_faker_spans(cls, fake_records: List[FakerSpansResult], create_tags_from_span=True, scheme="BILUO", token_model_version="en_core_web_sm") -> List["InputSample"]:
+        """Tokenize and transform FakerSpansResult records to list of InputSample objects"""
+        input_samples = [
+            InputSample.from_faker_spans_result(
+                faker_spans_result=fake_record, create_tags_from_span=create_tags_from_span, scheme=scheme, token_model_version=token_model_version)
+            for fake_record in tqdm(fake_records)
+        ]
         return input_samples
