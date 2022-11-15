@@ -27,7 +27,7 @@ setup(
             [
                 "presidio_evaluator/data_generator/raw_data/FakeNameGenerator.com_3000.csv",  # noqa
                 "presidio_evaluator/data_generator/raw_data/templates.txt",
-                "presidio_evaluator/data_generator/raw_data/organizations.csv",
+                "presidio_evaluator/data_generator/raw_data/companies_and_organizations.csv",
                 "presidio_evaluator/data_generator/raw_data/nationalities.csv",
                 "presidio_evaluator/data_generator/raw_data/us_driver_licenses.csv",
             ],
