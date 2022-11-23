@@ -1,10 +1,3 @@
-parameters:
-- name: WORKING_FOLDER
-  displayName: WORKING_FOLDER
-  type: string
-  default: ""
-  values:
-      - ""
 steps:
   - task: UsePythonVersion@0
     inputs:
@@ -17,7 +10,6 @@ steps:
         set -eux  # fail on error
         pip install wheel
         python setup.py bdist_wheel
-      workingDirectory: ${{ parameters.WORKING_FOLDER }}
   - task: Bash@3
     displayName: 'Install twine'
     inputs:
@@ -25,7 +17,6 @@ steps:
       script: |
         set -eux  # fail on error
         pip install twine
-      workingDirectory: ${{ parameters.WORKING_FOLDER }}
   - task: TwineAuthenticate@1
     displayName: 'Authenticate with PyPi'
     inputs:
@@ -37,4 +28,3 @@ steps:
       script: |
         set -eux  # fail on error
         twine upload -r presidio-research --verbose --config-file $(PYPIRC_PATH) --skip-existing dist/*
-      workingDirectory: '${{ parameters.WORKING_FOLDER }}'
