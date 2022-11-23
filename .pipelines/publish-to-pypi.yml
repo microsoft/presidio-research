@@ -1,5 +1,8 @@
 parameters:
-  WORKING_FOLDER: ''
+- name: WORKING_FOLDER
+  displayName: WORKING_FOLDER
+  type: string
+  default: ""
 steps:
   - task: UsePythonVersion@0
     inputs:
