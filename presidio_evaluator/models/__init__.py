@@ -13,6 +13,7 @@ __all__ = [
     "CRFModel",
     "PresidioRecognizerWrapper",
     "PresidioAnalyzerWrapper",
+    "TextAnalyticsWrapper",
     "SpacyModel",
     "StanzaModel",
     "FlairModel",
