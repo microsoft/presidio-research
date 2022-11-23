@@ -13,6 +13,19 @@ In addition, it contains a fake data generator which creates fake sentences base
 
 ## Getting started
 
+### From PyPI
+
+``` sh
+conda create --name presidio python=3.9
+conda activate presidio
+pip install presidio-evaluator
+
+# Download a spaCy model used by presidio-analyzer
+python -m spacy download en_core_web_lg
+```
+
+### From source
+
 To install the package:
 1. Clone the repo
 2. Install all dependencies, preferably in a virtual environment:
