@@ -22,6 +22,7 @@ steps:
   - task: TwineAuthenticate@1
     displayName: 'Authenticate with PyPi'
     inputs:
+
       pythonUploadServiceConnection: Pypi-Presidio
   - task: Bash@3
     displayName: 'Upload Wheel to PyPi'
@@ -29,4 +30,4 @@ steps:
       targetType: 'inline'
       script: |
         set -eux  # fail on error
-        twine upload -r presidio-evaluator --verbose --config-file $(PYPIRC_PATH) --skip-existing dist/*
+        twine upload -r presidio --verbose --config-file $(PYPIRC_PATH) --skip-existing dist/*
