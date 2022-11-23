@@ -3,6 +3,8 @@ parameters:
   displayName: WORKING_FOLDER
   type: string
   default: ""
+  values:
+      - ""
 steps:
   - task: UsePythonVersion@0
     inputs:
