@@ -12,7 +12,6 @@ class TextAnalyticsWrapper(BaseModel):
         ta_client: Optional[TextAnalyticsClient] = None,
         ta_key: Optional[str] = "",
         ta_endpoint: Optional[str] = "",
-        entities_to_keep: List[str] = None,
         verbose: bool = False,
         labeling_scheme: str = "BIO",
         score_threshold: float = 0.4,
@@ -24,11 +23,9 @@ class TextAnalyticsWrapper(BaseModel):
         :param ta_client: object of type TextAnalyticsClient
         :param ta_key: Azure cognitive Services for Language key
         :param ta_endpoint: Azure cognitive Services for Language endpoint
-        :param entities_to_keep: List of entities to predict on
         :param entity_mapping: Mapping between input dataset entities and entities expected by Azure cognitive Services for Language 
         """
         super().__init__(
-            entities_to_keep=entities_to_keep,
             verbose=verbose,
             labeling_scheme=labeling_scheme,
             entity_mapping=entity_mapping,
@@ -40,7 +37,6 @@ class TextAnalyticsWrapper(BaseModel):
 
         if not ta_client:
             ta_client = self.__authenticate_client(ta_key, ta_endpoint)
-            #self._update_recognizers_based_on_entities_to_keep(ta_client)
         self.ta_client = ta_client
 
     
