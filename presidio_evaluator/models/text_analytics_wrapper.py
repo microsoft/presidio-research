@@ -76,8 +76,3 @@ class TextAnalyticsWrapper(BaseModel):
             tags=tags,
         )
         return response_tags
-    
-    # Mapping between dataset entities and text analytics entities. Key: Dataset entity, Value: Presidio entity
-    ta_entities_map = {
-    }
-
