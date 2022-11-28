@@ -3,6 +3,7 @@ from .base_model import BaseModel
 from .crf_model import CRFModel
 from .presidio_analyzer_wrapper import PresidioAnalyzerWrapper
 from .presidio_recognizer_wrapper import PresidioRecognizerWrapper
+from .text_analytics_wrapper import TextAnalyticsWrapper
 from .spacy_model import SpacyModel
 from .stanza_model import StanzaModel
 from .flair_model import FlairModel
@@ -13,6 +14,7 @@ __all__ = [
     "CRFModel",
     "PresidioRecognizerWrapper",
     "PresidioAnalyzerWrapper",
+    "TextAnalyticsWrapper",
     "SpacyModel",
     "StanzaModel",
     "FlairModel",
