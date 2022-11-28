@@ -39,12 +39,12 @@ class TextAnalyticsWrapper(BaseModel):
         self.ta_endpoint = ta_endpoint
 
         if not ta_client:
-            ta_client = self.authenticate_client(ta_key, ta_endpoint)
+            ta_client = self.__authenticate_client(ta_key, ta_endpoint)
             #self._update_recognizers_based_on_entities_to_keep(ta_client)
         self.ta_client = ta_client
 
     
-    def authenticate_client(self, key: str, endpoint: str):
+    def __authenticate_client(self, key: str, endpoint: str):
         ta_credential = AzureKeyCredential(key)
         text_analytics_client = TextAnalyticsClient(
             endpoint=endpoint,
@@ -65,10 +65,13 @@ class TextAnalyticsWrapper(BaseModel):
         #
         for res in results:
             for entity in res.entities:
-                starts.append(entity.offset)
-                ends.append(entity.offset + len(entity.text))
-                tags.append(entity.category)
-                scores.append(entity.confidence_score)
+                if entity.confidence_score < self.score_threshold:
+                    continue
+                else:
+                    starts.append(entity.offset)
+                    ends.append(entity.offset + len(entity.text))
+                    tags.append(entity.category)
+                    scores.append(entity.confidence_score)
 
         response_tags = span_to_tag(
             scheme="IO",
