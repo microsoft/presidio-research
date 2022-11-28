@@ -20,8 +20,12 @@ class TextAnalyticsWrapper(BaseModel):
         entity_mapping: Optional[Dict[str, str]] = None,
     ):
         """
-        Evaluation wrapper for the Presidio Analyzer
-        :param ta_client: object of type TextAnalyticsClient (from presidio-analyzer)
+        Evaluation wrapper for the Azure Text Analytics
+        :param ta_client: object of type TextAnalyticsClient
+        :param ta_key: Azure cognitive Services for Language key
+        :param ta_endpoint: Azure cognitive Services for Language endpoint
+        :param entities_to_keep: List of entities to predict on
+        :param entity_mapping: Mapping between input dataset entities and entities expected by Azure cognitive Services for Language 
         """
         super().__init__(
             entities_to_keep=entities_to_keep,
