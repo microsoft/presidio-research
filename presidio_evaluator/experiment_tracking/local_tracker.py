@@ -95,3 +95,9 @@ if __name__ == "__main__":
     local_tracker.log_confusion_matrix_table(matrix, labels)
 
     local_tracker.end()
+
+    # view stored files
+    print('experiment generated the following files:')
+    experiment_path = Path(directory, experiment_name)
+    for f in experiment_path.iterdir():
+        print(f.as_posix())
