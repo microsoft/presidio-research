@@ -1,3 +1,5 @@
+import inspect
+from copy import deepcopy
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +8,7 @@ from faker import Faker
 
 from presidio_evaluator.data_generator import PresidioDataGenerator, PresidioFakeRecordGenerator
 from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
+from presidio_evaluator.data_generator.faker_extensions import providers
 
 
 def test_generator_correct_output():
@@ -46,14 +49,34 @@ def test_new_provider_with_alias():
     assert start_of_sentence in res.fake
 
 
+def _get_classes_from_module(module):
+    return [member[1] for member in inspect.getmembers(module, inspect.isclass)
+            if member[1].__module__ == module.__name__]
+
+
 @pytest.mark.parametrize('num_records', range(5))
 def test_record_generator(num_records: int):
-    default_num_faker_providers = len(Faker().providers)
-    record_generator = PresidioFakeRecordGenerator(locale='en', lower_case_ratio=0)
+    standard_faker = Faker()
+    default_faker_providers = standard_faker.providers
+    presidio_providers = _get_classes_from_module(providers)
 
+    record_generator = PresidioFakeRecordGenerator(locale='en', lower_case_ratio=0)
     assert len(record_generator._sentence_templates) > 0, 'Did not load default sentence templates'
-    num_record_generator_providers = len(record_generator._data_generator.faker.providers)
-    assert num_record_generator_providers > default_num_faker_providers, 'Did not add Presidio entity providers'
+
+    expected_providers = deepcopy(default_faker_providers)
+    expected_providers.extend(presidio_providers)
+    expected_providers.extend([standard_faker.__getattr__(key)
+                               for key in PresidioFakeRecordGenerator.PROVIDER_ALIASES.keys()])
+    actual_providers = record_generator._data_generator.faker.providers
+    num_aliases = len(PresidioFakeRecordGenerator.PROVIDER_ALIASES)
+    actual_num_providers = len(actual_providers)
+    expected_aliases = set(getattr(standard_faker, provider_name)
+                           for provider_name in PresidioFakeRecordGenerator.PROVIDER_ALIASES.keys())
+    assert actual_num_providers == len(expected_providers), \
+        f'Expected {len(presidio_providers)} presidio providers to be used and {num_aliases} aliases. ' \
+        f'Faker has been extended with {actual_num_providers - len(default_faker_providers)} providers/aliases. ' \
+        f'Expected Providers: {[provider.__name__ for provider in presidio_providers]} ' \
+        f'Expected Aliases: {expected_aliases} '
 
     fake_records = record_generator.generate_new_fake_records(num_records)
     assert len(fake_records) == num_records
