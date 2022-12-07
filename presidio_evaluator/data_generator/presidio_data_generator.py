@@ -25,6 +25,7 @@ from presidio_evaluator.data_generator.faker_extensions import (
     RecordsFaker,
     PhoneNumberProviderNew,
     AgeProvider,
+    ReligionProvider
 )
 
 
@@ -302,6 +303,7 @@ class PresidioFakeRecordGenerator:
     :param: additional_sentence_templates: Custom sentence templates beyond those existing in this library
     :param: random_seed: A seed to make results reproducible between runs
     """
+    PROVIDER_ALIASES = dict(name='person', credit_card_number='credit_card', date_of_birth='birthday')
 
     faker_to_presidio_entity_type = dict(person="PERSON",
                                          ip_address="IP_ADDRESS",
@@ -364,7 +366,8 @@ class PresidioFakeRecordGenerator:
                                                 UsDriverLicenseProvider,
                                                 AgeProvider,
                                                 AddressProviderNew,
-                                                PhoneNumberProviderNew]
+                                                PhoneNumberProviderNew,
+                                                ReligionProvider]
         if additional_entity_providers is None:
             additional_entity_providers = []
         additional_entity_providers.extend(presidio_additional_entity_providers)
@@ -379,8 +382,7 @@ class PresidioFakeRecordGenerator:
 
         self._data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=lower_case_ratio)
         self._data_generator.seed(random_seed)
-        provider_aliases = dict(name='person', credit_card_number='credit_card', date_of_birth='birthday')
-        for provider, alias in provider_aliases.items():
+        for provider, alias in self.PROVIDER_ALIASES.items():
             self._data_generator.add_provider_alias(provider_name=provider, new_name=alias)
 
         self.fake_records = None
