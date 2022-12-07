@@ -1,13 +1,16 @@
-# Presidio Data Generator
+# Data Generator
 
-This data generator takes a text file with templates (e.g. `my name is {{person}}`)
-and creates a list of InputSamples which contain fake PII entities
-instead of placeholders. It further creates spans (start and end of each entity)
+Two APIs are available for PII targeted data generation.
+`PresidioFakeRecordGenerator` and `PresidioDataGenerator`.
+
+These take a text file with templates (e.g. `my name is {{person}}`)
+and create a list of InputSamples which contain fake PII entities
+instead of placeholders. They also create spans (start and end of each entity)
 for model training and evaluation.
 
 ## Scenarios
 
-There are two main scenarios for using the Presidio Data Generator:
+There are two main scenarios for using the Presidio Data Generators:
 
 1. Create a fake dataset for evaluation or training purposes, given a list of predefined templates 
 (see [this file](raw_data/templates.txt) for example)
@@ -20,7 +23,7 @@ and then scenario 1 is applied.
 
 This generator heavily relies on the [Faker package](https://www.github.com/joke2k/faker) with a few differences:
 
-1. `PresidioDataGenerator` returns not only fake text, but also the spans in which fake entities appear in the text.
+1. `PresidioFakeRecordGenerator` and `PresidioDataGenerator` return not only fake text, but also the spans in which fake entities appear in the text.
 
 2. `Faker` samples each value independently. 
 In many cases we would want to keep the semantic dependency between two values. 
@@ -34,7 +37,23 @@ It accepts a dictionary / pandas DataFrame, and favors returning objects from th
 
 For a full example, see the [Generate Data Notebook](../../notebooks/1_Generate_data.ipynb).
 
-Simple example:
+`PresidioFakeRecordGenerator` provides a high level interface for using the full power of the `presidio_evaluator`
+package. Its results use the presidio PII entities, not the `Faker` entities.
+It is loaded by default with template strings, and the additional Presidio Entity Providers.
+
+```python
+from presidio_evaluator.data_generator import PresidioFakeRecordGenerator
+
+record_generator = PresidioFakeRecordGenerator(locale='en', lower_case_ratio=0.05)
+fake_records = record_generator.generate_new_fake_records(1500)
+
+# Print the spans of the first sample
+print(fake_records[0].fake)
+print(fake_records[0].spans)
+```
+
+`PresidioDataGenerator` provides a lower level interface, with more control. It does not load default template strings
+or the additional Presidio Entity Providers. Its results use the `Faker` entities, giving lower level `Faker` control.
 
 ```python
 from presidio_evaluator.data_generator import PresidioDataGenerator
@@ -50,15 +69,11 @@ data_generator = PresidioDataGenerator()
 fake_records = data_generator.generate_fake_data(
     templates=sentence_templates, n_samples=10
 )
-
 fake_records = list(fake_records)
 
 # Print the spans of the first sample
 print(fake_records[0].fake)
 print(fake_records[0].spans)
-
-
-
 ```
 
 The process in high level is the following:
