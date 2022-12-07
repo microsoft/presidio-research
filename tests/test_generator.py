@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from faker import Faker
 
-from presidio_evaluator.data_generator import PresidioDataGenerator
+from presidio_evaluator.data_generator import PresidioDataGenerator, PresidioFakeRecordGenerator
 from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
 
 
@@ -44,3 +44,20 @@ def test_new_provider_with_alias():
     assert res
     assert len(res.fake) > len(start_of_sentence)
     assert start_of_sentence in res.fake
+
+
+@pytest.mark.parametrize('num_records', range(5))
+def test_record_generator(num_records: int):
+    default_num_faker_providers = len(Faker().providers)
+    record_generator = PresidioFakeRecordGenerator(locale='en', lower_case_ratio=0)
+
+    assert len(record_generator._sentence_templates) > 0, 'Did not load default sentence templates'
+    num_record_generator_providers = len(record_generator._data_generator.faker.providers)
+    assert num_record_generator_providers > default_num_faker_providers, 'Did not add Presidio entity providers'
+
+    fake_records = record_generator.generate_new_fake_records(num_records)
+    assert len(fake_records) == num_records
+    for record in fake_records:
+        assert record.fake
+        assert record.template
+        assert record.template_id >= 0
