@@ -13,7 +13,7 @@ from faker.typing import SeedType
 from pandas import DataFrame
 from tqdm import tqdm
 
-from presidio_evaluator.data_generator import raw_data
+from presidio_evaluator.data_generator import raw_data_dir
 from presidio_evaluator.data_generator.faker_extensions import (
     FakerSpansResult,
     NationalityProvider,
@@ -353,8 +353,6 @@ class PresidioFakeRecordGenerator:
                  additional_entity_providers: List[BaseProvider] = [],
                  additional_sentence_templates: List[str] = [],
                  random_seed: SeedType = None):
-        raw_data_dir = Path(raw_data.__path__[0])
-
         presidio_templates_file_path = raw_data_dir / "templates.txt"
         self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
         self._sentence_templates.extend(additional_sentence_templates)

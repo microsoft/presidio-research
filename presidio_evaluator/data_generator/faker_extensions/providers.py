@@ -2,22 +2,21 @@ import random
 from collections import OrderedDict
 from pathlib import Path
 from typing import Union
-import yaml
 
 import pandas as pd
+import yaml
 from faker.providers import BaseProvider
 from faker.providers.address.en_US import Provider as AddressProvider
 from faker.providers.phone_number.en_US import Provider as PhoneNumberProvider
-from presidio_evaluator.data_generator import raw_data
 
-_raw_data_dir = Path(raw_data.__path__[0])
+from presidio_evaluator.data_generator import raw_data_dir
 
 
 class NationalityProvider(BaseProvider):
     def __init__(self, generator, nationality_file: Union[str, Path] = None):
         super().__init__(generator=generator)
         if not nationality_file:
-            nationality_file = (_raw_data_dir / "nationalities.csv").resolve()
+            nationality_file = (raw_data_dir / "nationalities.csv").resolve()
 
         self.nationality_file = nationality_file
         self.nationalities = self.load_nationalities()
@@ -43,15 +42,15 @@ class NationalityProvider(BaseProvider):
 
 class OrganizationProvider(BaseProvider):
     def __init__(
-        self,
-        generator,
-        organizations_file: Union[str, Path] = None,
+            self,
+            generator,
+            organizations_file: Union[str, Path] = None,
     ):
         super().__init__(generator=generator)
         if not organizations_file:
             # company names assembled from stock exchange listings (aex, bse, cnq, ger, lse, nasdaq, nse, nyse, par, tyo),
             # US government websites like https://www.sec.gov/rules/other/4-460list.htm, and other sources
-            organizations_file = (_raw_data_dir / "companies_and_organizations.csv").resolve()
+            organizations_file = (raw_data_dir / "companies_and_organizations.csv").resolve()
         self.organizations_file = organizations_file
         self.organizations = self.load_organizations()
 
@@ -68,7 +67,7 @@ class OrganizationProvider(BaseProvider):
 class UsDriverLicenseProvider(BaseProvider):
     def __init__(self, generator):
         super().__init__(generator=generator)
-        us_driver_license_file = (_raw_data_dir / "us_driver_license_format.yaml").resolve()
+        us_driver_license_file = (raw_data_dir / "us_driver_license_format.yaml").resolve()
         formats = yaml.safe_load(open(us_driver_license_file))
         self.formats = formats['en']['faker']['driving_license']['usa']
 
@@ -81,13 +80,13 @@ class UsDriverLicenseProvider(BaseProvider):
 
 class ReligionProvider(BaseProvider):
     def __init__(
-        self,
-        generator,
-        religions_file: Union[str, Path] = None,
+            self,
+            generator,
+            religions_file: Union[str, Path] = None,
     ):
         super().__init__(generator=generator)
         if not religions_file:
-            religions_file = (_raw_data_dir / "religions.csv").resolve()
+            religions_file = (raw_data_dir / "religions.csv").resolve()
         self.religions_file = religions_file
         self.religions = self.load_religions()
 
@@ -110,7 +109,6 @@ class IpAddressProvider(BaseProvider):
 
 
 class AgeProvider(BaseProvider):
-
     formats = OrderedDict(
         [
             ("%#", 0.8),
