@@ -350,12 +350,13 @@ class PresidioFakeRecordGenerator:
     def __init__(self,
                  locale: str,
                  lower_case_ratio: float,
-                 additional_entity_providers: List[BaseProvider] = [],
-                 additional_sentence_templates: List[str] = [],
+                 additional_entity_providers: List[BaseProvider] = None,
+                 additional_sentence_templates: List[str] = None,
                  random_seed: SeedType = None):
         presidio_templates_file_path = raw_data_dir / "templates.txt"
         self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
-        self._sentence_templates.extend(additional_sentence_templates)
+        if additional_sentence_templates:
+            self._sentence_templates.extend(additional_sentence_templates)
 
         presidio_additional_entity_providers = [IpAddressProvider,
                                                 NationalityProvider,
@@ -364,6 +365,8 @@ class PresidioFakeRecordGenerator:
                                                 AgeProvider,
                                                 AddressProviderNew,
                                                 PhoneNumberProviderNew]
+        if additional_entity_providers is None:
+            additional_entity_providers = []
         additional_entity_providers.extend(presidio_additional_entity_providers)
 
         fake_person_data_path = raw_data_dir / "FakeNameGenerator.com_3000.csv"
