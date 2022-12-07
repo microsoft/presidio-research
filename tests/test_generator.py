@@ -54,7 +54,7 @@ def _get_classes_from_module(module):
             if member[1].__module__ == module.__name__]
 
 
-@pytest.mark.parametrize('num_records', range(5))
+@pytest.mark.parametrize('num_records', (1500, 3000))
 def test_record_generator(num_records: int):
     standard_faker = Faker()
     default_faker_providers = standard_faker.providers
