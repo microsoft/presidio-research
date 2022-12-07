@@ -124,7 +124,7 @@ class PresidioDataGenerator:
     def read_template_file(templates_file):
         with open(templates_file) as f:
             lines = f.readlines()
-            lines = [line.replace("\\n", "\n") for line in lines]
+            lines = [line.strip() for line in lines]
             return lines
 
     @staticmethod
