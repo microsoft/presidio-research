@@ -5,6 +5,7 @@ import pandas as pd
 from presidio_evaluator.experiment_tracking.experiment_tracker import ExperimentTracker
 from presidio_evaluator.evaluation.model_error import ModelError
 from pathlib import Path
+from datetime import datetime
 
 
 class LocalExperimentTracker(ExperimentTracker):
@@ -29,6 +30,10 @@ class LocalExperimentTracker(ExperimentTracker):
         """
         full_path = Path(Path.cwd(), self.dir, self.experiment_name)
         full_path.mkdir(parents=True, exist_ok=True)
+        self.log_start_time()
+
+    def log_start_time(self):
+        self.experiment_start_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
     def log_errors(self, errors: List[ModelError]):
         """ Generate a serialized version of all model errors and store as `.pkl` file
