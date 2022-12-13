@@ -2,7 +2,7 @@ from typing import List, Optional, Dict
 
 from presidio_analyzer import AnalyzerEngine
 
-from presidio_evaluator import InputSample, span_to_tag
+from presidio_evaluator import InputSample, Span, span_to_tag
 from presidio_evaluator.models import BaseModel
 
 
@@ -47,12 +47,21 @@ class PresidioAnalyzerWrapper(BaseModel):
         ends = []
         scores = []
         tags = []
-        #
+        response_spans = []
+        
         for res in results:
+            # Create output for token-level evaluation
             starts.append(res.start)
             ends.append(res.end)
             tags.append(res.entity_type)
             scores.append(res.score)
+
+            # Create output for span-level evaluation
+            predict_span = Span(entity_type=res.entity_type, 
+                                start_position=res.start,
+                                end_position=res.end,
+                                entity_value = sample.full_text[res.start:res.end])
+            response_spans.append(predict_span)
 
         response_tags = span_to_tag(
             scheme="IO",
@@ -63,7 +72,7 @@ class PresidioAnalyzerWrapper(BaseModel):
             scores=scores,
             tags=tags,
         )
-        return response_tags
+        return response_tags, response_spans
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
     presidio_entities_map = {
