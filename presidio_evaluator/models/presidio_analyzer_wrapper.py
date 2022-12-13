@@ -47,7 +47,6 @@ class PresidioAnalyzerWrapper(BaseModel):
         ends = []
         scores = []
         tags = []
-        response_spans = []
         
         for res in results:
             # Create output for token-level evaluation
@@ -55,13 +54,6 @@ class PresidioAnalyzerWrapper(BaseModel):
             ends.append(res.end)
             tags.append(res.entity_type)
             scores.append(res.score)
-
-            # Create output for span-level evaluation
-            predict_span = Span(entity_type=res.entity_type, 
-                                start_position=res.start,
-                                end_position=res.end,
-                                entity_value = sample.full_text[res.start:res.end])
-            response_spans.append(predict_span)
 
         response_tags = span_to_tag(
             scheme="IO",
@@ -72,7 +64,26 @@ class PresidioAnalyzerWrapper(BaseModel):
             scores=scores,
             tags=tags,
         )
-        return response_tags, response_spans
+        return response_tags
+
+    def predict_span(self, sample: InputSample) -> List[Span]:
+        results = self.analyzer_engine.analyze(
+            text=sample.full_text,
+            entities=self.entities,
+            language="en",
+            score_threshold=self.score_threshold,
+        )
+    
+        response_spans = []
+        
+        for res in results:
+            # Create output for span-level evaluation
+            predict_span = Span(entity_type=res.entity_type, 
+                                start_position=res.start,
+                                end_position=res.end,
+                                entity_value = sample.full_text[res.start:res.end])
+            response_spans.append(predict_span)
+        return response_spans
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
     presidio_entities_map = {
