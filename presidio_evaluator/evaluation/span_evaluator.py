@@ -7,6 +7,26 @@ from presidio_evaluator.models import BaseModel
 from presidio_evaluator import InputSample, Span
 
 
+class SpanEvaluatorOutput:
+    def __init__(
+        self,
+        error_type: str,
+        gold_span: str,
+        pred_span: str,
+        confidence_score: float,
+        overlap_score: float,
+        full_text: str
+    ):
+        """
+        Holds information about model prediction output for analysis purposes
+
+        """
+        self.error_type = error_type
+        self.gold_span = gold_span
+        self.pred_span = pred_span
+        self.overlap_score = overlap_score
+        self.full_text = full_text
+
 class SpanEvaluator:
     def __init__(
         self,
@@ -99,6 +119,9 @@ class SpanEvaluator:
         eval_output["span_output"] = {}
         evaluation = {"correct": 0, "partial": 0, "incorrect": 0, "miss": 0, "spurious": 0}
         evaluate_by_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
+        # List of SpanEvaluatorOutput which holds the details of model output for analysis purposes
+        evaluation_results = []
+        
         for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
             # prediction
             response_spans = self.model.predict_span(sample)
@@ -122,19 +145,41 @@ class SpanEvaluator:
                     for gold in gold_named_entities:
                         # Overlap between span, entity is match
                         if pred.entity_type == gold.entity_type: 
-                            if self.is_overlap(gold, pred, self.overlap_threshold):
+                            overlap_ratio = self.is_overlap(gold, pred, self.overlap_threshold)
+                            if overlap_ratio:
                                 evaluation["partial"] += 1
                                 evaluate_by_entities_type[pred.entity_type]["partial"] += 1
                                 true_which_overlapped_with_pred.append(gold)
+                                # Add the output's detail to evaluation_results
+                                evaluation_results.append(SpanEvaluatorOutput(
+                                        error_type = "partial",
+                                        gold_span = gold,
+                                        pred_span = pred,
+                                        overlap_score=overlap_ratio
+                                    ))
                             else:
                                 # Entity type is correct but the overlap ratio is smaller than 0.5
                                 evaluation["incorrect"] += 1
                                 evaluate_by_entities_type[pred.entity_type]["incorrect"] += 1
                                 true_which_overlapped_with_pred.append(gold)
+                                # Add the output's detail to evaluation_results
+                                evaluation_results.append(SpanEvaluatorOutput(
+                                        error_type = "incorrect",
+                                        gold_span = gold,
+                                        pred_span = pred,
+                                        overlap_score=overlap_ratio
+                                    ))
                         else: 
                             # Entity type is incorrect 
                             evaluation["spurious"] += 1
                             evaluate_by_entities_type[pred.entity_type]["spurious"] += 1
+                            # Add the output's detail to evaluation_results
+                            evaluation_results.append(SpanEvaluatorOutput(
+                                    error_type = "spurious",
+                                    gold_span = gold,
+                                    pred_span = pred,
+                                    overlap_score=0
+                                ))
 
             ## Get all missed span/entity in the gold corpus
             for true in gold_named_entities:
@@ -143,6 +188,13 @@ class SpanEvaluator:
                 else:
                     evaluation["miss"] += 1
                     evaluate_by_entities_type[true.entity_type]["miss"] += 1
+                    # Add the output's detail to evaluation_results
+                    evaluation_results.append(SpanEvaluatorOutput(
+                            error_type = "miss",
+                            gold_span = gold,
+                            pred_span = pred,
+                            overlap_score=0
+                        ))
         # Compute overall "possible", "actual" and precision and recall 
         evaluation = self.compute_span_actual_possible(evaluation)
         # Compute actual and possible of each entity
