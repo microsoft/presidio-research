@@ -4,16 +4,16 @@ from typing import List, Optional, Dict
 from difflib import SequenceMatcher
 
 from presidio_evaluator.models import BaseModel
+from presidio_evaluator.evaluation import SpanEvaluationResult
 from presidio_evaluator import InputSample, Span
 
 
-class SpanEvaluatorOutput:
+class SpanError:
     def __init__(
         self,
         error_type: str,
         gold_span: str,
         pred_span: str,
-        confidence_score: float,
         overlap_score: float,
         full_text: str
     ):
@@ -110,7 +110,7 @@ class SpanEvaluator:
         return metrics
 
     
-    def evaluate_span(self, dataset: List[InputSample]):
+    def evaluate_span(self, dataset: List[InputSample]) -> SpanEvaluationResult:
         """
         Evaluate the dataset at span level
         """
@@ -119,8 +119,9 @@ class SpanEvaluator:
         eval_output["span_output"] = {}
         evaluation = {"correct": 0, "partial": 0, "incorrect": 0, "miss": 0, "spurious": 0}
         evaluate_by_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
-        # List of SpanEvaluatorOutput which holds the details of model output for analysis purposes
-        evaluation_results = []
+        # List of SpanEvaluatorOutput which holds the details of model erros for analysis purposes
+        model_errors = []
+        
         
         for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
             # prediction
@@ -151,7 +152,7 @@ class SpanEvaluator:
                                 evaluate_by_entities_type[pred.entity_type]["partial"] += 1
                                 true_which_overlapped_with_pred.append(gold)
                                 # Add the output's detail to evaluation_results
-                                evaluation_results.append(SpanEvaluatorOutput(
+                                model_errors.append(SpanError(
                                         error_type = "partial",
                                         gold_span = gold,
                                         pred_span = pred,
@@ -163,7 +164,7 @@ class SpanEvaluator:
                                 evaluate_by_entities_type[pred.entity_type]["incorrect"] += 1
                                 true_which_overlapped_with_pred.append(gold)
                                 # Add the output's detail to evaluation_results
-                                evaluation_results.append(SpanEvaluatorOutput(
+                                model_errors.append(SpanError(
                                         error_type = "incorrect",
                                         gold_span = gold,
                                         pred_span = pred,
@@ -174,7 +175,7 @@ class SpanEvaluator:
                             evaluation["spurious"] += 1
                             evaluate_by_entities_type[pred.entity_type]["spurious"] += 1
                             # Add the output's detail to evaluation_results
-                            evaluation_results.append(SpanEvaluatorOutput(
+                            model_errors.append(SpanError(
                                     error_type = "spurious",
                                     gold_span = gold,
                                     pred_span = pred,
@@ -189,7 +190,7 @@ class SpanEvaluator:
                     evaluation["miss"] += 1
                     evaluate_by_entities_type[true.entity_type]["miss"] += 1
                     # Add the output's detail to evaluation_results
-                    evaluation_results.append(SpanEvaluatorOutput(
+                    model_errors.append(SpanError(
                             error_type = "miss",
                             gold_span = gold,
                             pred_span = pred,
@@ -208,5 +209,7 @@ class SpanEvaluator:
             eval_output["span_output"][type] = evaluate_by_entities_type[type]
             eval_output["metrics"][f'{type}_span_metrics'] = self.compute_precision_recall(evaluate_by_entities_type[type])
         
-        #return evaluation, evaluate_by_entities_type
-        return eval_output
+        # Return output of SpanEvaluationResult format
+        spans_eval = SpanEvaluationResult(model_errors=model_errors, model_metrics=eval_output)
+        
+        return spans_eval
