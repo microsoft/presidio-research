@@ -107,8 +107,7 @@ class SpanEvaluator:
             # filter gold and pred spans which their entities are in the list of entities_to_keep
             gold_named_entities = [ent for ent in sample.spans if ent.entity_type in self.entities_to_keep]
             pred_named_entities = [ent for ent in response_spans if ent.entity_type in self.entities_to_keep]
-            print(gold_named_entities)
-            print(pred_named_entities)
+
             # keep track of entities that overlapped
             true_which_overlapped_with_pred = []
 
