@@ -2,7 +2,7 @@ import copy
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 
-from presidio_evaluator import InputSample, io_to_scheme
+from presidio_evaluator import InputSample, Span, io_to_scheme
 
 
 class BaseModel(ABC):
@@ -35,9 +35,18 @@ class BaseModel(ABC):
     @abstractmethod
     def predict(self, sample: InputSample) -> List[str]:
         """
-        Abstract. Returns the predicted tokens/spans from the evaluated model
+        Abstract. Returns the predicted tokens from the evaluated model
         :param sample: Sample to be evaluated
         :return: List of tags in self.labeling_scheme format
+        """
+        pass
+
+    @abstractmethod
+    def predict_span(self, sample: InputSample) -> List[Span]:
+        """
+        Abstract. Returns the predicted spans from the evaluated model
+        :param sample: Sample to be evaluated
+        :return: List of span in Span object
         """
         pass
 
