@@ -101,7 +101,7 @@ class SpanEvaluator:
         evaluate_by_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
         for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
             # prediction
-            response_tags, response_spans = self.model.predict(sample)
+            response_spans = self.model.predict_span(sample)
 
             # span evaluator
             # filter gold and pred spans which their entities are in the list of entities_to_keep
