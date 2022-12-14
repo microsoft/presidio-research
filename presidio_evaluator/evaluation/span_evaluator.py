@@ -4,28 +4,9 @@ from typing import List, Optional, Dict
 from difflib import SequenceMatcher
 
 from presidio_evaluator.models import BaseModel
-from presidio_evaluator.evaluation import SpanEvaluationResult
+from presidio_evaluator.evaluation import SpanEvaluationResult, SpanError
 from presidio_evaluator import InputSample, Span
 
-
-class SpanError:
-    def __init__(
-        self,
-        error_type: str,
-        gold_span: str,
-        pred_span: str,
-        overlap_score: float,
-        full_text: str
-    ):
-        """
-        Holds information about model prediction output for analysis purposes
-
-        """
-        self.error_type = error_type
-        self.gold_span = gold_span
-        self.pred_span = pred_span
-        self.overlap_score = overlap_score
-        self.full_text = full_text
 
 class SpanEvaluator:
     def __init__(
@@ -156,7 +137,8 @@ class SpanEvaluator:
                                         error_type = "partial",
                                         gold_span = gold,
                                         pred_span = pred,
-                                        overlap_score=overlap_ratio
+                                        overlap_score=overlap_ratio,
+                                        full_text=sample.full_text
                                     ))
                             else:
                                 # Entity type is correct but the overlap ratio is smaller than 0.5
@@ -168,7 +150,8 @@ class SpanEvaluator:
                                         error_type = "incorrect",
                                         gold_span = gold,
                                         pred_span = pred,
-                                        overlap_score=overlap_ratio
+                                        overlap_score=overlap_ratio,
+                                        full_text=sample.full_text
                                     ))
                         else: 
                             # Entity type is incorrect 
@@ -179,7 +162,8 @@ class SpanEvaluator:
                                     error_type = "spurious",
                                     gold_span = gold,
                                     pred_span = pred,
-                                    overlap_score=0
+                                    overlap_score=0,
+                                    full_text=sample.full_text
                                 ))
 
             ## Get all missed span/entity in the gold corpus
@@ -194,7 +178,8 @@ class SpanEvaluator:
                             error_type = "miss",
                             gold_span = gold,
                             pred_span = pred,
-                            overlap_score=0
+                            overlap_score=0,
+                            full_text=sample.full_text
                         ))
         # Compute overall "possible", "actual" and precision and recall 
         evaluation = self.compute_span_actual_possible(evaluation)
