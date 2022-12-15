@@ -1,8 +1,10 @@
 import random
 from collections import OrderedDict
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 import yaml
+import requests
+from functools import reduce
 
 import pandas as pd
 from faker.providers import BaseProvider
@@ -259,3 +261,77 @@ class PhoneNumberProviderNew(PhoneNumberProvider):
         # Standard 11-digit phone number format with extensions
         "+1-###-###-####x###",
     )
+
+
+class HospitalProvider(BaseProvider):
+    def __init__(self, generator, hospital_file: str = None):
+        super().__init__(generator=generator)
+        self.hospital_list = self.load_hospitals(hospital_file)
+
+    def load_hospitals(self, hospital_file: str):
+        """Loads a list of hospital names based in the US.
+        If a static file with hospital names is provided, the hospital names should be under a 
+        column named "name". If a nothing is provided then,
+        the information will be retrieved from WikiData.
+
+        :param hospital_file: Path to static file containing hospital names
+        :type hospital_file: str
+        """
+        if hospital_file:
+            self.hospitals = pd.read_csv(hospital_file)
+            if 'name' not in self.hospitals:
+                print("Unable to retrieve hospital names, file is missing column named 'name'")
+                self.hospitals = list()
+                return
+            self.hospitals = self.hospitals['name'].to_list()
+        else:
+            self.hospitals = self.load_wiki_hospitals()
+
+    def hospital_name(self):
+        return self.random_element(self.hospitals)
+
+    def load_wiki_hospitals(self,):
+        """Executes a query on WikiData and extracts a list of US based hospitals
+
+        """
+        url = 'https://query.wikidata.org/sparql'
+        query = '''
+        SELECT DISTINCT ?label_en
+        WHERE 
+        { ?item wdt:P31/wdt:P279* wd:Q16917; wdt:P17 wd:Q30
+        OPTIONAL { ?item p:P31/ps:P31 wd:Q64578911 . BIND(wd:Q64578911 as ?status1) } BIND(COALESCE(?status1,wd:Q64624840) as ?status)
+        OPTIONAL { ?item wdt:P131/wdt:P131* ?ac . ?ac wdt:P5087 [] }
+        optional { ?item rdfs:label ?label_en FILTER((LANG(?label_en)) = "en") }   
+        }
+
+        '''
+        r = requests.get(url, params={'format': 'json', 'query': query})
+        data = r.json()
+        bindings = data['results']['bindings']
+        hospitals = [self.deep_get(x, ['label_en', 'value']) for x in bindings]
+        hospitals = [x for x in hospitals if 'no key' not in x]
+        return hospitals
+
+    def deep_get(self, dictionary: dict, keys: List[str]):
+        """Retrieve values from a nested dictionary for specific nested keys
+        > example:
+        > d = {"key_a":1, "key_b":{"key_c":2}}
+        > deep_get(d, ["key_b","key_c"])
+        > ... 2
+
+        > deep_get(d, ["key_z"])
+        > ... "no key key_z"
+        :param dictionary: Nested dictionary to search for keys
+        :type dictionary: dict
+        :param keys: list of keys, each value should represent the next level of nesting
+        :type keys: List
+        :return: The value of the nested keys
+        """
+
+        return reduce(
+            lambda dictionary, key: dictionary.get(key, f"no key {key}")
+            if isinstance(dictionary, dict)
+            else f"no key {key}",
+            keys,
+            dictionary,
+        )
