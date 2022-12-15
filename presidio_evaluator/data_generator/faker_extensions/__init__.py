@@ -10,6 +10,7 @@ from .providers import (
     AddressProviderNew,
     PhoneNumberProviderNew,
     AgeProvider,
+    HospitalProvider
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "PhoneNumberProviderNew",
     "AgeProvider",
     "RecordsFaker",
+    "HospitalProvider"
 ]
