@@ -306,8 +306,11 @@ class HospitalProvider(BaseProvider):
 
         '''
         r = requests.get(url, params={'format': 'json', 'query': query})
+        if r.status_code != 200:
+            print("Unable to read hospitals from WikiData, returning an empty list")
+            return list()
         data = r.json()
-        bindings = data['results']['bindings']
+        bindings = data['results'].get('bindings', [])
         hospitals = [self.deep_get(x, ['label_en', 'value']) for x in bindings]
         hospitals = [x for x in hospitals if 'no key' not in x]
         return hospitals
