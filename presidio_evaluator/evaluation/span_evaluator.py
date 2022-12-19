@@ -65,7 +65,7 @@ class SpanEvaluator:
                     matched_gold_span = gold
         
         if max_overlapping >= overlap_threshold:
-            # regarless of what predicted entity is, if spans' boundaries ratio is between [overlap_threshold, 1)
+            # regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between [overlap_threshold, 1)
             # output_type is partial
             return SpanOutput(output_type="partial",
                              gold_span=matched_gold_span,
@@ -74,7 +74,7 @@ class SpanEvaluator:
                              overlap_score=max_overlapping
                              )
         elif 0 < max_overlapping < overlap_threshold:
-            # regarless of what predicted entity is, if spans' boundaries ratio is between (0, overlap_threshold]
+            # regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold]
             # output_type is incorrect
             return SpanOutput(output_type="incorrect",
                              gold_span=matched_gold_span,
@@ -83,7 +83,7 @@ class SpanEvaluator:
                              overlap_score=max_overlapping
                              )
         else:
-            # Regardless entity type, spans's boundaries = 0 
+            # Regardless of the entity type, spans' boundaries overlapping ratio is 0 
             # output_type is spurious
             return SpanOutput(output_type="spurious",
                              gold_span=None,
