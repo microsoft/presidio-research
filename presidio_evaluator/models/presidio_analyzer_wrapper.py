@@ -67,6 +67,11 @@ class PresidioAnalyzerWrapper(BaseModel):
         return response_tags
 
     def predict_span(self, sample: InputSample) -> List[Span]:
+        """
+         Returns the predicted spans from the evaluated model
+        :param sample: Sample to be evaluated
+        :return: List of span in Span object
+        """
         results = self.analyzer_engine.analyze(
             text=sample.full_text,
             entities=self.entities,

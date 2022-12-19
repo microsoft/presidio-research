@@ -41,15 +41,6 @@ class BaseModel(ABC):
         """
         pass
 
-    @abstractmethod
-    def predict_span(self, sample: InputSample) -> List[Span]:
-        """
-        Abstract. Returns the predicted spans from the evaluated model
-        :param sample: Sample to be evaluated
-        :return: List of span in Span object
-        """
-        pass
-
     def align_entity_types(self, sample: InputSample) -> None:
         """
         Translates the sample's tags to the ones requested by the model
