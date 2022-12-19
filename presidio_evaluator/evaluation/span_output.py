@@ -57,7 +57,7 @@ class SpanOutput:
                 if output.output_type == output_type
             ]
             
-        if len(filtered_output == 0):
+        if len(filtered_output) == 0:
             print( "No outputs of type {} and entity {} were found".format(
                     output_type, entity
                 ))
