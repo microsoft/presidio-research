@@ -1,5 +1,7 @@
 variables:
   - group: Presidio-V2-CI
+trigger: none
+pr: none
 steps:
   - task: UsePythonVersion@0
     inputs:
