@@ -17,14 +17,16 @@ Then, we are able to calculate two more quantities from those labels:
 
 <b>Possible</b>: The number of annotations in the gold-standard which contributes to the final score:
     Possible = correct + incorrect + partial + missed
-    
+
 <b>Actual</b>: The number of annotations produced by the PII detection system
     Actual = correct + incorrect + partial + spurious
 
 ### Metrics calculation for exact matching cases
-Precision = correct / actual
-Recall = correct / possible
+    Precision = correct / actual
+
+    Recall = correct / possible
 
 ### Metrics calculation for partial matching cases
-Precision = (correct + 0.5 * partial) / actual
-Recall = (correct + 0.5 * partial)/ possible
+    Precision = (correct + 0.5 * partial) / actual
+
+    Recall = (correct + 0.5 * partial)/ possible
