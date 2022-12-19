@@ -124,6 +124,7 @@ Evaluation examples at the token level:
 - [Evaluate CRF models](notebooks/models/Evaluate%20CRF%20models.ipynb)
 - [Evaluate Flair models](notebooks/models/Evaluate%20flair%20models.ipynb)
 - [Evaluate Azure Text Analytics](notebooks/models/Evaluate%azure%text%analytics.ipynb)
+
 Evaluation examples at the [span level](docs/evaluator_options/span_based_approach.md):
 - [Evaluate Presidio](notebooks/4_Evaluate_Presidio_Analyzer_Span_Level.ipynb)
 ## 4. Training PII detection models
