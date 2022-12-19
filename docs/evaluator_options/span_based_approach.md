@@ -8,10 +8,14 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 | Senario No | Description | Label |
 | ---------- | ----------- | ----- |
 | 1 | Entity type and spans are matched | correct |
-| 2 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between [overlap_threshold, 1) | partial |
-| 3 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] | incorrect |
+| 2 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio  is between [overlap_threshold, 1) (*)| partial |
+| 3 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] (*)| incorrect |
 | 4 | Regardless of the entity type, the spans' boundaries overlapping ratio is 0 | spurious |
 | 5 | The span exist in gold standard annotation but doesn't exist in the predicted outcome | miss |
+
+    (*) Spans' boundaries overlapping ratio = the number of intersecting character between gold and predicted spans / maximum number of characters between gold and predicted spans
+
+    (*) overlap_threshold can be customize in each use case. If it is not providied, our evaluation uses the default value of 0.5
 
 Then, we are able to calculate two more quantities from those labels:
 
