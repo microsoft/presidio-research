@@ -8,7 +8,7 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 | Senario No | Description | Label |
 | ---------- | ----------- | ----- |
 | 1 | Entity type and spans are matched | correct |
-| 2 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio  is between [overlap_threshold, 1) (*)| partial |
+| 2 | - Regardless of what the predicted entity is if the spans' boundaries overlapping ratio  is between [overlap_threshold, 1) (*) <br> - The spans' boundaries match precisely but the entity types is wrong | partial |
 | 3 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] (*)| incorrect |
 | 4 | Regardless of the entity type, the spans' boundaries overlapping ratio is 0 | spurious |
 | 5 | The span exist in gold standard annotation but doesn't exist in the predicted outcome | miss |
