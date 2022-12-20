@@ -34,3 +34,7 @@ Then, we are able to calculate two more quantities from those labels:
     Precision = (correct + 0.5 * partial) / actual
 
     Recall = (correct + 0.5 * partial)/ possible
+
+An example of the span-level evaluation is summarized in the following diagram:
+
+![span-evaluator](span-evaluator.PNG)
