@@ -31,7 +31,7 @@ Then, we are able to calculate two more quantities from those labels:
     Recall = correct / possible
 
 ### Metrics calculation for partial matching cases
-    Precision = (correct + 0.5 * partial) / actual
+   $$Precision = \frac{(correct + 0.5 * partial)}{actual}
 
     Recall = (correct + 0.5 * partial)/ possible
 
