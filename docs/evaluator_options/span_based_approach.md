@@ -27,9 +27,9 @@ Then, we are able to calculate two additional metrics from those labels:
     Actual = strict + exact + partial + incorrect + spurious
 
 ### Metrics calculation for strict matching cases
-$$ Precision = \frac{strict}{actual} $$
+$$ Strict Precision = \frac{strict}{actual} $$
 
-$$ Recall = \frac{strict}{possible} $$
+$$ Strict Recall = \frac{strict}{possible} $$
 
 ### Metrics calculation for flexible matching cases
 $$ Flexible Precision = \frac{(strict + extract)}{actual} $$
