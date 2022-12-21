@@ -7,11 +7,12 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 
 | Senario No | Description | Label |
 | ---------- | ----------- | ----- |
-| 1 | Entity type and spans are matched | correct |
-| 2 | - Regardless of what the predicted entity is if the spans' boundaries overlapping ratio  is between [overlap_threshold, 1) (*) <br> - The spans' boundaries match precisely but the entity types is wrong | partial |
-| 3 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] (*)| incorrect |
-| 4 | Regardless of the entity type, the spans' boundaries overlapping ratio is 0 | spurious |
-| 5 | The span exist in gold standard annotation but doesn't exist in the predicted outcome | miss |
+| 1 | Entity types and spans match | strict |
+| 2 | Entity types match but the spans' boundaries overlapping ratio is between [overlap_threshold, 1) | exact |
+| 3 | Entity types are wrong but the spans' boundaries overlapping ratio is between [overlap_threshold, 1] | partial |
+| 4 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] (*) | incorrect |
+| 5 | Regardless of the entity type, the spans' boundaries overlapping ratio is 0 | spurious |
+| 6 | The span exist in gold standard annotation but doesn't exist in the predicted outcome | miss |
 
     (*) Spans' boundaries overlapping ratio = the number of intersecting character between gold and predicted spans / maximum number of characters between gold and predicted spans
 
@@ -20,20 +21,25 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 Then, we are able to calculate two additional metrics from those labels:
 
 <b>Possible</b>: The number of annotations in the gold-standard which contributes to the final score:
-    Possible = correct + incorrect + partial + missed
+    Possible = strict + exact + partial + incorrect + missed
 
 <b>Actual</b>: The number of annotations produced by the PII detection system
-    Actual = correct + incorrect + partial + spurious
+    Actual = strict + exact + partial + incorrect + spurious
 
-### Metrics calculation for exact matching cases
-    Precision = correct / actual
+### Metrics calculation for strict matching cases
+$$ Precision = \frac{strict}{actual} $$
 
-    Recall = correct / possible
+$$ Recall = \frac{strict}{possible} $$
+
+### Metrics calculation for flexible matching cases
+$$ Flexible Precision = \frac{(strict + extract)}{actual} $$
+
+$$ Flexible Recall = \frac{(strict + extract)}{possible} $$
 
 ### Metrics calculation for partial matching cases
-   $$Precision = \frac{(correct + 0.5 * partial)}{actual}
+$$ Partial Precision = \frac{(strict + extract + 0.5 * partial)}{actual} $$
 
-$$Recall_{flexible} = \frac{(correct + 0.5 * partial)}{possible}
+$$ Partial Recall = \frac{(strict + extract + 0.5 * partial)}{possible} $$
 
 An example of the span-level evaluation is summarized in the following diagram:
 
