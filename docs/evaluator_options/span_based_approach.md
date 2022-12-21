@@ -17,7 +17,7 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 
     (*) overlap_threshold can be customize in each use case. If it is not providied, our evaluation uses the default value of 0.5
 
-Then, we are able to calculate two more quantities from those labels:
+Then, we are able to calculate two additional metrics from those labels:
 
 <b>Possible</b>: The number of annotations in the gold-standard which contributes to the final score:
     Possible = correct + incorrect + partial + missed
