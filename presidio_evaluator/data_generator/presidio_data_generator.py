@@ -125,25 +125,6 @@ class PresidioDataGenerator:
             lines = [line.replace("\\n", "\n") for line in lines]
             return lines
 
-    @staticmethod
-    def _prep_templates(raw_templates):
-        print("Preparing sample sentences for ingestion")
-
-        def make_lower_case(match_obj):
-            if match_obj.group() is not None:
-                return match_obj.group().lower()
-
-        templates = [
-            (
-                re.sub(r"\[.*?\]", make_lower_case, template.strip())
-                .replace("[", "{" + "{")
-                .replace("]", "}" + "}")
-            )
-            for template in raw_templates
-        ]
-
-        return templates
-
     def generate_fake_data(
         self, templates: List[str], n_samples: int
     ) -> Union[Generator[FakerSpansResult, None, None], Generator[str, None, None]]:
