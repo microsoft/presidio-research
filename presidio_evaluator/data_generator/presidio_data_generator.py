@@ -152,10 +152,7 @@ class PresidioDataGenerator:
         :param templates: A list of strings containing templates
         :param n_samples: Number of samples to generate
         """
-
-        if templates:
-            templates = self._prep_templates(templates)
-        else:
+        if not templates:
             templates = None
 
         for _ in tqdm(range(n_samples), desc="Sampling"):

@@ -43,6 +43,7 @@ def span_faker(test_provider):
         ("My name is {{foo}}", "My name is bar"),
         ("My name is {{  foo   }}", "My name is bar"),
         ("my name is {{foofoofoo}}", "my name is bar"),
+        ("my name is {{FOO}}", "my name is bar")
     ],
 )
 def test_one_replacement(span_faker, pattern, expected):
