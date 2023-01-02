@@ -41,19 +41,20 @@ class LocalExperimentTracker(ExperimentTracker):
         Args:
             errors (List[ModelError]): List containing generated errors by the NER model
         """
+        # extract token embeddings as numpy matrix and store as .npy file
+        error_embeddings = [error.token.vector for error in errors]
+        token_arr = np.stack(error_embeddings, axis=0)
+        file_path = Path(Path.cwd(), self.dir, self.experiment_name,
+                         "token_embeddings.npy")
+        np.save(file_path.as_posix(), token_arr)
+
+        # serialize the tokens into string and store as .pkl file
         errors_str = self._serialize_errors(errors)
         file_path = Path(Path.cwd(), self.dir, self.experiment_name,
                          "experiment_errors.pkl")
         file = open(file_path, 'wb')
         pickle.dump(errors_str, file)
         file.close()
-
-        # extract token embeddings as numpy matrix and store as .npy file
-        error_embeddings = [error.vector for error in errors]
-        token_arr = np.stack(error_embeddings, axis=0)
-        file_path = Path(Path.cwd(), self.dir, self.experiment_name,
-                         "token_embeddings.npy")
-        np.save(file_path.as_posix(), token_arr)
 
     def _serialize_errors(self, errors: List) -> List[dict]:
         errors_str = list()
