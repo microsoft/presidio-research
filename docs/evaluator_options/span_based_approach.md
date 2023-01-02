@@ -8,15 +8,16 @@ To be able to calculate the precision and recall, firstly we compare the golden 
 | Senario No | Description | Label |
 | ---------- | ----------- | ----- |
 | 1 | Entity types and spans match | strict |
-| 2 | Entity types match but the spans' boundaries overlapping ratio is between [overlap_threshold, 1) | exact |
+| 2 | Entity types match but the spans' boundaries overlapping ratio is between [overlap_threshold, 1). The overlap_threshold can be customize in each use case. If it is not providied, our evaluation uses the default value of 0.5 | exact |
 | 3 | Entity types are wrong but the spans' boundaries overlapping ratio is between [overlap_threshold, 1] | partial |
-| 4 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] (*) | incorrect |
+| 4 | Regardless of what the predicted entity is if the spans' boundaries overlapping ratio is between (0, overlap_threshold] | incorrect |
 | 5 | Regardless of the entity type, the spans' boundaries overlapping ratio is 0 | spurious |
 | 6 | The span exist in gold standard annotation but doesn't exist in the predicted outcome | miss |
 
-    (*) Spans' boundaries overlapping ratio = the number of intersecting character between gold and predicted spans / maximum number of characters between gold and predicted spans
-
-    (*) overlap_threshold can be customize in each use case. If it is not providied, our evaluation uses the default value of 0.5
+ Spans boundaries overlapping ratio is:
+ $$ \frac{2.0 * M}{T} $$
+    
+<i>where M is the number of intersecting character between gold and predicted spans and T is the total number of both gold and predicted spans</i>
 
 Then, we are able to calculate two additional metrics from those labels:
 
@@ -40,6 +41,7 @@ $$ Flexible Recall = \frac{(strict + extract)}{possible} $$
 $$ Partial Precision = \frac{(strict + extract + 0.5 * partial)}{actual} $$
 
 $$ Partial Recall = \frac{(strict + extract + 0.5 * partial)}{possible} $$
+
 
 An example of the span-level evaluation is summarized in the following diagram:
 
