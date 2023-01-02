@@ -1,6 +1,7 @@
 import os
 
 from .experiment_tracker import ExperimentTracker
+from .local_tracker import LocalExperimentTracker
 
 try:
     from comet_ml import Experiment
@@ -20,4 +21,4 @@ def get_experiment_tracker():
         )
 
 
-__all__ = ["ExperimentTracker", "get_experiment_tracker"]
+__all__ = ["ExperimentTracker", "get_experiment_tracker", "LocalExperimentTracker"]

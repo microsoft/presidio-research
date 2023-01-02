@@ -6,6 +6,7 @@ from presidio_evaluator.experiment_tracking.experiment_tracker import Experiment
 from presidio_evaluator.evaluation.model_error import ModelError
 from pathlib import Path
 from datetime import datetime
+import numpy as np
 
 
 class LocalExperimentTracker(ExperimentTracker):
@@ -47,10 +48,16 @@ class LocalExperimentTracker(ExperimentTracker):
         pickle.dump(errors_str, file)
         file.close()
 
+        # extract token embeddings as numpy matrix and store as .npy file
+        error_embeddings = [error.vector for error in errors]
+        token_arr = np.stack(error_embeddings, axis=0)
+        file_path = Path(Path.cwd(), self.dir, self.experiment_name,
+                         "token_embeddings.npy")
+        np.save(file_path.as_posix(), token_arr)
+
     def _serialize_errors(self, errors: List) -> List[dict]:
         errors_str = list()
         for error in errors:
-            error.vector = error.token.vector
             error.token = str(error.token)
             errors_str.append(error)
         return errors_str
