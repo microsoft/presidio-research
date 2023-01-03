@@ -12,6 +12,7 @@ class ModelError:
         prediction: str,
         token: Token,
         full_text: str,
+        
         metadata: Dict,
     ):
         """
