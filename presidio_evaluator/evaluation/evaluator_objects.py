@@ -65,7 +65,7 @@ class SpanOutput:
 class ModelPrediction:
     def __init__(
         self,
-        sample: InputSample,
+        input_sample: InputSample,
         predicted_tags: Optional[List[str]],
         predicted_spans: Optional[List[Span]]
     ):
@@ -73,6 +73,6 @@ class ModelPrediction:
         Holds information about model prediction in both span and token level
         :params
         """
-        self.sample = sample
+        self.input_sample = input_sample
         self.predicted_tags = predicted_tags
         self.predicted_spans = predicted_spans

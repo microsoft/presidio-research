@@ -75,7 +75,7 @@ class PresidioAnalyzerWrapper(BaseModel):
             tags=tags,
         )
         return ModelPrediction(
-                sample = sample,
+                input_sample = sample,
                 predicted_tags=predicted_tags,
                 predicted_spans=predicted_spans
             )
