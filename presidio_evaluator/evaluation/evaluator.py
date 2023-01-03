@@ -9,14 +9,13 @@ import plotly.express as px
 import pandas as pd
 
 from presidio_evaluator import InputSample
-from presidio_evaluator.evaluation import EvaluationResult, ModelError
+from presidio_evaluator.evaluation import TokenOutput, SpanOutput, ModelPrediction, EvaluationResult, ModelError
 from presidio_evaluator.models import BaseModel
 
 
 class Evaluator:
     def __init__(
         self,
-        model: BaseModel,
         verbose: bool = False,
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
@@ -24,36 +23,33 @@ class Evaluator:
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
 
-        :param model: Instance of a fitted model (of base type BaseModel)
         :param compare_by_io: True if comparison should be done on the entity
         level and not the sub-entity level
         :param entities_to_keep: List of entity names to focus the evaluator on (and ignore the rest).
         Default is None = all entities. If the provided model has a list of entities to keep,
         this list would be used for evaluation.
         """
-        self.model = model
         self.verbose = verbose
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
         if self.entities_to_keep is None and self.model.entities:
             self.entities_to_keep = self.model.entities
 
-    def compare(self, input_sample: InputSample, prediction: List[str]):
+    def compare_token(self, model_prediction: ModelPrediction) -> List[TokenOutput]:
 
         """
-        Compares ground truth tags (annotation) and predicted (prediction)
+        Compares ground truth tags (annotation) and predicted (prediction) at token level
         :param input_sample: input sample containing list of tags with scheme
-        :param prediction: predicted value for each token
         self.labeling_scheme
 
         """
-        annotation = input_sample.tags
-        tokens = input_sample.tokens
+        annotation = model_prediction.input_sample.tags
+        tokens = model_prediction.input_sample.tokens
 
         if len(annotation) != len(prediction):
             print(
                 "Annotation and prediction do not have the"
-                "same length. Sample={}".format(input_sample)
+                "same length. Sample={}".format(model_prediction.input_sample)
             )
             return Counter(), []
 
@@ -64,7 +60,7 @@ class Evaluator:
 
         if self.compare_by_io:
             new_annotation = self._to_io(new_annotation)
-            prediction = self._to_io(prediction)
+            prediction = self._to_io(model_prediction.predicted_tags)
 
         # Ignore annotations that aren't in the list of
         # requested entities.
@@ -84,39 +80,38 @@ class Evaluator:
             if is_error:
                 if prediction[i] == "O":
                     mistakes.append(
-                        ModelError(
+                        TokenOutput(
                             error_type="FN",
                             annotation=new_annotation[i],
                             prediction=prediction[i],
                             token=tokens[i],
-                            full_text=input_sample.full_text,
-                            metadata=input_sample.metadata,
                         )
                     )
                 elif new_annotation[i] == "O":
                     mistakes.append(
-                        ModelError(
+                        TokenOutput(
                             error_type="FP",
                             annotation=new_annotation[i],
                             prediction=prediction[i],
                             token=tokens[i],
-                            full_text=input_sample.full_text,
-                            metadata=input_sample.metadata,
                         )
                     )
                 else:
                     mistakes.append(
-                        ModelError(
+                        TokenOutput(
                             error_type="Wrong entity",
                             annotation=new_annotation[i],
                             prediction=prediction[i],
                             token=tokens[i],
-                            full_text=input_sample.full_text,
-                            metadata=input_sample.metadata,
                         )
                     )
 
         return results, mistakes
+
+    def compare_span(self, model_prediction: ModelPrediction) -> List[SpanOutput]:
+        # filter gold and pred spans which their entities are in the list of entities_to_keep
+        gold_spans = [ent for ent in model_prediction.input_sample.spans if ent.entity_type in self.entities_to_keep]
+        pred_spans = [ent for ent in model_prediction.predicted_spans if ent.entity_type in self.entities_to_keep]
 
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
