@@ -57,7 +57,7 @@ class SpanGenerator(Generator):
             new_len = len(str(span.value))
 
             # Update full text
-            fake_text = str(text[span.end : prev_end]) + str(fake_text)
+            fake_text = str(text[span.end: prev_end]) + str(fake_text)
             fake_text = str(span.value) + str(fake_text)
             prev_end = span.start
 
@@ -88,7 +88,7 @@ class SpanGenerator(Generator):
 
         results: List[FakerSpan] = []
         for match in matches:
-            formatter = match.group()[2:-2]
+            formatter = match.group()[2:-2].lower()
             results.append(
                 FakerSpan(
                     type=formatter,

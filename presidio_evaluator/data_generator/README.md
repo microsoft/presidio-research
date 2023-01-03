@@ -81,12 +81,14 @@ The process in high level is the following:
 1. Translate a NER dataset (e.g. CONLL or OntoNotes) into a list of
 templates: `My name is John` -> `My name is [PERSON]`
 2. (Optional) add new Faker providers to the `PresidioDataGenerator` to support types of PII not returned by Faker
-3. Generate samples using the templates list
-4. Split the generated dataset to train/test/validation while making sure
+3. (Optional) map dataset entity names into provider equivalents by calling `PresidioDataGenerator.add_provider_alias`. 
+This will create entity aliases (e.g. faker supports "name" but templates contain "person")
+4. Generate samples using the templates list
+5. Split the generated dataset to train/test/validation while making sure
 that samples from the same template would only appear in one set
-5. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
-6. Train models
-7. Evaluate using one of the [evaluation notebooks](../../notebooks/models)
+6. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
+7. Train models
+8. Evaluate using one of the [evaluation notebooks](../../notebooks/models)
 
 Notes:
 
