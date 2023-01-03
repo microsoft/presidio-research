@@ -28,6 +28,16 @@ from presidio_evaluator.data_generator.faker_extensions import (
     ReligionProvider
 )
 
+presidio_templates_file_path = raw_data_dir / "templates.txt"
+presidio_additional_entity_providers = [IpAddressProvider,
+                                        NationalityProvider,
+                                        OrganizationProvider,
+                                        UsDriverLicenseProvider,
+                                        AgeProvider,
+                                        AddressProviderNew,
+                                        PhoneNumberProviderNew,
+                                        ReligionProvider]
+
 
 class PresidioDataGenerator:
     def __init__(
@@ -299,8 +309,8 @@ class PresidioFakeRecordGenerator:
     interface for generating a list of fake records.
     :param: locale: The faker locale to use e.g. 'en_US'
     :param lower_case_ratio: Percentage of names that should start with lower case
-    :param: additional_entity_providers: Custom entity providers beyond those existing in this library
-    :param: additional_sentence_templates: Custom sentence templates beyond those existing in this library
+    :param: entity_providers: Defaults to presidio_additional_entity_providers, a provided argument overrides this
+    :param: sentence_templates: Defaults to presidio_templates_file_path, a provided argument overrides this
     :param: random_seed: A seed to make results reproducible between runs
     """
     PROVIDER_ALIASES = dict(name='person', credit_card_number='credit_card', date_of_birth='birthday')
@@ -352,32 +362,21 @@ class PresidioFakeRecordGenerator:
     def __init__(self,
                  locale: str,
                  lower_case_ratio: float,
-                 additional_entity_providers: List[BaseProvider] = None,
-                 additional_sentence_templates: List[str] = None,
+                 entity_providers: List[BaseProvider] = None,
+                 sentence_templates: List[str] = None,
                  random_seed: SeedType = None):
-        presidio_templates_file_path = raw_data_dir / "templates.txt"
-        self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
-        if additional_sentence_templates:
-            self._sentence_templates.extend(additional_sentence_templates)
-
-        presidio_additional_entity_providers = [IpAddressProvider,
-                                                NationalityProvider,
-                                                OrganizationProvider,
-                                                UsDriverLicenseProvider,
-                                                AgeProvider,
-                                                AddressProviderNew,
-                                                PhoneNumberProviderNew,
-                                                ReligionProvider]
-        if additional_entity_providers is None:
-            additional_entity_providers = []
-        additional_entity_providers.extend(presidio_additional_entity_providers)
+        self._sentence_templates = sentence_templates
+        if not self._sentence_templates:
+            self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
+        if entity_providers is None:
+            entity_providers = presidio_additional_entity_providers
 
         fake_person_data_path = raw_data_dir / "FakeNameGenerator.com_3000.csv"
         fake_person_df = pd.read_csv(fake_person_data_path)
         fake_person_df = PresidioDataGenerator.update_fake_name_generator_df(fake_person_df)
         faker = RecordsFaker(records=fake_person_df, locale=locale)
 
-        for entity_provider in additional_entity_providers:
+        for entity_provider in entity_providers:
             faker.add_provider(entity_provider)
 
         self._data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=lower_case_ratio)
