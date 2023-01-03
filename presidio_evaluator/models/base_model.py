@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 
 from presidio_evaluator import InputSample, io_to_scheme
+from presidio_evaluator.evaluation import ModelPrediction
 
 
 class BaseModel(ABC):
@@ -33,11 +34,20 @@ class BaseModel(ABC):
         self.verbose = verbose
 
     @abstractmethod
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample) -> ModelPrediction:
         """
         Abstract. Returns the predicted tokens/spans from the evaluated model
         :param sample: Sample to be evaluated
-        :return: List of tags in self.labeling_scheme format
+        :return: prediction in ModelPrediction format
+        """
+        pass
+
+    @abstractmethod
+    def predict_all(self, dataset: List[InputSample]) -> List[ModelPrediction]:
+        """
+        Abstract. Returns the predicted tokens and spans from the evaluated model
+        :param dataset: List of sample to be evaluated
+        :return: List of ModelPrediction output
         """
         pass
 

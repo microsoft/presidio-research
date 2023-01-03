@@ -1,9 +1,11 @@
 from typing import List, Optional, Dict
+from tqdm import tqdm
 
 from presidio_analyzer import AnalyzerEngine
 
-from presidio_evaluator import InputSample, span_to_tag
+from presidio_evaluator import Span, InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
+from presidio_evaluator.evaluation import ModelPrediction
 
 
 class PresidioAnalyzerWrapper(BaseModel):
@@ -35,26 +37,35 @@ class PresidioAnalyzerWrapper(BaseModel):
             self._update_recognizers_based_on_entities_to_keep(analyzer_engine)
         self.analyzer_engine = analyzer_engine
 
-    def predict(self, sample: InputSample) -> List[str]:
-
+    def predict(self, sample: InputSample) -> ModelPrediction:
         results = self.analyzer_engine.analyze(
-            text=sample.full_text,
-            entities=self.entities,
-            language="en",
-            score_threshold=self.score_threshold,
-        )
+                text=sample.full_text,
+                entities=self.entities,
+                language=self.language,
+                score_threshold=self.score_threshold,
+            )
+        predicted_spans = []
         starts = []
         ends = []
         scores = []
         tags = []
-        #
+        
         for res in results:
+            # Create output for span-level evaluation
+            response_span = Span(entity_type=res.entity_type, 
+                                start_position=res.start,
+                                end_position=res.end,
+                                entity_value = sample.full_text[res.start:res.end])
+            predicted_spans.append(response_span)
+
+            # Create output for token-level evaluation
             starts.append(res.start)
             ends.append(res.end)
             tags.append(res.entity_type)
             scores.append(res.score)
-
-        response_tags = span_to_tag(
+        
+        # Translate span to tag
+        predicted_tags = span_to_tag(
             scheme="IO",
             text=sample.full_text,
             starts=starts,
@@ -63,7 +74,19 @@ class PresidioAnalyzerWrapper(BaseModel):
             scores=scores,
             tags=tags,
         )
-        return response_tags
+        return ModelPrediction(
+                sample = sample,
+                predicted_tags=predicted_tags,
+                predicted_spans=predicted_spans
+            )
+
+    def predict_all(self, dataset: List[InputSample]) -> List[ModelPrediction]:
+        model_predictions = []
+        for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
+            prediction = self.predict(sample)
+            model_predictions.append(prediction)
+
+        return model_predictions
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
     presidio_entities_map = {
