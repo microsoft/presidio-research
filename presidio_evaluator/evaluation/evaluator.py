@@ -4,12 +4,13 @@ from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
+from copy import deepcopy
 
 import plotly.express as px
 import pandas as pd
 
-from presidio_evaluator import InputSample
-from presidio_evaluator.evaluation import TokenOutput, SpanOutput, ModelPrediction, EvaluationResult, ModelError
+from presidio_evaluator import InputSample, evaluation_helpers
+from presidio_evaluator.evaluation import TokenOutput, SpanOutput, ModelPrediction, EvaluationResult, SampleError
 from presidio_evaluator.models import BaseModel
 
 
@@ -19,6 +20,7 @@ class Evaluator:
         verbose: bool = False,
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
+        span_overlap_threshold: float = 0.5
     ):
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
@@ -32,11 +34,10 @@ class Evaluator:
         self.verbose = verbose
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
-        if self.entities_to_keep is None and self.model.entities:
-            self.entities_to_keep = self.model.entities
+        self.span_overlap_threshold = span_overlap_threshold
+
 
     def compare_token(self, model_prediction: ModelPrediction) -> List[TokenOutput]:
-
         """
         Compares ground truth tags (annotation) and predicted (prediction) at token level
         :param input_sample: input sample containing list of tags with scheme
@@ -106,12 +107,69 @@ class Evaluator:
                         )
                     )
 
-        return results, mistakes
+        return mistakes, results
+
 
     def compare_span(self, model_prediction: ModelPrediction) -> List[SpanOutput]:
         # filter gold and pred spans which their entities are in the list of entities_to_keep
-        gold_spans = [ent for ent in model_prediction.input_sample.spans if ent.entity_type in self.entities_to_keep]
-        pred_spans = [ent for ent in model_prediction.predicted_spans if ent.entity_type in self.entities_to_keep]
+        # gold_spans = [ent for ent in model_prediction.input_sample.spans if ent.entity_type]
+        # pred_spans = [ent for ent in model_prediction.predicted_spans if ent.entity_type]
+
+        evaluation = {"strict": 0, "exact": 0, "partial": 0, "incorrect": 0, "miss": 0, "spurious": 0}
+        evaluate_by_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
+
+        gold_spans = model_prediction.input_sample.spans
+        pred_spans = model_prediction.predicted_spans
+
+        # keep track of true entities that overlapped
+        true_which_overlapped_with_pred = []
+        span_outputs = []
+
+        for pred in pred_spans:
+            model_output = evaluation_helpers.get_matched_gold(pred, gold_spans, self.span_overlap_threshold)
+            output_type = model_output.output_type
+            span_outputs.append(model_output)
+
+            evaluation[output_type] += 1
+            evaluate_by_entities_type[model_output.gold_span.entity_type] += 1
+            
+            if output_type in ['strict', 'exact', 'partial', 'incorrect']:
+                true_which_overlapped_with_pred.append(model_output.gold_span)
+            
+        ## Get all missed span/entity in the gold corpus
+        for true in gold_spans:
+            if true in true_which_overlapped_with_pred:
+                continue
+            else:
+                evaluation["miss"] += 1
+                evaluate_by_entities_type[true.entity_type]["miss"] += 1
+                # Add the output's detail to evaluation_results
+                span_outputs.append(SpanOutput(
+                        output_type = "miss",
+                        gold_span = true,
+                        overlap_score=0
+                    ))
+
+        return span_outputs, evaluation, evaluate_by_entities_type
+
+
+    def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
+        sample_errors = []
+        span_evaluations = {}
+        span_evaluatations_by_entity = {}
+        for model_prediction in model_predictions:
+            span_outputs, evaluation, evaluatation_by_entity = self.compare_span(model_prediction)
+            token_errors, results = self.compare_token(model_prediction)
+            sample_errors.append(SampleError(
+                span_outputs=span_outputs,
+                token_outputs = token_errors,
+                full_text=model_prediction.input_sample.full_text,
+                metadata=model_prediction.input_sample.metadata
+            ))
+            span_evaluations = dict(Counter(span_evaluations) + Counter(evaluation))
+            
+            
+
 
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
