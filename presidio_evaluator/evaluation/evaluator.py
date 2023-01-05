@@ -2,7 +2,6 @@ from collections import Counter
 from typing import List, Optional, Dict, Tuple
 from pathlib import Path
 
-import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
 
@@ -11,7 +10,6 @@ import pandas as pd
 
 from presidio_evaluator import InputSample, evaluation_helpers
 from presidio_evaluator.evaluation import TokenOutput, SpanOutput, ModelPrediction, EvaluationResult, SampleError
-from presidio_evaluator.models import BaseModel
 
 
 class Evaluator:

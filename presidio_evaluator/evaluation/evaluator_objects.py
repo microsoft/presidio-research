@@ -1,4 +1,3 @@
-import pandas as pd
 from typing import Optional, List
 from spacy.tokens import Token
 

@@ -1,6 +1,6 @@
 import json
 from collections import Counter
-from typing import List, Optional, Dict, Tuple
+from typing import List, Dict
 
 from presidio_evaluator.evaluation import SampleError
 
