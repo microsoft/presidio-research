@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from pathlib import Path
 
 import numpy as np
@@ -37,12 +37,11 @@ class Evaluator:
         self.span_overlap_threshold = span_overlap_threshold
 
 
-    def compare_token(self, model_prediction: ModelPrediction) -> List[TokenOutput]:
+    def compare_token(self, model_prediction: ModelPrediction) -> Tuple[List[TokenOutput], Counter]:
         """
-        Compares ground truth tags (annotation) and predicted (prediction) at token level
-        :param input_sample: input sample containing list of tags with scheme
-        self.labeling_scheme
-
+        Compares ground truth tags (annotation) and predicted (prediction) at token level. 
+        Return a list of TokenOutput and a list of objects of type Counter with structure {(actual, predicted) : count}
+        :param model_prediction: model_prediction containing an InputSample and a list of predicted tags and tokens
         """
         annotation = model_prediction.input_sample.tags
         tokens = model_prediction.input_sample.tokens
@@ -55,7 +54,7 @@ class Evaluator:
             return Counter(), []
 
         results = Counter()
-        mistakes = []
+        token_errors = []
 
         new_annotation = annotation.copy()
 
@@ -80,7 +79,7 @@ class Evaluator:
             is_error = new_annotation[i] != prediction[i]
             if is_error:
                 if prediction[i] == "O":
-                    mistakes.append(
+                    token_errors.append(
                         TokenOutput(
                             error_type="FN",
                             annotation=new_annotation[i],
@@ -89,7 +88,7 @@ class Evaluator:
                         )
                     )
                 elif new_annotation[i] == "O":
-                    mistakes.append(
+                    token_errors.append(
                         TokenOutput(
                             error_type="FP",
                             annotation=new_annotation[i],
@@ -98,7 +97,7 @@ class Evaluator:
                         )
                     )
                 else:
-                    mistakes.append(
+                    token_errors.append(
                         TokenOutput(
                             error_type="Wrong entity",
                             annotation=new_annotation[i],
@@ -107,16 +106,20 @@ class Evaluator:
                         )
                     )
 
-        return mistakes, results
+        return token_errors, results
 
 
-    def compare_span(self, model_prediction: ModelPrediction) -> List[SpanOutput]:
-        # filter gold and pred spans which their entities are in the list of entities_to_keep
-        # gold_spans = [ent for ent in model_prediction.input_sample.spans if ent.entity_type]
-        # pred_spans = [ent for ent in model_prediction.predicted_spans if ent.entity_type]
+    def compare_span(self, model_prediction: ModelPrediction) -> Tuple[List[SpanOutput], dict[dict]]:
+        """
+        Compares ground truth tags (annotation) and predicted (prediction) at span level. 
+        :param model_prediction: model_prediction containing an InputSample and a list of predicted tags and tokens
+        Returns:
+        List[SpanOutput]: a list of SpanOutput
+        dict: a dictionary of PII results per entity with structure {{entity_name: {output_type : count}}}
+        """
 
         evaluation = {"strict": 0, "exact": 0, "partial": 0, "incorrect": 0, "miss": 0, "spurious": 0}
-        evaluate_by_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
+        evaluate_results = {e: deepcopy(evaluation) for e in self.entities_to_keep}
 
         gold_spans = model_prediction.input_sample.spans
         pred_spans = model_prediction.predicted_spans
@@ -131,7 +134,7 @@ class Evaluator:
             span_outputs.append(model_output)
 
             evaluation[output_type] += 1
-            evaluate_by_entities_type[model_output.gold_span.entity_type] += 1
+            evaluate_results[model_output.gold_span.entity_type] += 1
             
             if output_type in ['strict', 'exact', 'partial', 'incorrect']:
                 true_which_overlapped_with_pred.append(model_output.gold_span)
@@ -142,35 +145,63 @@ class Evaluator:
                 continue
             else:
                 evaluation["miss"] += 1
-                evaluate_by_entities_type[true.entity_type]["miss"] += 1
+                evaluate_results[true.entity_type]["miss"] += 1
                 # Add the output's detail to evaluation_results
                 span_outputs.append(SpanOutput(
                         output_type = "miss",
                         gold_span = true,
                         overlap_score=0
                     ))
-
-        return span_outputs, evaluation, evaluate_by_entities_type
-
+        evaluate_results['PII'] = evaluation
+        return span_outputs, evaluate_results
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
+        """
+        Evaluate the PII performance at token and span levels. 
+        :param model_predictions: list of ModelPrediction
+        Returns:
+        EvaluationResult: the evaluation outcomes in EvaluationResult format
+        """
         sample_errors = []
-        span_evaluations = {}
-        span_evaluatations_by_entity = {}
+        # Hold the span PII results for the whole dataset with structure {{entity_name: {output_type : count}}}
+        all_span_evaluate_results = {}
+        # Hold the token PII results for the whole dataset with structure {(actual, predicted) : count}
+        all_token_evaluate_results = Counter()
+
         for model_prediction in model_predictions:
-            span_outputs, evaluation, evaluatation_by_entity = self.compare_span(model_prediction)
-            token_errors, results = self.compare_token(model_prediction)
+            span_outputs, span_evaluate_results = self.compare_span(model_prediction)
+            token_errors, token_evaluate_results = self.compare_token(model_prediction)
             sample_errors.append(SampleError(
                 span_outputs=span_outputs,
                 token_outputs = token_errors,
                 full_text=model_prediction.input_sample.full_text,
                 metadata=model_prediction.input_sample.metadata
             ))
-            span_evaluations = dict(Counter(span_evaluations) + Counter(evaluation))
-            
-            
+            # add span_evaluate_results to all_span_evaluate_results
+            all_span_evaluate_results = evaluation_helpers.dict_merge(all_span_evaluate_results, span_evaluate_results)
+            # add token_evaluate_results to all_token_evaluate_results
+            all_token_evaluate_results += token_evaluate_results
 
+        ## Calculate the metrics from the evaluated results
+        span_model_metrics = {}
+        # For span evaluation
+        for entity_type in all_span_evaluate_results:
+            # Compute actual and possible for each entity and PII
+            span_model_metrics["span_distribution"][entity_type] = evaluation_helpers.span_compute_actual_possible(all_span_evaluate_results[entity_type])
+            # Calculate precision, recall for each entity and PII 
+            span_model_metrics["metrics"][entity_type] = evaluation_helpers.span_compute_precision_recall(span_model_metrics["span_distribution"][entity_type])
 
+        # For token evaluation
+        token_model_metrics = evaluation_helpers.token_calulate_score(all_token_evaluate_results)
+
+        return EvaluationResult(
+            sample_errors = sample_errors,
+            token_confusion_matrix = all_token_evaluate_results,
+            token_model_metrics = token_model_metrics,
+            span_model_metrics = span_model_metrics
+        )
+            
+    # TODO: Review and refactor (if needed) the functions below 
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
             return [tag if tag in self.entities_to_keep else "O" for tag in tags]
@@ -278,129 +309,7 @@ class Evaluator:
             new_list.append(input_sample)
 
         return new_list
-        # Iterate on all samples
 
-    def calculate_score(
-        self,
-        evaluation_results: List[EvaluationResult],
-        entities: Optional[List[str]] = None,
-        beta: float = 2.5,
-    ) -> EvaluationResult:
-        """
-        Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
-        or for all entities (ignore_entity_type = True)
-        :param evaluation_results: List of EvaluationResult
-        :param entities: List of entities to calculate score to. Default is None: all entities
-        :param beta: F measure beta value
-        between different entity types, or to treat these as misclassifications
-        :return: EvaluationResult with precision, recall and f measures
-        """
-
-        # aggregate results
-        all_results = sum([er.results for er in evaluation_results], Counter())
-
-        # compute pii_recall per entity
-        entity_recall = {}
-        entity_precision = {}
-        n = {}
-        if not entities:
-            entities = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
-
-        for entity in entities:
-            # all annotation of given type
-            annotated = sum([all_results[x] for x in all_results if x[0] == entity])
-            predicted = sum([all_results[x] for x in all_results if x[1] == entity])
-            n[entity] = annotated
-            tp = all_results[(entity, entity)]
-
-            if annotated > 0:
-                entity_recall[entity] = tp / annotated
-            else:
-                entity_recall[entity] = np.NaN
-
-            if predicted > 0:
-                per_entity_tp = all_results[(entity, entity)]
-                entity_precision[entity] = per_entity_tp / predicted
-            else:
-                entity_precision[entity] = np.NaN
-
-        # compute pii_precision and pii_recall
-        annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
-        predicted_all = sum([all_results[x] for x in all_results if x[1] != "O"])
-        if annotated_all > 0:
-            pii_recall = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / annotated_all
-            )
-        else:
-            pii_recall = np.NaN
-        if predicted_all > 0:
-            pii_precision = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / predicted_all
-            )
-        else:
-            pii_precision = np.NaN
-        # compute pii_f_beta-score
-        pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
-
-        # aggregate errors
-        errors = []
-        for res in evaluation_results:
-            if res.model_errors:
-                errors.extend(res.model_errors)
-
-        evaluation_result = EvaluationResult(
-            results=all_results,
-            model_errors=errors,
-            pii_precision=pii_precision,
-            pii_recall=pii_recall,
-            entity_recall_dict=entity_recall,
-            entity_precision_dict=entity_precision,
-            n_dict=n,
-            pii_f=pii_f_beta,
-            n=sum(n.values()),
-        )
-
-        return evaluation_result
-
-    @staticmethod
-    def precision(tp: int, fp: int) -> float:
-        return tp / (tp + fp + 1e-100)
-
-    @staticmethod
-    def recall(tp: int, fn: int) -> float:
-        return tp / (tp + fn + 1e-100)
-
-    @staticmethod
-    def f_beta(precision: float, recall: float, beta: float) -> float:
-        """
-        Returns the F score for precision, recall and a beta parameter
-        :param precision: a float with the precision value
-        :param recall: a float with the recall value
-        :param beta: a float with the beta parameter of the F measure,
-        which gives more or less weight to precision
-        vs. recall
-        :return: a float value of the f(beta) measure.
-        """
-        if np.isnan(precision) or np.isnan(recall) or (precision == 0 and recall == 0):
-            return np.nan
-
-        return ((1 + beta ** 2) * precision * recall) / (
-            ((beta ** 2) * precision) + recall
-        )
 
     class Plotter:
         """
