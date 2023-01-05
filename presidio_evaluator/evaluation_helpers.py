@@ -1,5 +1,6 @@
 import numpy as np
-from typing import List
+from typing import List, Dict
+from collections import Counter
 
 from presidio_evaluator import Span
 from presidio_evaluator.evaluation import SpanOutput
@@ -65,7 +66,7 @@ def get_matched_gold(pred_span: Span,
                              overlap_score=max_overlapping
                              )
 
-def compute_span_actual_possible(results: dict) -> dict:
+def span_compute_actual_possible(results: dict) -> dict:
         """
         Take the result dict and calculate the actual and possible spans
         """
@@ -85,34 +86,93 @@ def compute_span_actual_possible(results: dict) -> dict:
         
         return results
 
-def compute_precision_recall(results: dict) -> dict:
-        """
-        Take the result dict to calculate the strict and flexible precision/ recall
-        """
-        metrics = {}
-        strict = results["strict"]
-        exact = results["exact"]
-        partial = results["partial"]
-        actual = results["actual"]
-        possible = results["possible"]
-        
-        # Calculate the strict performance
-        strict_precision = strict / actual if actual > 0 else 0
-        strict_recall = strict / possible if possible > 0 else 0
+def span_compute_precision_recall(results: dict) -> dict:
+    """
+    Take the result dict to calculate the strict and flexible precision/ recall
+    """
+    metrics = {}
+    strict = results["strict"]
+    exact = results["exact"]
+    partial = results["partial"]
+    actual = results["actual"]
+    possible = results["possible"]
+    
+    # Calculate the strict performance
+    strict_precision = strict / actual if actual > 0 else 0
+    strict_recall = strict / possible if possible > 0 else 0
 
-        # Calculate the flexible performance
-        flexible_precision = (strict + exact)/ actual if actual > 0 else 0
-        flexible_recall = (strict + exact) / possible if possible > 0 else 0
+    # Calculate the flexible performance
+    flexible_precision = (strict + exact)/ actual if actual > 0 else 0
+    flexible_recall = (strict + exact) / possible if possible > 0 else 0
 
-        # Calculate the partial performance
-        partial_precision = (strict + exact + 0.5 * partial) / actual if actual > 0 else 0
-        partial_recall = (strict + exact + 0.5 * partial) / possible if possible > 0 else 0
-        
+    # Calculate the partial performance
+    partial_precision = (strict + exact + 0.5 * partial) / actual if actual > 0 else 0
+    partial_recall = (strict + exact + 0.5 * partial) / possible if possible > 0 else 0
+    
 
-        metrics["strict precision"] = strict_precision
-        metrics["strict recall"] = strict_recall
-        metrics["flexible precision"] = flexible_precision
-        metrics["flexible recall"] = flexible_recall
-        metrics["partial precision"] = partial_precision
-        metrics["partial recall"] = partial_recall
-        return metrics
+    metrics["strict precision"] = strict_precision
+    metrics["strict recall"] = strict_recall
+    metrics["flexible precision"] = flexible_precision
+    metrics["flexible recall"] = flexible_recall
+    metrics["partial precision"] = partial_precision
+    metrics["partial recall"] = partial_recall
+    return metrics
+
+# TODO: Implement this function
+def dict_merge(dict_1: dict, dict2: dict) -> dict:
+    """
+    Examples: Sum up the value of two dictionaries by keys 
+    >>> dict_1 = {'PII': {
+                        'correct': 2,
+                        'partial': 1
+                    },
+                    'PERSON': {
+                        'correct': 2,
+                        'partial': 0,
+                    }
+                }
+    >>> dict_2 = {'PII': {
+                        'correct': 3,
+                        'partial': 0
+                    },
+                    'PERSON': {
+                        'correct': 1,
+                        'partial': 1,
+                    }
+                }    
+    >>> dict_merge(dict1, dict2)
+    {'PII': {
+                'correct': 5,
+                'partial': 1
+            },
+    'PERSON': {
+        'correct': 3,
+        'partial': 1,
+            }
+    }
+    """
+    results = {}
+    return results
+
+# TODO: Implement this function
+def token_calulate_score(token_confusion_matrix: Counter) -> Dict:
+    """
+    Calculate the token model metrics from token confusion matrix
+    Examples: Sum up the value of two dictionaries by keys 
+    >>> token_confusion_matrix = Counter({('O', 'O'): X, ('O', 'DateTime'): X, ('DateTime', 'O'): X, ('DateTime', 'DateTime'): X})
+    >>> token_calulate_score(token_confusion_matrix)
+    {'PII': {
+                'recall': xxx,
+                'precision': xxx,
+                'F measure': xxx
+            },
+    'PERSON': {
+                'recall': xxx,
+                'precision': xxx,
+    }
+    }
+    """
+    token_model_metrics = {}
+    return token_model_metrics
+
+    
