@@ -1,8 +1,6 @@
 from typing import Optional, List
 from spacy.tokens import Token
 
-from presidio_evaluator import Span, InputSample
-
 
 class TokenOutput:
     def __init__(
@@ -42,15 +40,15 @@ class TokenOutput:
         return f"<TokenOutput {self.__str__()}"
 
     @staticmethod
-    def most_common_tokens_by_error_type(errors=List["TokenOutput"], 
+    def get_token_error_by_type(errors=List["TokenOutput"], 
                                 error_type=str,
-                                n: int=10, 
+                                n: Optional[int]=None,
                                 entity=None) -> List["TokenOutput"]:
         """
         Print the n most common tokens by error type
-        :param error_type: str, token error type, e.g. FP, FN
         :param errors: List of token error in TokenOutput format.
-        :param n: int, top n most common fp to filter. 
-        :param entity: str, List of entities to filter, e.g. Person, Address
+        :param error_type: str, token error type, e.g. FP, FN
+        :param n: int, top n most common error to filter. If n is None, all token errors of error_type are returned.
+        :param entity: str, List of entities to filter, e.g. Person, Address. If entity is None, all entities are returned.
         """
         return List["TokenOutput"]
