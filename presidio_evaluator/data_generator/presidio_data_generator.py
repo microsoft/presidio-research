@@ -2,10 +2,8 @@ import dataclasses
 import json
 import random
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
-import numpy as np
-from faker import Faker
 from faker.providers import BaseProvider
 from faker.typing import SeedType
 from tqdm import tqdm
@@ -18,13 +16,13 @@ from presidio_evaluator.data_generator.faker_extensions import (
     UsDriverLicenseProvider,
     IpAddressProvider,
     AddressProviderNew,
-    SpanGenerator,
     RecordsFaker,
     PhoneNumberProviderNew,
     AgeProvider,
     ReligionProvider,
     HospitalProvider
 )
+from presidio_evaluator.data_generator.faker_extensions import SentenceFaker
 from presidio_evaluator.data_generator.faker_extensions.datasets import load_fake_person_df
 
 presidio_templates_file_path = raw_data_dir / "templates.txt"
@@ -37,112 +35,6 @@ presidio_additional_entity_providers = [IpAddressProvider,
                                         PhoneNumberProviderNew,
                                         ReligionProvider,
                                         HospitalProvider]
-
-
-class SentenceFaker:
-    def __init__(
-            self,
-            custom_faker: Optional[Faker] = None,
-            locale: Optional[List[str]] = None,
-            lower_case_ratio: float = 0.05,
-    ):
-        """
-        Leverages Faker to create fake PII entities into predefined templates of structure: a b c {{PII}} d e f,
-        e.g. "My name is {{first_name}}."
-        :param custom_faker: A Faker object provided by the user
-        :param locale: A locale object to create our own Faker instance if a custom one was not provided.
-        :param lower_case_ratio: Percentage of names that should start with lower case
-
-        :example:
-
-        >>>from presidio_evaluator.data_generator import SentenceFaker
-
-        >>>template = "I just moved to {{city}} from {{country}}"
-        >>>fake_sentence_result = SentenceFaker().parse(template)
-        >>>print(fake_sentence_result.fake)
-        I just moved to North Kim from Ukraine
-        >>>print(fake_sentence_result.spans)
-        [{"value": "Ukraine", "start": 31, "end": 38, "type": "country"}, {"value": "North Kim", "start": 16, "end": 25, "type": "city"}]
-        """
-        if custom_faker and locale:
-            raise ValueError("If a custom faker is passed, it's expected to have its locales loaded")
-
-        if custom_faker:
-            self.faker = custom_faker
-        else:
-            generator = (
-                SpanGenerator()
-            )  # To allow PresidioDataGenerator to return spans and not just strings
-            self.faker = Faker(local=locale, generator=generator)
-        self.lower_case_ratio = lower_case_ratio
-
-    def parse(
-            self, template: str, template_id: Optional[int] = None, add_spans: Optional[bool] = True
-    ) -> Union[FakeSentenceResult, str]:
-        """
-        This function replaces known PII {{tokens}} in a template sentence
-        with a fake value for each token and returns a sentence with fake PII.
-
-        Examples:
-            1. "My name is {{first_name_female}} {{last_name}}".
-            2. "I want to increase limit on my card # {{credit_card_number}}
-                for certain duration of time. is it possible?"
-
-
-        :param template: str with token(s) that needs to be replaced by fake PII
-        :param template_id: The identifier of the specific template
-        :param add_spans: Whether to return the spans or just the fake text
-
-        :returns: Fake sentence.
-
-        """
-        try:
-            if isinstance(self.faker.factories[0], SpanGenerator):
-                fake_pattern = self.faker.parse(
-                    template, add_spans=add_spans, template_id=template_id
-                )
-            else:
-                fake_pattern = self.faker.parse(template)
-            if random.random() < self.lower_case_ratio:
-                fake_pattern = self._lower_pattern(fake_pattern)
-            return fake_pattern
-        except Exception as err:
-            raise AttributeError(
-                f'Failed to generate fake data based on template "{template}".'
-                f"You might need to add a new Faker provider! "
-                f"{err}"
-            )
-
-    @staticmethod
-    def _lower_pattern(pattern: Union[str, FakeSentenceResult]):
-        if isinstance(pattern, str):
-            return pattern.lower()
-        elif isinstance(pattern, FakeSentenceResult):
-            pattern.fake = pattern.fake.lower()
-            for span in pattern.spans:
-                span.value = str(span.value).lower()
-            return pattern
-
-    def seed(self, seed_value=42):
-        Faker.seed(seed_value)
-        self.faker.seed_instance(seed_value)
-        random.seed(seed_value)
-        np.random.seed(seed_value)
-
-    def add_provider_alias(self, provider_name: str, new_name: str) -> None:
-        """
-        Adds a copy of a provider, with a different name
-        :param provider_name: Name of original provider
-        :param new_name: New name
-        :example:
-        >>>add_provider_alias(provider_name="name", new_name="person")
-        >>>self.faker.person()
-        """
-        original = getattr(self.faker, provider_name)
-
-        new_provider = BaseProvider(self.faker)
-        setattr(new_provider, new_name, original)
-        self.faker.add_provider(new_provider)
 
 
 class PresidioSentenceFaker:
