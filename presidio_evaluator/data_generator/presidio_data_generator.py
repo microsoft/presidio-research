@@ -42,7 +42,7 @@ presidio_additional_entity_providers = [IpAddressProvider,
 class PresidioDataGenerator:
     def __init__(
             self,
-            custom_faker: Faker = None,
+            custom_faker: Optional[Faker] = None,
             locale: Optional[List[str]] = None,
             lower_case_ratio: float = 0.05,
     ):
@@ -95,7 +95,7 @@ class PresidioDataGenerator:
         self.lower_case_ratio = lower_case_ratio
 
     def parse(
-            self, template: str, template_id: Optional[int] = None, add_spans: bool = True
+            self, template: str, template_id: Optional[int] = None, add_spans: Optional[bool] = True
     ) -> Union[FakerSpansResult, str]:
         """
         This function replaces known PII {{tokens}} in a template sentence
@@ -340,9 +340,9 @@ class PresidioFakeRecordGenerator:
     def __init__(self,
                  locale: str,
                  lower_case_ratio: float,
-                 entity_providers: List[BaseProvider] = None,
-                 sentence_templates: List[str] = None,
-                 random_seed: SeedType = None):
+                 entity_providers: Optional[List[BaseProvider]] = None,
+                 sentence_templates: Optional[List[str]] = None,
+                 random_seed: Optional[SeedType] = None):
         self._sentence_templates = sentence_templates
         if not self._sentence_templates:
             self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
