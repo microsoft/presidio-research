@@ -7,7 +7,7 @@ if not hasattr(_raw_data_path, '__getitem__'):
     _raw_data_path = _raw_data_path._path
 raw_data_dir = Path(_raw_data_path[0])
 
-from .presidio_data_generator import PresidioSentenceFaker
+from .presidio_sentence_faker import PresidioSentenceFaker
 from .presidio_pseudonymize import PresidioPseudonymization
 
 
