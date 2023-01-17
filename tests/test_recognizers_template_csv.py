@@ -1,5 +1,5 @@
 from presidio_evaluator import InputSample
-from presidio_evaluator.data_generator import PresidioDataGenerator
+from presidio_evaluator.data_generator import SentenceFaker
 from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 import pytest
 import numpy as np
@@ -78,9 +78,9 @@ def test_credit_card_recognizer_with_template(
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     # generate examples
-    generator = PresidioDataGenerator()
+    sentence_faker = SentenceFaker()
     templates = utterances.format(dir_path)
-    examples = generator.generate_fake_data(
+    examples = sentence_faker.generate_fake_data(
         templates=templates, n_samples=num_of_examples
     )
     input_samples = [

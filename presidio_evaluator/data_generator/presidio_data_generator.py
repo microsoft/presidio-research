@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from presidio_evaluator.data_generator import raw_data_dir
 from presidio_evaluator.data_generator.faker_extensions import (
-    FakerSpansResult,
+    FakerSpansResult as FakeSentenceResult,
     NationalityProvider,
     OrganizationProvider,
     UsDriverLicenseProvider,
@@ -39,7 +39,7 @@ presidio_additional_entity_providers = [IpAddressProvider,
                                         ReligionProvider]
 
 
-class PresidioDataGenerator:
+class SentenceFaker:
     def __init__(
             self,
             custom_faker: Optional[Faker] = None,
@@ -47,7 +47,6 @@ class PresidioDataGenerator:
             lower_case_ratio: float = 0.05,
     ):
         """
-        Fake data generator.
         Leverages Faker to create fake PII entities into predefined templates of structure: a b c {{PII}} d e f,
         e.g. "My name is {{first_name}}."
         :param custom_faker: A Faker object provided by the user
@@ -56,7 +55,7 @@ class PresidioDataGenerator:
 
         :example:
 
-        >>>from presidio_evaluator.data_generator import PresidioDataGenerator
+        >>>from presidio_evaluator.data_generator import SentenceFaker
 
         >>>sentence_templates = [
         >>>    "My name is {{name}}",
@@ -65,7 +64,7 @@ class PresidioDataGenerator:
         >>>]
 
 
-        >>>data_generator = PresidioDataGenerator()
+        >>>data_generator = SentenceFaker()
         >>>fake_records = data_generator.generate_fake_data(
         >>>    templates=sentence_templates, n_samples=10
         >>>)
@@ -96,7 +95,7 @@ class PresidioDataGenerator:
 
     def parse(
             self, template: str, template_id: Optional[int] = None, add_spans: Optional[bool] = True
-    ) -> Union[FakerSpansResult, str]:
+    ) -> Union[FakeSentenceResult, str]:
         """
         This function replaces known PII {{tokens}} in a template sentence
         with a fake value for each token and returns a sentence with fake PII.
@@ -140,7 +139,7 @@ class PresidioDataGenerator:
 
     def generate_fake_data(
             self, templates: List[str], n_samples: int
-    ) -> Union[Generator[FakerSpansResult, None, None], Generator[str, None, None]]:
+    ) -> Union[Generator[FakeSentenceResult, None, None], Generator[str, None, None]]:
         """
         Generates fake PII data whenever it encounters known faker entities in a template.
         :param templates: A list of strings containing templates
@@ -155,10 +154,10 @@ class PresidioDataGenerator:
             yield self.parse(template, template_id)
 
     @staticmethod
-    def _lower_pattern(pattern: Union[str, FakerSpansResult]):
+    def _lower_pattern(pattern: Union[str, FakeSentenceResult]):
         if isinstance(pattern, str):
             return pattern.lower()
-        elif isinstance(pattern, FakerSpansResult):
+        elif isinstance(pattern, FakeSentenceResult):
             pattern.fake = pattern.fake.lower()
             for span in pattern.spans:
                 span.value = str(span.value).lower()
@@ -280,11 +279,10 @@ class PresidioDataGenerator:
         return fake_data
 
 
-class PresidioFakeRecordGenerator:
+class PresidioSentenceFaker:
     """
-    Fake record generator.
-    Leverages PresidioDataGenerator and the existing templates and new providers in this library to give a high level
-    interface for generating a list of fake records.
+    A high level interface for generating fake sentences with entity metadata.
+    By default, this leverages all the existing templates and additional providers in this library.
     :param: locale: The faker locale to use e.g. 'en_US'
     :param lower_case_ratio: Percentage of names that should start with lower case
     :param: entity_providers: Defaults to presidio_additional_entity_providers, a provided argument overrides this
@@ -345,26 +343,26 @@ class PresidioFakeRecordGenerator:
                  random_seed: Optional[SeedType] = None):
         self._sentence_templates = sentence_templates
         if not self._sentence_templates:
-            self._sentence_templates = PresidioDataGenerator.read_template_file(presidio_templates_file_path)
+            self._sentence_templates = SentenceFaker.read_template_file(presidio_templates_file_path)
         if entity_providers is None:
             entity_providers = presidio_additional_entity_providers
 
         fake_person_data_path = raw_data_dir / "FakeNameGenerator.com_3000.csv"
         fake_person_df = pd.read_csv(fake_person_data_path)
-        fake_person_df = PresidioDataGenerator.update_fake_name_generator_df(fake_person_df)
+        fake_person_df = SentenceFaker.update_fake_name_generator_df(fake_person_df)
         faker = RecordsFaker(records=fake_person_df, locale=locale)
 
         for entity_provider in entity_providers:
             faker.add_provider(entity_provider)
 
-        self._data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=lower_case_ratio)
+        self._data_generator = SentenceFaker(custom_faker=faker, lower_case_ratio=lower_case_ratio)
         self._data_generator.seed(random_seed)
         for provider, alias in self.PROVIDER_ALIASES.items():
             self._data_generator.add_provider_alias(provider_name=provider, new_name=alias)
 
         self.fake_records = None
 
-    def generate_new_fake_records(self, num_samples: int) -> List[FakerSpansResult]:
+    def generate_new_fake_sentences(self, num_samples: int) -> List[FakeSentenceResult]:
         self.fake_records = list(self._data_generator.generate_fake_data(templates=self._sentence_templates,
                                                                          n_samples=num_samples))
         # Map faker generated entity types to Presidio entity types
@@ -377,11 +375,10 @@ class PresidioFakeRecordGenerator:
 
 
 if __name__ == "__main__":
-    entity_generator = PresidioFakeRecordGenerator(locale="en_US", lower_case_ratio=0.05,
-                                                   random_seed=42)
-    fake_patterns = entity_generator.generate_new_fake_records(num_samples=10000)
+    sentence_faker = PresidioSentenceFaker(locale="en_US", lower_case_ratio=0.05, random_seed=42)
+    fake_sentence_results = sentence_faker.generate_new_fake_sentences(num_samples=10000)
     repo_root = Path(__file__).parent.parent.parent
     output_file = repo_root / "data/presidio_data_generator_data.json"
-    to_json = [dataclasses.asdict(pattern) for pattern in fake_patterns]
+    to_json = [dataclasses.asdict(pattern) for pattern in fake_sentence_results]
     with open("{}".format(output_file), "w+", encoding="utf-8") as f:
         json.dump(to_json, f, ensure_ascii=False, indent=2)
