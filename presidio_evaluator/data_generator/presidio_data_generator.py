@@ -16,13 +16,12 @@ from presidio_evaluator.data_generator.faker_extensions import (
     UsDriverLicenseProvider,
     IpAddressProvider,
     AddressProviderNew,
-    RecordsFaker,
     PhoneNumberProviderNew,
     AgeProvider,
     ReligionProvider,
     HospitalProvider
 )
-from presidio_evaluator.data_generator.faker_extensions import SentenceFaker
+from presidio_evaluator.data_generator.faker_extensions.sentences import SentenceFaker, RecordsFaker
 from presidio_evaluator.data_generator.faker_extensions.datasets import load_fake_person_df
 
 presidio_templates_file_path = raw_data_dir / "templates.txt"

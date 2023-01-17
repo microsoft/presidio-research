@@ -10,7 +10,6 @@ from .providers import (
     ReligionProvider,
     HospitalProvider
 )
-from .sentences import RecordGenerator, RecordsFaker, SentenceFaker
 from .span_generator import SpanGenerator
 
 __all__ = [
@@ -25,7 +24,5 @@ __all__ = [
     "PhoneNumberProviderNew",
     "AgeProvider",
     "ReligionProvider",
-    "RecordsFaker",
     "HospitalProvider",
-    "SentenceFaker",
 ]
