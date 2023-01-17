@@ -1,5 +1,5 @@
 from presidio_evaluator import InputSample
-from presidio_evaluator.data_generator import SentenceFaker
+from presidio_evaluator.data_generator import PresidioSentenceFaker
 from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 import pandas as pd
 import pytest
@@ -138,12 +138,9 @@ def test_pattern_recognizer(
     # extend pii with ext data
     dfpii[ext_column_name] = [get_from_ext(i) for i in range(0, dfpii.shape[0])]
 
-    # generate examples
-    sentence_faker = SentenceFaker()
     templates = utterances.format(dir_path)
-    examples = sentence_faker.generate_fake_data(
-        templates=templates, n_samples=num_of_examples
-    )
+    sentence_faker = PresidioSentenceFaker('en_US', lower_case_ratio=0.05, sentence_templates=templates)
+    examples = sentence_faker.generate_new_fake_sentences(num_of_examples)
     input_samples = [
         InputSample.from_faker_spans_result(example) for example in examples
     ]

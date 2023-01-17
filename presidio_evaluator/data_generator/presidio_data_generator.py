@@ -1,16 +1,13 @@
 import dataclasses
 import json
 import random
-import re
 from pathlib import Path
-from typing import List, Optional, Union, Generator
+from typing import List, Optional, Union
 
 import numpy as np
-import pandas as pd
 from faker import Faker
 from faker.providers import BaseProvider
 from faker.typing import SeedType
-from pandas import DataFrame
 from tqdm import tqdm
 
 from presidio_evaluator.data_generator import raw_data_dir
@@ -25,8 +22,10 @@ from presidio_evaluator.data_generator.faker_extensions import (
     RecordsFaker,
     PhoneNumberProviderNew,
     AgeProvider,
-    ReligionProvider
+    ReligionProvider,
+    HospitalProvider
 )
+from presidio_evaluator.data_generator.faker_extensions.datasets import load_fake_person_df
 
 presidio_templates_file_path = raw_data_dir / "templates.txt"
 presidio_additional_entity_providers = [IpAddressProvider,
@@ -36,7 +35,8 @@ presidio_additional_entity_providers = [IpAddressProvider,
                                         AgeProvider,
                                         AddressProviderNew,
                                         PhoneNumberProviderNew,
-                                        ReligionProvider]
+                                        ReligionProvider,
+                                        HospitalProvider]
 
 
 class SentenceFaker:
@@ -57,32 +57,15 @@ class SentenceFaker:
 
         >>>from presidio_evaluator.data_generator import SentenceFaker
 
-        >>>sentence_templates = [
-        >>>    "My name is {{name}}",
-        >>>    "Please send it to {{address}}",
-        >>>    "I just moved to {{city}} from {{country}}"
-        >>>]
-
-
-        >>>data_generator = SentenceFaker()
-        >>>fake_records = data_generator.generate_fake_data(
-        >>>    templates=sentence_templates, n_samples=10
-        >>>)
-
-        >>>fake_records = list(fake_records)
-
-        >>># Print the spans of the first sample
-        >>>print(fake_records[0].fake)
+        >>>template = "I just moved to {{city}} from {{country}}"
+        >>>fake_sentence_result = SentenceFaker().parse(template)
+        >>>print(fake_sentence_result.fake)
         I just moved to North Kim from Ukraine
-
-        >>>print(fake_records[0].spans)
+        >>>print(fake_sentence_result.spans)
         [{"value": "Ukraine", "start": 31, "end": 38, "type": "country"}, {"value": "North Kim", "start": 16, "end": 25, "type": "city"}]
-
         """
         if custom_faker and locale:
-            raise ValueError(
-                "If a custom faker is passed, it's expected to have its locales loaded"
-            )
+            raise ValueError("If a custom faker is passed, it's expected to have its locales loaded")
 
         if custom_faker:
             self.faker = custom_faker
@@ -131,29 +114,6 @@ class SentenceFaker:
             )
 
     @staticmethod
-    def read_template_file(templates_file):
-        with open(templates_file) as f:
-            lines = f.readlines()
-            lines = [line.strip() for line in lines]
-            return lines
-
-    def generate_fake_data(
-            self, templates: List[str], n_samples: int
-    ) -> Union[Generator[FakeSentenceResult, None, None], Generator[str, None, None]]:
-        """
-        Generates fake PII data whenever it encounters known faker entities in a template.
-        :param templates: A list of strings containing templates
-        :param n_samples: Number of samples to generate
-        """
-        if not templates:
-            templates = None
-
-        for _ in tqdm(range(n_samples), desc="Sampling"):
-            template_id = random.choice(range(len(templates)))
-            template = templates[template_id]
-            yield self.parse(template, template_id)
-
-    @staticmethod
     def _lower_pattern(pattern: Union[str, FakeSentenceResult]):
         if isinstance(pattern, str):
             return pattern.lower()
@@ -183,100 +143,6 @@ class SentenceFaker:
         new_provider = BaseProvider(self.faker)
         setattr(new_provider, new_name, original)
         self.faker.add_provider(new_provider)
-
-    @staticmethod
-    def update_fake_name_generator_df(fake_data: pd.DataFrame) -> DataFrame:
-        """
-        Adapts the csv from FakeNameGenerator to fit the data generation process used here.
-        :param fake_data: a pd.DataFrame with loaded data from FakeNameGenerator.com
-        :return: None
-        """
-
-        def camel_to_snake(name):
-            # Borrowed from https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
-            name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-            return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
-
-        def full_name(row):
-            if random.random() > 0.2:
-                return f'{row.first_name} {row.last_name}'
-            else:
-                space_after_initials = " " if random.random() > 0.5 else ". "
-                return f'{row.first_name} {row.middle_initial}{space_after_initials}{row.last_name}'
-
-        def name_gendered(row):
-            first_name_female, prefix_female, last_name_female = (
-                (row.first_name, row.prefix, row.last_name)
-                if row.gender == "female"
-                else ("", "", "")
-            )
-            first_name_male, prefix_male, last_name_male = (
-                (row.first_name, row.prefix, row.last_name)
-                if row.gender == "male"
-                else ("", "", "")
-            )
-            return (
-                first_name_female,
-                first_name_male,
-                prefix_female,
-                prefix_male,
-                last_name_female,
-                last_name_male,
-            )
-
-        fake_data.columns = [camel_to_snake(col) for col in fake_data.columns]
-
-        # Update some column names to fit Faker
-        fake_data.rename(
-            columns={"country": "country_code", "state": "state_abbr"}, inplace=True
-        )
-
-        fake_data.rename(
-            columns={
-                "country_full": "country",
-                "name_set": "nationality",
-                "street_address": "street_name",
-                "state_full": "state",
-                "given_name": "first_name",
-                "surname": "last_name",
-                "title": "prefix",
-                "email_address": "email",
-                "telephone_number": "phone_number",
-                "telephone_country_code": "country_calling_code",
-                "birthday": "date_of_birth",
-                "cc_number": "credit_card_number",
-                "cc_type": "credit_card_provider",
-                "cc_expires": "credit_card_expire",
-                "occupation": "job",
-                "domain": "domain_name",
-                "username": "user_name",
-                "zip_code": "zipcode",
-            },
-            inplace=True,
-        )
-        fake_data["person"] = fake_data.apply(full_name, axis=1)
-        fake_data["name"] = fake_data["person"]
-        genderized = fake_data.apply(
-            lambda x: pd.Series(
-                name_gendered(x),
-                index=[
-                    "first_name_female",
-                    "first_name_male",
-                    "prefix_female",
-                    "prefix_male",
-                    "last_name_female",
-                    "last_name_male",
-                ],
-            ),
-            axis=1,
-            result_type="expand",
-        )
-
-        # Remove credit card data, rely on Faker's as it is more realistic
-        del fake_data["credit_card_number"]
-
-        fake_data = pd.concat([fake_data, genderized], axis="columns")
-        return fake_data
 
 
 class PresidioSentenceFaker:
@@ -343,35 +209,36 @@ class PresidioSentenceFaker:
                  random_seed: Optional[SeedType] = None):
         self._sentence_templates = sentence_templates
         if not self._sentence_templates:
-            self._sentence_templates = SentenceFaker.read_template_file(presidio_templates_file_path)
+            self._sentence_templates = [line.strip() for line in presidio_templates_file_path.read_text().splitlines()]
         if entity_providers is None:
             entity_providers = presidio_additional_entity_providers
 
-        fake_person_data_path = raw_data_dir / "FakeNameGenerator.com_3000.csv"
-        fake_person_df = pd.read_csv(fake_person_data_path)
-        fake_person_df = SentenceFaker.update_fake_name_generator_df(fake_person_df)
+        fake_person_df = load_fake_person_df()
         faker = RecordsFaker(records=fake_person_df, locale=locale)
 
         for entity_provider in entity_providers:
             faker.add_provider(entity_provider)
 
-        self._data_generator = SentenceFaker(custom_faker=faker, lower_case_ratio=lower_case_ratio)
-        self._data_generator.seed(random_seed)
+        self._sentence_faker = SentenceFaker(custom_faker=faker, lower_case_ratio=lower_case_ratio)
+        self._sentence_faker.seed(random_seed)
         for provider, alias in self.PROVIDER_ALIASES.items():
-            self._data_generator.add_provider_alias(provider_name=provider, new_name=alias)
+            self._sentence_faker.add_provider_alias(provider_name=provider, new_name=alias)
 
-        self.fake_records = None
+        self.fake_sentence_results = None
 
     def generate_new_fake_sentences(self, num_samples: int) -> List[FakeSentenceResult]:
-        self.fake_records = list(self._data_generator.generate_fake_data(templates=self._sentence_templates,
-                                                                         n_samples=num_samples))
+        self.fake_sentence_results = []
         # Map faker generated entity types to Presidio entity types
-        for sample in self.fake_records:
-            for span in sample.spans:
+        for _ in tqdm(range(num_samples), desc="Sampling"):
+            template_id = random.choice(range(len(self._sentence_templates)))
+            template = self._sentence_templates[template_id]
+            fake_sentence_result = self._sentence_faker.parse(template, template_id)
+            for span in fake_sentence_result.spans:
                 span.type = self.faker_to_presidio_entity_type[span.type]
             for key, value in self.faker_to_presidio_entity_type.items():
-                sample.template = sample.template.replace("{{%s}}" % key, "{{%s}}" % value)
-        return self.fake_records
+                fake_sentence_result.template = fake_sentence_result.template.replace("{{%s}}" % key, "{{%s}}" % value)
+            self.fake_sentence_results.append(fake_sentence_result)
+        return self.fake_sentence_results
 
 
 if __name__ == "__main__":

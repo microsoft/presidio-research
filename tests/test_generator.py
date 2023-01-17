@@ -1,36 +1,11 @@
 import inspect
 from copy import deepcopy
-from pathlib import Path
 
-import pandas as pd
 import pytest
 from faker import Faker
 
 from presidio_evaluator.data_generator import SentenceFaker, PresidioSentenceFaker
-from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
 from presidio_evaluator.data_generator.faker_extensions import providers
-
-
-def test_generator_correct_output():
-    test_data_dir = Path(__file__).parent / "data"
-
-    fake_name_data = pd.read_csv(test_data_dir / "FakeNameGenerator.com_100.csv")
-    # Convert column names to lowercase to match patterns
-    SentenceFaker.update_fake_name_generator_df(fake_name_data)
-    records = fake_name_data.to_dict(orient="records")
-    generator = RecordGenerator(records=records)
-    faker = Faker(generator=generator)
-    data_generator = SentenceFaker(custom_faker=faker, lower_case_ratio=0.0)
-
-    sentence_templates = SentenceFaker.read_template_file(test_data_dir / "templates.txt")
-    fake_sentences = data_generator.generate_fake_data(
-        templates=sentence_templates, n_samples=100
-    )
-
-    for sample in fake_sentences:
-        assert sample.fake
-        assert sample.template in sentence_templates
-        assert sample.template_id >= 0
 
 
 def test_new_provider_no_alias_raises_attribute_error():
@@ -54,20 +29,20 @@ def _get_classes_from_module(module):
             if member[1].__module__ == module.__name__]
 
 
-@pytest.mark.parametrize('num_records', (1500, 3000))
-def test_record_generator(num_records: int):
+@pytest.mark.parametrize('num_sentences', (1500, 3000))
+def test_generate_new_fake_sentences(num_sentences: int):
     standard_faker = Faker()
     default_faker_providers = standard_faker.providers
     presidio_providers = _get_classes_from_module(providers)
 
-    record_generator = PresidioSentenceFaker(locale='en', lower_case_ratio=0)
-    assert len(record_generator._sentence_templates) > 0, 'Did not load default sentence templates'
+    sentence_faker = PresidioSentenceFaker(locale='en', lower_case_ratio=0)
+    assert len(sentence_faker._sentence_templates) > 0, 'Did not load default sentence templates'
 
     expected_providers = deepcopy(default_faker_providers)
     expected_providers.extend(presidio_providers)
     expected_providers.extend([standard_faker.__getattr__(key)
                                for key in PresidioSentenceFaker.PROVIDER_ALIASES.keys()])
-    actual_providers = record_generator._data_generator.faker.providers
+    actual_providers = sentence_faker._sentence_faker.faker.providers
     num_aliases = len(PresidioSentenceFaker.PROVIDER_ALIASES)
     actual_num_providers = len(actual_providers)
     expected_aliases = set(getattr(standard_faker, provider_name)
@@ -78,9 +53,9 @@ def test_record_generator(num_records: int):
         f'Expected Providers: {[provider.__name__ for provider in presidio_providers]} ' \
         f'Expected Aliases: {expected_aliases} '
 
-    fake_records = record_generator.generate_new_fake_sentences(num_records)
-    assert len(fake_records) == num_records
-    for record in fake_records:
-        assert record.fake
-        assert record.template
-        assert record.template_id >= 0
+    fake_sentence_results = sentence_faker.generate_new_fake_sentences(num_sentences)
+    assert len(fake_sentence_results) == num_sentences
+    for fake_sentence_result in fake_sentence_results:
+        assert fake_sentence_result.fake
+        assert fake_sentence_result.template
+        assert fake_sentence_result.template_id >= 0
