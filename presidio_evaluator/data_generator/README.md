@@ -1,4 +1,4 @@
-# Data Generator
+# Data Generation
 
 The `PresidioSentenceFaker` generates sentences from templates (e.g. `my name is {{person}}`) where the placeholders
 are replaced with fake PII entities, along with metadata about the spans (the start and end of each entity) for model training and evaluation.
@@ -50,16 +50,26 @@ The process in high level is the following:
 
 1. Translate a NER dataset (e.g. CONLL or OntoNotes) into a list of
 templates: `My name is John` -> `My name is [PERSON]`
-2. (Optional) add new Faker providers to the `PresidioDataGenerator` to support types of PII not returned by Faker
-3. (Optional) map dataset entity names into provider equivalents by adding to `PresidioSentenceFaker.PROVIDER_ALIASES`. 
-This will create entity aliases (e.g. faker supports "name" but templates contain "person" so execute
-`PresidioSentenceFaker.PROVIDER_ALIASES['name'] = 'person'`)
-4. Generate samples using the templates list
-5. Split the generated dataset to train/test/validation while making sure
+2. Construct a `PresidioSentenceFaker` instance by:
+   - Choosing your appropriate locale e.g. `en_US`
+   - Choosing the lower case ration
+   - Pass in your list of templates (or default to those provided)
+     - Optionally extend with provided templates accessible via `from presidio_evaluator.data_generator import presidio_templates_file_path`
+   - Pass in any custom entity providers (or default to those provided)
+     - Optionally extend with inbuilt presidio entity providers accessible via `from presidio_evaluator.data_generator import presidio_additional_entity_providers`
+     - Add a mapping from the output provider entity type to a Presidio recognised entity type where appropriate
+       - e.g. For a `TownProvider` which outputs entity type of `town`, execute `PresidioSentenceFaker.ENTITY_TYPE_MAPPING['town'] = 'GPE'`)
+   - Pass in a DataFrame representing your underlying PII records (or default to those provided)
+     - Optionally extend with inbuilt presidio entity providers accessible via `from presidio_evaluator.data_generator.faker_extensions.datasets import load_fake_person_df`
+   - Add any additional aliases required by your dataset by adding to `PresidioSentenceFaker.PROVIDER_ALIASES`
+     - e.g. if the entity providers support "name" but your dataset templates contain "person", you can add this alias
+     with `PresidioSentenceFaker.PROVIDER_ALIASES['name'] = 'person'`)
+3. Generate sentences
+4. Split the generated dataset to train/test/validation while making sure
 that samples from the same template would only appear in one set
-6. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
-7. Train models
-8. Evaluate using one of the [evaluation notebooks](../../notebooks/models)
+5. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
+6. Train models
+7. Evaluate using one of the [evaluation notebooks](../../notebooks/models)
 
 Notes:
 
