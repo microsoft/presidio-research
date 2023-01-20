@@ -150,7 +150,7 @@ class SentenceFaker:
 
         :example:
 
-        >>>from presidio_evaluator.data_generator import SentenceFaker
+        >>>from presidio_evaluator.data_generator.faker_extensions.sentences import SentenceFaker
 
         >>>template = "I just moved to {{city}} from {{country}}"
         >>>fake_sentence_result = SentenceFaker().parse(template)
