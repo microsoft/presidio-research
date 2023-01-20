@@ -3,10 +3,10 @@ from typing import List
 from presidio_analyzer import RecognizerResult
 from presidio_anonymizer import AnonymizerEngine
 
-from presidio_evaluator.data_generator import PresidioDataGenerator
+from presidio_evaluator.data_generator.faker_extensions.sentences import SentenceFaker
 
 
-class PresidioPseudonymization(PresidioDataGenerator):
+class PresidioPseudonymization(SentenceFaker):
     def __init__(self, map_to_presidio_entities: bool = True, **kwargs):
         """
         Create pseudoanoymized data using Presidio by identifying real entities

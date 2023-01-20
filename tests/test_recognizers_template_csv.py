@@ -1,10 +1,10 @@
-from presidio_evaluator import InputSample
-from presidio_evaluator.data_generator import PresidioDataGenerator
-from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
-import pytest
 import numpy as np
-
+import pytest
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
+
+from presidio_evaluator import InputSample
+from presidio_evaluator.data_generator import PresidioSentenceFaker
+from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 
 
 class TemplateTextTestCase:
@@ -13,13 +13,13 @@ class TemplateTextTestCase:
     """
 
     def __init__(
-        self,
-        test_name,
-        pii_csv,
-        utterances,
-        num_of_examples,
-        acceptance_threshold,
-        marks,
+            self,
+            test_name,
+            pii_csv,
+            utterances,
+            num_of_examples,
+            acceptance_threshold,
+            marks,
     ):
         self.test_name = test_name
         self.pii_csv = pii_csv
@@ -59,7 +59,7 @@ cc_test_template_testdata = [
     [testcase.to_pytest_param() for testcase in cc_test_template_testdata],
 )
 def test_credit_card_recognizer_with_template(
-    pii_csv, utterances, num_of_examples, acceptance_threshold
+        pii_csv, utterances, num_of_examples, acceptance_threshold
 ):
     """
     Test credit card recognizer with a dataset generated from
@@ -71,18 +71,13 @@ def test_credit_card_recognizer_with_template(
     :param acceptance_threshold: minimum precision/recall
      allowed for tests to pass
     """
-
-    # read template and CSV files
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    # generate examples
-    generator = PresidioDataGenerator()
     templates = utterances.format(dir_path)
-    examples = generator.generate_fake_data(
-        templates=templates, n_samples=num_of_examples
-    )
+    sentence_faker = PresidioSentenceFaker('en_US', lower_case_ratio=0.05, sentence_templates=templates)
+    examples = sentence_faker.generate_new_fake_sentences(num_of_examples)
     input_samples = [
         InputSample.from_faker_spans_result(example) for example in examples
     ]

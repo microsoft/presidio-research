@@ -16,26 +16,22 @@ from presidio_evaluator.data_generator.faker_extensions import (
     FakerSpan,
 )
 
-SPACY_PRESIDIO_ENTITIES = {
-    "ORG": "ORGANIZATION",
-    "NORP": "NRP",
-    "GPE": "LOCATION",
-    "LOC": "LOCATION",
-    "FAC": "LOCATION",
-    "PERSON": "PERSON",
-    "LOCATION": "LOCATION",
-    "ORGANIZATION": "ORGANIZATION",
-    "DATE": "DATE_TIME",
-    "TIME": "DATE_TIME",
-}
-PRESIDIO_SPACY_ENTITIES = {
-    "PERSON": "PERSON",
-    "LOCATION": "LOC",
-    "GPE": "GPE",
-    "ORGANIZATION": "ORG",
-    "DATE_TIME": "DATE",
-    "NRP": "NORP",
-}
+SPACY_PRESIDIO_ENTITIES = dict(ORG="ORGANIZATION",
+                               NORP="NRP",
+                               GPE="LOCATION",
+                               LOC="LOCATION",
+                               FAC="LOCATION",
+                               PERSON="PERSON",
+                               LOCATION="LOCATION",
+                               ORGANIZATION="ORGANIZATION",
+                               DATE="DATE_TIME",
+                               TIME="DATE_TIME")
+PRESIDIO_SPACY_ENTITIES = dict(PERSON="PERSON",
+                               LOCATION="LOC",
+                               GPE="GPE",
+                               ORGANIZATION="ORG",
+                               DATE_TIME="DATE",
+                               NRP="NORP")
 
 
 class Span:

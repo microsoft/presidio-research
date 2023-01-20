@@ -2,9 +2,7 @@ import pytest
 from faker import Faker
 from faker.providers import BaseProvider
 
-from presidio_evaluator.data_generator.faker_extensions import (
-    RecordGenerator,
-)
+from presidio_evaluator.data_generator.faker_extensions.sentences import RecordGenerator
 
 
 @pytest.fixture(scope="session")
