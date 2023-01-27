@@ -1,6 +1,8 @@
 from collections import Counter
 from typing import List, Optional, Dict, Tuple
 from pathlib import Path
+from copy import deepcopy
+from difflib import SequenceMatcher
 
 import numpy as np
 from tqdm import tqdm
@@ -14,6 +16,7 @@ from presidio_evaluator.evaluation import (TokenOutput,
                                             ModelPrediction, 
                                             EvaluationResult, 
                                             SampleError)
+import evaluation_helpers
 
 
 class Evaluator:
@@ -21,7 +24,7 @@ class Evaluator:
         self,
         verbose: bool = False,
         compare_by_io=True,
-        entities_to_keep: Optional[List[str]] = None,
+        entities_to_keep=True,
         span_overlap_threshold: float = 0.5
     ):
         """
@@ -37,6 +40,25 @@ class Evaluator:
         self.entities_to_keep = entities_to_keep
         self.span_overlap_threshold = span_overlap_threshold
 
+        # setup a dict for storing the span metrics
+        self.span_model_metrics = {
+            'correct': 0,
+            'incorrect': 0,
+            'partial': 0,
+            'missed': 0,
+            'spurious': 0,
+            'possible': 0,
+            'actual': 0,
+            'precision': 0,
+            'recall': 0,
+        }
+        # Copy results dict to cover the four evaluation schemes.
+        self.span_results = {
+            'strict': deepcopy(self.span_model_metrics),
+            'ent_type': deepcopy(self.span_model_metrics),
+            'partial':deepcopy(self.span_model_metrics),
+            'exact':deepcopy(self.span_model_metrics),
+            }
 
     def compare_token(self, model_prediction: ModelPrediction) -> Tuple[List[TokenOutput], Counter]:
         """
@@ -55,8 +77,174 @@ class Evaluator:
         List[SpanOutput]: a list of SpanOutput
         dict: a dictionary of PII results per entity with structure {{entity_name: {output_type : count}}}
         """
+        # get annotated and predicted span from ModelPrediction
+        annotated_spans = model_prediction.input_sample.spans
+        predicted_spans = model_prediction.predicted_spans
 
-        return List[SpanOutput], dict[dict]
+        eval_metrics = {'correct': 0, 'incorrect': 0, 'partial': 0, 'missed': 0, 'spurious': 0, 'precision': 0, 'recall': 0}
+        evaluation = {
+            'strict': deepcopy(eval_metrics),
+            'ent_type': deepcopy(eval_metrics),
+            'partial': deepcopy(eval_metrics),
+            'exact': deepcopy(eval_metrics)
+        }
+        # results by entity type
+        evaluation_agg_entities_type = {e: deepcopy(evaluation) for e in self.entities_to_keep}
+
+        # keep track of entities that overlapped
+        true_which_overlapped_with_pred = []
+        # keep track for the explainibility
+        span_outputs = []
+
+        # go through each predicted
+        for pred in predicted_spans: 
+            found_overlap = False
+            # Scenario I: Exact match between true and pred
+            if pred in annotated_spans:
+                true_which_overlapped_with_pred.append(pred)
+                span_outputs.append(SpanOutput(
+                        output_type = "STRICT",
+                        gold_span = true,
+                        annotated_span = pred,
+                        overlap_score = 1
+                    ))
+                evaluation['strict']['correct'] += 1
+                evaluation['ent_type']['correct'] += 1
+                evaluation['exact']['correct'] += 1
+                evaluation['partial']['correct'] += 1
+
+                # for the agg. by entity_type results
+                evaluation_agg_entities_type[pred.entity_type]['strict']['correct'] += 1
+                evaluation_agg_entities_type[pred.entity_type]['ent_type']['correct'] += 1
+                evaluation_agg_entities_type[pred.entity_type]['exact']['correct'] += 1
+                evaluation_agg_entities_type[pred.entity_type]['partial']['correct'] += 1
+            else:
+                # check for overlaps with eny of true entities
+                for true in annotated_spans:
+                    pred_range = range(pred.start_position, pred.end_position)
+                    true_range = range(true.start_position, true.end_position)
+                    # Scenario IV: Offsets match, but entity type is wrong
+                    if true.start_position == pred.start_position and true.end_position == pred.end_position \
+                        and true.entity_type != pred.entity_type:
+                        span_outputs.append(SpanOutput(
+                                    output_type = "EXACT",
+                                    gold_span = true,
+                                    annotated_span = pred,
+                                    overlap_score = 1
+                                    ))  
+                        # overall results
+                        evaluation['strict']['incorrect'] += 1
+                        evaluation['ent_type']['incorrect'] += 1
+                        evaluation['partial']['correct'] += 1
+                        evaluation['exact']['correct'] += 1
+
+                        # aggregated by entity type results
+                        evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
+                        evaluation_agg_entities_type[true.e_type]['ent_type']['incorrect'] += 1
+                        evaluation_agg_entities_type[true.e_type]['partial']['correct'] += 1
+                        evaluation_agg_entities_type[true.e_type]['exact']['correct'] += 1
+
+                        true_which_overlapped_with_pred.append(true)
+                        found_overlap = True
+                        break
+                    # Check overlapping between true and pred
+                    elif evaluation_helpers.find_overlap(true_range, pred_range):
+                        overlap_ratio = SequenceMatcher(None, 
+                                                        pred.entity_value,
+                                                        true.entity_value).ratio()
+                        true_which_overlapped_with_pred.append(true)
+                        # Scenario V: There is an overlap (but offsets do not match exactly), 
+                        # and the entity type is the same
+                        if pred.entity_type == true.entity_type:
+                            span_outputs.append(SpanOutput(
+                                    output_type = "ENT_TYPE",
+                                    gold_span = true,
+                                    annotated_span = pred,
+                                    overlap_score = overlap_ratio
+                                    ))  
+                            # overall results
+                            evaluation['strict']['incorrect'] += 1
+                            evaluation['ent_type']['correct'] += 1
+                            evaluation['partial']['partial'] += 1
+                            evaluation['exact']['incorrect'] += 1
+                            # aggregated by entity type results
+                            evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.e_type]['ent_type']['correct'] += 1
+                            evaluation_agg_entities_type[true.e_type]['partial']['partial'] += 1
+                            evaluation_agg_entities_type[true.e_type]['exact']['incorrect'] += 1
+                            found_overlap = True
+                            break
+                        # Offset overlap but entity type is different
+                        else:
+                            span_outputs.append(SpanOutput(
+                                    output_type = "PARTIAL",
+                                    gold_span = true,
+                                    annotated_span = pred,
+                                    overlap_score = overlap_ratio
+                                    ))
+                            # overall results
+                            evaluation['strict']['incorrect'] += 1
+                            evaluation['ent_type']['incorrect'] += 1
+                            evaluation['partial']['partial'] += 1
+                            evaluation['exact']['incorrect'] += 1
+
+                            # aggregated by entity type results
+                            # Results against the true entity
+
+                            evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.e_type]['partial']['partial'] += 1
+                            evaluation_agg_entities_type[true.e_type]['ent_type']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.e_type]['exact']['incorrect'] += 1
+                            found_overlap = True
+                            break
+                if not found_overlap:
+                    span_outputs.append(SpanOutput(
+                                    output_type = "SPURIOUS",
+                                    gold_span = None,
+                                    annotated_span = pred,
+                                    overlap_score = overlap_ratio
+                                    ))
+                    # Overal result
+                    evaluation['strict']['spurious'] += 1
+                    evaluation['ent_type']['spurious'] += 1
+                    evaluation['partial']['spurious'] += 1
+                    evaluation['exact']['spurious'] += 1
+                    ## NOTE: when pred is not found in tags
+                    # or when it simply does not appear in the test set, then it is
+                    # spurious, but it is not clear where to assign it at the tag
+                    # level. In this case, it is applied to all target_tags
+                    # found in this example. This will mean that the sum of the
+                    # evaluation_agg_entities will not equal evaluation.
+                    for true in self.entities_to_keep:
+                        evaluation_agg_entities_type[true]['strict']['spurious'] += 1
+                        evaluation_agg_entities_type[true]['ent_type']['spurious'] += 1
+                        evaluation_agg_entities_type[true]['partial']['spurious'] += 1
+                        evaluation_agg_entities_type[true]['exact']['spurious'] += 1
+
+        # Scenario III: Entity was misses entirely.
+        for true in annotated_spans:
+            if true in true_which_overlapped_with_pred:
+                continue
+            else:
+                span_outputs.append(SpanOutput(
+                                    output_type = "MISSED",
+                                    gold_span = true,
+                                    annotated_span = pred,
+                                    overlap_score = overlap_ratio
+                                    ))
+                # overall results
+                evaluation['strict']['missed'] += 1
+                evaluation['ent_type']['missed'] += 1
+                evaluation['partial']['missed'] += 1
+                evaluation['exact']['missed'] += 1
+
+                # for the agg. by e_type
+                evaluation_agg_entities_type[true.e_type]['strict']['missed'] += 1
+                evaluation_agg_entities_type[true.e_type]['ent_type']['missed'] += 1
+                evaluation_agg_entities_type[true.e_type]['partial']['missed'] += 1
+                evaluation_agg_entities_type[true.e_type]['exact']['missed'] += 1
+                
+        return span_outputs, evaluation, evaluation_agg_entities_type
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
         """
