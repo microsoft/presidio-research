@@ -83,6 +83,14 @@ class SpanOutput:
             f"Annotated span: {self.annotated_span}\n"
             f"Predicted span: {self.predicted_span}\n"
         )
+    
+    def __eq__(self, other):
+        return (
+            self.output_type == other.output_type
+            and self.overlap_score == other.overlap_score
+            and self.annotated_span == other.annotated_span
+            and self.predicted_span == other.predicted_span
+        )
 
     @staticmethod
     def get_span_output_by_type(outputs=List["SpanOutput"], 
