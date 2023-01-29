@@ -40,6 +40,14 @@ class TokenOutput:
 
     def __repr__(self):
         return f"<TokenOutput {self.__str__()}"
+    
+    def __eq__(self, other):
+        return (
+            self.error_type == other.error_type
+            and self.annotated_tag == other.annotated_tag
+            and self.predicted_tag == other.predicted_tag
+            and self.token == other.token
+        )
 
     @staticmethod
     def get_token_error_by_type(errors=List["TokenOutput"], 
