@@ -83,7 +83,7 @@ class Evaluator:
         # annotated_spans = model_prediction.input_sample.spans
         # predicted_spans = model_prediction.predicted_spans
 
-        eval_metrics = {'correct': 0, 'incorrect': 0, 'partial': 0, 'missed': 0, 'spurious': 0, 'precision': 0, 'recall': 0}
+        eval_metrics = {'correct': 0, 'incorrect': 0, 'partial': 0, 'missed': 0, 'spurious': 0}
         evaluation = {
             'strict': deepcopy(eval_metrics),
             'ent_type': deepcopy(eval_metrics),
@@ -151,11 +151,7 @@ class Evaluator:
                         break
                     # Check overlapping between true and pred
                     elif evaluation_helpers.find_overlap(true_range, pred_range):
-                        # overlap_ratio = SequenceMatcher(None, 
-                        #                                 pred.entity_value,
-                        #                                 true.entity_value).ratio()
-                        overlap_ratio = pred.intersect(true)
-                        print(overlap_ratio)
+                        overlap_ratio = pred.get_overlap_ratio(true)
                         true_which_overlapped_with_pred.append(true)
                         # Scenario V: There is an overlap (but offsets do not match exactly), 
                         # and the entity type is the same
