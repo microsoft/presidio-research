@@ -10,13 +10,13 @@ from tqdm import tqdm
 import plotly.express as px
 import pandas as pd
 
-from presidio_evaluator import InputSample
+from presidio_evaluator import InputSample, Span
 from presidio_evaluator.evaluation import (TokenOutput, 
                                             SpanOutput, 
                                             ModelPrediction, 
                                             EvaluationResult, 
                                             SampleError)
-import evaluation_helpers
+from presidio_evaluator import evaluation_helpers
 
 
 class Evaluator:
@@ -69,17 +69,19 @@ class Evaluator:
 
         return List[TokenOutput], Counter
 
-    def compare_span(self, model_prediction: ModelPrediction) -> Tuple[List[SpanOutput], dict[dict]]:
+    # def compare_span(self, model_prediction: ModelPrediction) -> Tuple[List[SpanOutput], dict[dict]]:
+    def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[List[SpanOutput], dict[dict]]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level. 
-        :param model_prediction: model_prediction containing an InputSample and a list of predicted tags and tokens
+        :param annotated_spans: model_prediction containing an InputSample and a list of predicted tags and tokens
+        :param predicted_spans: 
         Returns:
         List[SpanOutput]: a list of SpanOutput
         dict: a dictionary of PII results per entity with structure {{entity_name: {output_type : count}}}
         """
         # get annotated and predicted span from ModelPrediction
-        annotated_spans = model_prediction.input_sample.spans
-        predicted_spans = model_prediction.predicted_spans
+        # annotated_spans = model_prediction.input_sample.spans
+        # predicted_spans = model_prediction.predicted_spans
 
         eval_metrics = {'correct': 0, 'incorrect': 0, 'partial': 0, 'missed': 0, 'spurious': 0, 'precision': 0, 'recall': 0}
         evaluation = {
@@ -104,7 +106,7 @@ class Evaluator:
                 true_which_overlapped_with_pred.append(pred)
                 span_outputs.append(SpanOutput(
                         output_type = "STRICT",
-                        gold_span = true,
+                        predicted_span = pred,
                         annotated_span = pred,
                         overlap_score = 1
                     ))
@@ -128,8 +130,8 @@ class Evaluator:
                         and true.entity_type != pred.entity_type:
                         span_outputs.append(SpanOutput(
                                     output_type = "EXACT",
-                                    gold_span = true,
-                                    annotated_span = pred,
+                                    predicted_span = pred,
+                                    annotated_span = true,
                                     overlap_score = 1
                                     ))  
                         # overall results
@@ -139,27 +141,29 @@ class Evaluator:
                         evaluation['exact']['correct'] += 1
 
                         # aggregated by entity type results
-                        evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
-                        evaluation_agg_entities_type[true.e_type]['ent_type']['incorrect'] += 1
-                        evaluation_agg_entities_type[true.e_type]['partial']['correct'] += 1
-                        evaluation_agg_entities_type[true.e_type]['exact']['correct'] += 1
+                        evaluation_agg_entities_type[true.entity_type]['strict']['incorrect'] += 1
+                        evaluation_agg_entities_type[true.entity_type]['ent_type']['incorrect'] += 1
+                        evaluation_agg_entities_type[true.entity_type]['partial']['correct'] += 1
+                        evaluation_agg_entities_type[true.entity_type]['exact']['correct'] += 1
 
                         true_which_overlapped_with_pred.append(true)
                         found_overlap = True
                         break
                     # Check overlapping between true and pred
                     elif evaluation_helpers.find_overlap(true_range, pred_range):
-                        overlap_ratio = SequenceMatcher(None, 
-                                                        pred.entity_value,
-                                                        true.entity_value).ratio()
+                        # overlap_ratio = SequenceMatcher(None, 
+                        #                                 pred.entity_value,
+                        #                                 true.entity_value).ratio()
+                        overlap_ratio = pred.intersect(true)
+                        print(overlap_ratio)
                         true_which_overlapped_with_pred.append(true)
                         # Scenario V: There is an overlap (but offsets do not match exactly), 
                         # and the entity type is the same
                         if pred.entity_type == true.entity_type:
                             span_outputs.append(SpanOutput(
                                     output_type = "ENT_TYPE",
-                                    gold_span = true,
-                                    annotated_span = pred,
+                                    predicted_span = pred,
+                                    annotated_span = true,
                                     overlap_score = overlap_ratio
                                     ))  
                             # overall results
@@ -168,18 +172,18 @@ class Evaluator:
                             evaluation['partial']['partial'] += 1
                             evaluation['exact']['incorrect'] += 1
                             # aggregated by entity type results
-                            evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
-                            evaluation_agg_entities_type[true.e_type]['ent_type']['correct'] += 1
-                            evaluation_agg_entities_type[true.e_type]['partial']['partial'] += 1
-                            evaluation_agg_entities_type[true.e_type]['exact']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['strict']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['ent_type']['correct'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['partial']['partial'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['exact']['incorrect'] += 1
                             found_overlap = True
                             break
                         # Offset overlap but entity type is different
                         else:
                             span_outputs.append(SpanOutput(
                                     output_type = "PARTIAL",
-                                    gold_span = true,
-                                    annotated_span = pred,
+                                    predicted_span = pred,
+                                    annotated_span = true,
                                     overlap_score = overlap_ratio
                                     ))
                             # overall results
@@ -191,18 +195,18 @@ class Evaluator:
                             # aggregated by entity type results
                             # Results against the true entity
 
-                            evaluation_agg_entities_type[true.e_type]['strict']['incorrect'] += 1
-                            evaluation_agg_entities_type[true.e_type]['partial']['partial'] += 1
-                            evaluation_agg_entities_type[true.e_type]['ent_type']['incorrect'] += 1
-                            evaluation_agg_entities_type[true.e_type]['exact']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['strict']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['partial']['partial'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['ent_type']['incorrect'] += 1
+                            evaluation_agg_entities_type[true.entity_type]['exact']['incorrect'] += 1
                             found_overlap = True
                             break
                 if not found_overlap:
                     span_outputs.append(SpanOutput(
                                     output_type = "SPURIOUS",
-                                    gold_span = None,
-                                    annotated_span = pred,
-                                    overlap_score = overlap_ratio
+                                    predicted_span = pred,
+                                    annotated_span = None,
+                                    overlap_score = 0
                                     ))
                     # Overal result
                     evaluation['strict']['spurious'] += 1
@@ -228,9 +232,9 @@ class Evaluator:
             else:
                 span_outputs.append(SpanOutput(
                                     output_type = "MISSED",
-                                    gold_span = true,
-                                    annotated_span = pred,
-                                    overlap_score = overlap_ratio
+                                    predicted_span = None,
+                                    annotated_span = true,
+                                    overlap_score = 0
                                     ))
                 # overall results
                 evaluation['strict']['missed'] += 1
@@ -239,10 +243,30 @@ class Evaluator:
                 evaluation['exact']['missed'] += 1
 
                 # for the agg. by e_type
-                evaluation_agg_entities_type[true.e_type]['strict']['missed'] += 1
-                evaluation_agg_entities_type[true.e_type]['ent_type']['missed'] += 1
-                evaluation_agg_entities_type[true.e_type]['partial']['missed'] += 1
-                evaluation_agg_entities_type[true.e_type]['exact']['missed'] += 1
+                evaluation_agg_entities_type[true.entity_type]['strict']['missed'] += 1
+                evaluation_agg_entities_type[true.entity_type]['ent_type']['missed'] += 1
+                evaluation_agg_entities_type[true.entity_type]['partial']['missed'] += 1
+                evaluation_agg_entities_type[true.entity_type]['exact']['missed'] += 1
+
+        # Compute 'possible', 'actual' according to SemEval-2013 Task 9.1 on the
+        # overall results, and use these to calculate precision and recall.
+
+        for eval_type in evaluation:
+            evaluation[eval_type] = evaluation_helpers.span_compute_actual_possible(evaluation[eval_type])
+
+        # Compute 'possible', 'actual', and precision and recall on entity level
+        # results. Start by cycling through the accumulated results.
+
+        for entity_type, entity_level in evaluation_agg_entities_type.items():
+
+            # Cycle through the evaluation types for each dict containing entity
+            # level results.
+
+            for eval_type in entity_level:
+
+                evaluation_agg_entities_type[entity_type][eval_type] = evaluation_helpers.span_compute_actual_possible(
+                    entity_level[eval_type]
+                )
                 
         return span_outputs, evaluation, evaluation_agg_entities_type
 
