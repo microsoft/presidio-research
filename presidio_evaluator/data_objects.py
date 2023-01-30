@@ -4,6 +4,7 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 from collections import Counter
 
 import pandas as pd
+import numpy as np
 import spacy
 from spacy import Language
 from spacy.tokens import Doc, DocBin
@@ -73,6 +74,14 @@ class Span:
         return min(self.end_position, other.end_position) - max(
             self.start_position, other.start_position
         )
+    
+    def get_overlap_ratio(self, other):
+        """
+        Calculates the ratio as: ratio = 2.0*M / T , where M = matches , T = total number of elements in both sequences
+        """
+        nb_matches = self.intersect(other, ignore_entity_type = True)
+        total_characters = (self.end_position - self.start_position) + (other.end_position - other.start_position)
+        return np.round((2*nb_matches/total_characters), 2)
 
     @classmethod
     def from_faker_span(cls, faker_span: FakerSpan) -> "Span":
