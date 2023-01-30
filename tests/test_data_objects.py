@@ -203,3 +203,25 @@ def test_get_overlap_ratio(
 
     overlap_ratio = span1.get_overlap_ratio(span2)
     assert overlap_ratio == expected_overlap_ratio
+
+@pytest.mark.parametrize(
+    "start1, end1, entity_value1, entity_type1, start2, end2, entity_value2, entity_type2, expected_output",
+    [
+        (150, 153, "123", "A", 150, 153, "123", "A", True),
+        (150, 153, "123", "B", 150, 153, "123", "A", False),
+        (150, 153, "123", "A", 150, 153, "345", "A", False),
+        (150, 153, "123", "A", 153, 156, "123", "A", False),
+    ],
+)
+def test_span_eq(
+    start1, end1, entity_value1, entity_type1, start2, end2, entity_value2, entity_type2, expected_output
+):
+    span1 = Span(
+        entity_type=entity_type1, entity_value=entity_value1, start_position=start1, end_position=end1
+    )
+    span2 = Span(
+        entity_type=entity_type2, entity_value=entity_value2, start_position=start2, end_position=end2
+    )
+
+    output = span1.__eq__(span2)
+    assert output == expected_output
