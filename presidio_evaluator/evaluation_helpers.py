@@ -22,57 +22,79 @@ def get_matched_gold(predicted_span: Span,
                             overlap_score=0
                             )
 
+def find_overlap(true_range, pred_range):
+    """Find the overlap between two ranges
+    Find the overlap between two ranges. Return the overlapping values if
+    present, else return an empty set().
+    Examples:
+    >>> find_overlap((1, 2), (2, 3))
+    2
+    >>> find_overlap((1, 2), (3, 4))
+    set()
+    """
+
+    true_set = set(true_range)
+    pred_set = set(pred_range)
+
+    overlaps = true_set.intersection(pred_set)
+
+    return overlaps
+
 def span_compute_actual_possible(results: dict) -> dict:
-        """
-        Take the result dict and calculate the actual and possible spans
-        """
-        strict = results["strict"]
-        exact = results["exact"]
-        incorrect = results["incorrect"]
-        partial = results["partial"]
-        missed = results["miss"]
-        spurious = results["spurious"]
-        # Possible: Number of annotations in the gold-standard which contribute to the final score
-        possible = strict + exact + incorrect + partial + missed
-        # Actual: Number of annotations produced by the PII detection system
-        actual = strict + exact + incorrect + partial + spurious
-
-        results["actual"] = actual
-        results["possible"] = possible
-        
-        return results
-
-def span_compute_precision_recall(results: dict) -> dict:
     """
-    Take the result dict to calculate the strict and flexible precision/ recall
+    Takes a result dict that has been output by compute metrics.
+    Returns the results dict with actual, possible populated.
+    When the results dicts is from partial or ent_type metrics, then
+    partial_or_type=True to ensure the right calculation is used for
+    calculating precision and recall.
     """
-    metrics = {}
-    strict = results["strict"]
-    exact = results["exact"]
-    partial = results["partial"]
+
+    correct = results['correct']
+    incorrect = results['incorrect']
+    partial = results['partial']
+    missed = results['missed']
+    spurious = results['spurious']
+
+    # Possible: number annotations in the gold-standard which contribute to the
+    # final score
+
+    possible = correct + incorrect + partial + missed
+
+    # Actual: number of annotations produced by the NER system
+
+    actual = correct + incorrect + partial + spurious
+
+    results["actual"] = actual
+    results["possible"] = possible
+
+    return results
+
+def span_compute_precision_recall(results: dict, partial_or_type) -> dict:
+    """
+    Takes a result dict that has been output by compute metrics.
+    Returns the results dict with precison and recall populated.
+    When the results dicts is from partial or ent_type metrics, then
+    partial_or_type=True to ensure the right calculation is used for
+    calculating precision and recall.
+    """
+
     actual = results["actual"]
     possible = results["possible"]
-    
-    # Calculate the strict performance
-    strict_precision = strict / actual if actual > 0 else 0
-    strict_recall = strict / possible if possible > 0 else 0
+    partial = results['partial']
+    correct = results['correct']
 
-    # Calculate the flexible performance
-    flexible_precision = (strict + exact)/ actual if actual > 0 else 0
-    flexible_recall = (strict + exact) / possible if possible > 0 else 0
+    if partial_or_type:
+        precision = (correct + 0.5 * partial) / actual if actual > 0 else 0
+        recall = (correct + 0.5 * partial) / possible if possible > 0 else 0
 
-    # Calculate the partial performance
-    partial_precision = (strict + exact + 0.5 * partial) / actual if actual > 0 else 0
-    partial_recall = (strict + exact + 0.5 * partial) / possible if possible > 0 else 0
-    
+    else:
+        precision = correct / actual if actual > 0 else 0
+        recall = correct / possible if possible > 0 else 0
 
-    metrics["strict precision"] = strict_precision
-    metrics["strict recall"] = strict_recall
-    metrics["flexible precision"] = flexible_precision
-    metrics["flexible recall"] = flexible_recall
-    metrics["partial precision"] = partial_precision
-    metrics["partial recall"] = partial_recall
-    return metrics
+    results["precision"] = precision
+    results["recall"] = recall
+
+    return results
 
 # TODO: Implement this function
 def dict_merge(dict_1: dict, dict2: dict) -> dict:
