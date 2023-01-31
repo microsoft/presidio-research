@@ -70,14 +70,15 @@ class Evaluator:
         return List[TokenOutput], Counter
 
     # def compare_span(self, model_prediction: ModelPrediction) -> Tuple[List[SpanOutput], dict[dict]]:
-    def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[List[SpanOutput], dict[dict]]:
+    def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[List[SpanOutput], dict[dict], dict[dict]]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level. 
-        :param annotated_spans: model_prediction containing an InputSample and a list of predicted tags and tokens
-        :param predicted_spans: 
+        :param annotated_spans: truth annotation from InputSample
+        :param predicted_spans: predicted span from PII model/system
         Returns:
         List[SpanOutput]: a list of SpanOutput
-        dict: a dictionary of PII results per entity with structure {{entity_name: {output_type : count}}}
+        dict: a dictionary of global PII results with structure {eval_type : {}}
+        dict: a dictionary of PII results per entity with structure {entity_name: {eval_type : {}}}
         """
         # get annotated and predicted span from ModelPrediction
         # annotated_spans = model_prediction.input_sample.spans
