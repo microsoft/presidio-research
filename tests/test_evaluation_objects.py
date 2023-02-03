@@ -60,3 +60,24 @@ def test_get_most_common_token_by_type(get_token_errors_input, n=1):
     assert len(top1_errors) == len(top1_errors_expected)
     assert all([a.__eq__(b) for a, b in zip(top1_errors, top1_errors_expected)])
 
+
+@pytest.mark.parametrize(
+    "token_output1, token_output2, expected_output",
+    [
+        (TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Network"), 
+                     TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Network"), True),
+        (TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Network"), 
+                     TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "LOCATION", token = "Network"), False),
+        (TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Network"), 
+                     TokenOutput(error_type = "FP", annotated_tag = "LOCATION", predicted_tag = "PERSON", token = "Network"), False),
+        (TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Network"), 
+                     TokenOutput(error_type = "FP", annotated_tag = "O", predicted_tag = "PERSON", token = "Str"), False),
+    ],
+)
+def test_eq_token_output(
+    token_output1, token_output2, expected_output
+):
+
+    is_eq = token_output1.__eq__(token_output2)
+    assert is_eq == expected_output
+
