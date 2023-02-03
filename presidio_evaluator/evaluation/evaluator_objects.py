@@ -83,7 +83,7 @@ class TokenOutput:
         :param entity: str, List of entities to filter, e.g. Person, Address. Default is None = all entities
         """
         if error_type not in ["FP", "FN"]:
-            print("Invalid error type...")
+            print("Invalid token error type...")
             sys.exit()
         # filter by error_type
         list_errors = [
@@ -139,19 +139,29 @@ class SpanOutput:
             f"Predicted span: {self.predicted_span}\n"
         )
 
+    # TODO: Complete this function
     @staticmethod
     def get_span_output_by_type(outputs=List["SpanOutput"], 
-                                error_type=str,
+                                output_type=str,
                                 n: Optional[int]=None, 
                                 entity=None) -> List["SpanOutput"]:
         """
         Print the n most common tokens by error type
-        :param outputs: List of span errors in SpanOutput format.
-        :param error_type: str, span error type, e.g. strict, exact, partial, incorrect, miss, spurious
+        :param outputs: List of span output in SpanOutput format.
+        :param output_type: str, span output type, e.g. STRICT, EXACT, ENT_TYPE, PARTIAL, SPURIOUS, MISS
         :param n: int, top n most common output to filter. Default is None = all token errors of error_type are returned.
         :param entity: str, List of entities to filter, e.g. Person, Address. Default is None = all entities.
         """
-        return List["SpanOutput"]
+        if output_type not in ["STRICT", "EXACT", "ENT_TYPE", "PARTIAL", "SPURIOUS", "MISS"]:
+            print("Invalid span output type...")
+            sys.exit()
+        # filter by output_type
+        list_errors = [
+                span_output
+                for span_output in outputs
+                if span_output.output_type == output_type 
+            ]
+        return list_errors
         
 
 class ModelPrediction:
