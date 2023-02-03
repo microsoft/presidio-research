@@ -1,5 +1,7 @@
+import sys
+
 from typing import Optional, List
-from spacy.tokens import Token
+from collections import Counter
 
 from presidio_evaluator import Span, InputSample
 
@@ -10,7 +12,7 @@ class TokenOutput:
         error_type: str,
         annotated_tag: str,
         predicted_tag: str,
-        token: Token,
+        token: str,
     ):
         """
         Holds information about a token error a model made for analysis purposes
@@ -40,12 +42,39 @@ class TokenOutput:
 
     def __repr__(self):
         return f"<TokenOutput {self.__str__()}"
+    
+    def __eq__(self, other):
+        return (
+            self.error_type == other.error_type
+            and self.annotated_tag == other.annotated_tag
+            and self.predicted_tag == other.predicted_tag
+            and self.token == other.token
+        )
+    
+    @staticmethod
+    def get_common_token(errors=List["TokenOutput"], n: int = 10):
+        """
+        Print the n most common tokens errors that were missed by the model,
+        including an example of full text in which they appear.
+        """
+        tokens = [err.token for err in errors]
+        list_errors = []
+
+        by_frequency = Counter(tokens)
+        most_common = by_frequency.most_common(n)
+        print(most_common)
+
+        for tok, val in most_common:
+            with_tok = [err for err in errors if err.token == tok]
+            list_errors += with_tok
+        
+        return list_errors
 
     @staticmethod
     def get_token_error_by_type(errors=List["TokenOutput"], 
                                 error_type=str,
-                                n: Optional[int]=None,
-                                entity=None) -> List["TokenOutput"]:
+                                entity=None,
+                                n: Optional[int]=None) -> List["TokenOutput"]:
         """
         Print the n most common tokens by error type
         :param errors: List of token error in TokenOutput format.
@@ -53,7 +82,33 @@ class TokenOutput:
         :param n: int, top n most common error to filter. Default is None = all token errors of error_type are returned.
         :param entity: str, List of entities to filter, e.g. Person, Address. Default is None = all entities
         """
-        return List["TokenOutput"]
+        if error_type not in ["FP", "FN"]:
+            print("Invalid error type...")
+            sys.exit()
+        # filter by error_type
+        list_errors = [
+                model_error
+                for model_error in errors
+                if model_error.error_type == error_type 
+            ]
+        # filter by entity list
+        if entity:
+            if error_type == "FP":
+                list_errors = [
+                    model_error
+                    for model_error in list_errors
+                    if model_error.predicted_tag in entity
+                ]
+            elif error_type == "FN":
+                list_errors = [
+                    model_error
+                    for model_error in list_errors
+                    if model_error.annotated_tag in entity
+                ]
+        # get top n of common error
+        if n:
+            list_errors = TokenOutput.get_common_token(errors=list_errors, n = n)
+        return list_errors
 
 
 class SpanOutput:
