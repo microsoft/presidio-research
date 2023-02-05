@@ -1,6 +1,6 @@
 import pytest
 
-from presidio_evaluator.data_generator.faker_extensions.sentences import SentenceFaker
+from presidio_evaluator.data_generator.faker_extensions import SentenceFaker
 
 
 def test_new_provider_no_alias_raises_attribute_error():
@@ -15,5 +15,5 @@ def test_new_provider_with_alias():
     start_of_sentence = "My doctor is "
     res = data_generator.parse(template=f"{start_of_sentence}{{{{doc_name}}}}", template_id=0)
     assert res
-    assert len(res.fake) > len(start_of_sentence)
-    assert start_of_sentence in res.fake
+    assert len(res.full_text) > len(start_of_sentence)
+    assert start_of_sentence in res.full_text

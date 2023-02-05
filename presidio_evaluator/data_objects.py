@@ -11,27 +11,27 @@ from spacy.training import iob_to_biluo
 from tqdm import tqdm
 
 from presidio_evaluator import span_to_tag, tokenize
-from presidio_evaluator.data_generator.faker_extensions import (
-    FakerSpansResult,
-    FakerSpan,
-)
 
-SPACY_PRESIDIO_ENTITIES = dict(ORG="ORGANIZATION",
-                               NORP="NRP",
-                               GPE="LOCATION",
-                               LOC="LOCATION",
-                               FAC="LOCATION",
-                               PERSON="PERSON",
-                               LOCATION="LOCATION",
-                               ORGANIZATION="ORGANIZATION",
-                               DATE="DATE_TIME",
-                               TIME="DATE_TIME")
-PRESIDIO_SPACY_ENTITIES = dict(PERSON="PERSON",
-                               LOCATION="LOC",
-                               GPE="GPE",
-                               ORGANIZATION="ORG",
-                               DATE_TIME="DATE",
-                               NRP="NORP")
+SPACY_PRESIDIO_ENTITIES = dict(
+    ORG="ORGANIZATION",
+    NORP="NRP",
+    GPE="LOCATION",
+    LOC="LOCATION",
+    FAC="LOCATION",
+    PERSON="PERSON",
+    LOCATION="LOCATION",
+    ORGANIZATION="ORGANIZATION",
+    DATE="DATE_TIME",
+    TIME="DATE_TIME",
+)
+PRESIDIO_SPACY_ENTITIES = dict(
+    PERSON="PERSON",
+    LOCATION="LOC",
+    GPE="GPE",
+    ORGANIZATION="ORG",
+    DATE_TIME="DATE",
+    NRP="NORP",
+)
 
 
 class Span:
@@ -68,15 +68,6 @@ class Span:
         # otherwise the intersection is min(end) - max(start)
         return min(self.end_position, other.end_position) - max(
             self.start_position, other.start_position
-        )
-
-    @classmethod
-    def from_faker_span(cls, faker_span: FakerSpan) -> "Span":
-        return cls(
-            entity_type=faker_span.type,
-            entity_value=faker_span.value,
-            start_position=faker_span.start,
-            end_position=faker_span.end,
         )
 
     def __repr__(self):
@@ -168,35 +159,6 @@ class InputSample(object):
             self.tokens = tokens
             self.tags = tags
 
-    @classmethod
-    def from_faker_spans_result(
-        cls,
-        faker_spans_result: FakerSpansResult,
-        scheme: str = "BILUO",
-        create_tags_from_span: bool = True,
-        **kwargs,
-    ) -> "InputSample":
-        """
-        Translate the FakerSpansResult object to InputSample for backward compatibility
-        :param faker_spans_result: A FakerSpansResult object
-        :param create_tags_from_span: True if text should be tokenized according to spans
-        :param scheme: Annotation scheme for tokens (BILUO, BIO, IO). Only relevant if create_tags_from_span=True
-        :param kwargs: Additional kwargs for InputSample creation
-        :return: InputSample
-        """
-        spans = [
-            Span.from_faker_span(new_span) for new_span in faker_spans_result.spans
-        ]
-        return cls(
-            full_text=faker_spans_result.fake,
-            spans=spans,
-            masked=faker_spans_result.template,
-            create_tags_from_span=create_tags_from_span,
-            scheme=scheme,
-            template_id=faker_spans_result.template_id,
-            **kwargs,
-        )
-
     def __repr__(self):
         return (
             f"Full text: {self.full_text}\n"
@@ -272,22 +234,14 @@ class InputSample(object):
 
     @staticmethod
     def create_conll_dataset(
-        dataset: Union[List["InputSample"], List[FakerSpansResult]],
+        dataset: List["InputSample"],
         translate_tags=False,
         to_bio=True,
-        token_model_version="en_core_web_sm"
+        token_model_version="en_core_web_sm",
     ) -> pd.DataFrame:
 
         if len(dataset) <= 1:
             raise ValueError("Dataset should contain multiple records")
-
-        if isinstance(dataset[0], FakerSpansResult):
-            dataset = [
-                InputSample.from_faker_spans_result(
-                    record, create_tags_from_span=True, scheme="BILUO", token_model_version=token_model_version
-                )
-                for record in tqdm(dataset, desc="Translating spans into tokens")
-            ]
 
         conlls = []
         i = 0
@@ -563,13 +517,14 @@ class InputSample(object):
             dataset = dataset[:length]
 
         input_samples = [
-            InputSample.from_json(row, **kwargs) for row in tqdm(dataset, desc="tokenizing input")
+            InputSample.from_json(row, **kwargs)
+            for row in tqdm(dataset, desc="tokenizing input")
         ]
 
         return input_samples
 
     @classmethod
-    def count_entities(cls, input_samples: List["InputSample"]) -> Counter:
+    def count_entities(cls, input_samples: List["InputSample"]) -> List[Tuple]:
         """Count frequency of entities in a list of InputSample objects"""
         count_per_entity_new = Counter()
         for record in input_samples:
@@ -578,7 +533,9 @@ class InputSample(object):
         return count_per_entity_new.most_common()
 
     @classmethod
-    def remove_unsupported_entities(cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]) -> None:
+    def remove_unsupported_entities(
+        cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]
+    ) -> List["InputSample"]:
         """Remove records with unsupported entities using passed in entity mapping translator."""
         filtered_records = []
         excluded_entities = set()
@@ -593,13 +550,3 @@ class InputSample(object):
             if supported:
                 filtered_records.append(sample)
         return filtered_records
-
-    @classmethod
-    def convert_faker_spans(cls, fake_records: List[FakerSpansResult], create_tags_from_span=True, scheme="BILUO", token_model_version="en_core_web_sm") -> List["InputSample"]:
-        """Tokenize and transform FakerSpansResult records to list of InputSample objects"""
-        input_samples = [
-            InputSample.from_faker_spans_result(
-                faker_spans_result=fake_record, create_tags_from_span=create_tags_from_span, scheme=scheme, token_model_version=token_model_version)
-            for fake_record in tqdm(fake_records)
-        ]
-        return input_samples

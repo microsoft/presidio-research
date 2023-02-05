@@ -2,14 +2,13 @@ import random
 from typing import Optional, List, Union, Dict, Any
 
 import faker
-import numpy as np
 import pandas as pd
 from faker import Faker
 from faker.generator import _re_token
 from faker.providers import BaseProvider, DynamicProvider
 
-from presidio_evaluator.data_generator.faker_extensions import SpanGenerator, FakerSpansResult as FakeSentenceResult, \
-    FakerSpan
+from presidio_evaluator import Span, InputSample
+from presidio_evaluator.data_generator.faker_extensions import SpanGenerator
 
 
 class RecordGenerator(SpanGenerator):
@@ -65,8 +64,8 @@ class RecordGenerator(SpanGenerator):
     >>>res = faker.parse("I'm {{name}} and my email is {{email}}",add_spans=True)
 
     {"fake": "I'm c and my email is c@c",
-     "spans": "[{\"value\": \"c@c\", \"start\": 22, \"end\": 25, \"type\": \"email\"},
-     {\"value\": \"c\", \"start\": 4, \"end\": 5, \"type\": \"name\"}]"
+     "spans": "[{\"entity_value\": \"c@c\", \"start_position\": 22, \"end_position\": 25, \"entity_type\": \"email\"},
+     {\"entity_value\": \"c\", \"start_position\": 4, \"end_position\": 5, \"entity_type\": \"name\"}]"
      }
 
     """
@@ -88,13 +87,13 @@ class RecordGenerator(SpanGenerator):
     def _get_random_record(self):
         return self.dynamic_record_provider.get_random_value().copy()
 
-    def _match_to_span(self, text: str, **kwargs) -> List[FakerSpan]:
+    def _match_to_span(self, text: str, **kwargs) -> List[Span]:
         """Adds logic for sampling from input records if possible."""
         matches = _re_token.finditer(text)
         # Sample one record (Dict containing fake values)
         record = self._get_random_record()
 
-        results: List[FakerSpan] = []
+        results: List[Span] = []
         for match in matches:
             formatter = match.group()[2:-2]
             stripped = formatter.strip()
@@ -104,11 +103,11 @@ class RecordGenerator(SpanGenerator):
                 del record[stripped]  # Remove in order not to sample twice
 
             results.append(
-                FakerSpan(
-                    type=formatter,
-                    start=match.start(),
-                    end=match.end(),
-                    value=value,
+                Span(
+                    entity_type=formatter,
+                    start_position=match.start(),
+                    end_position=match.end(),
+                    entity_value=value,
                 )
             )
 
@@ -118,62 +117,55 @@ class RecordGenerator(SpanGenerator):
         """Fill in fake data. If the input record has the requested entity, return its value."""
         record = kwargs.get("record")
         if not record or not record.get(
-                formatter
+            formatter
         ):  # type not in record, go to default faker
             return super().format(formatter)
 
         return record[formatter]
 
 
-class RecordsFaker(Faker):
-    def __init__(self, records: Union[pd.DataFrame, List[Dict]], **kwargs):
-        if isinstance(records, pd.DataFrame):
-            records = records.to_dict(orient="records")
-
-        record_generator = RecordGenerator(records=records)
-        super().__init__(generator=record_generator, **kwargs)
-
-
-class SentenceFaker:
+class SentenceFaker(Faker):
     def __init__(
-            self,
-            custom_faker: Optional[Faker] = None,
-            locale: Optional[List[str]] = None,
-            lower_case_ratio: float = 0.05,
+        self,
+        lower_case_ratio: float = 0.05,
+        records: Optional[Union[pd.DataFrame, List[Dict]]] = None,
+        **faker_kwargs,
     ):
         """
         Leverages Faker to create fake PII entities into predefined templates of structure: a b c {{PII}} d e f,
-        e.g. "My name is {{first_name}}."
-        :param custom_faker: A Faker object provided by the user
-        :param locale: A locale object to create our own Faker instance if a custom one was not provided.
+        e.g. "My name is {{first_name}} and returning span information in addition to fake text."
         :param lower_case_ratio: Percentage of names that should start with lower case
+        :param records: fake PII values to draw from, in order to maintain semantic relationship between elements.
+        :param faker_kwargs: Arguments for the parent class (faker.Faker)
 
         :example:
 
-        >>>from presidio_evaluator.data_generator import SentenceFaker
+        >>>from presidio_evaluator.data_generator.faker_extensions import SentenceFaker
 
         >>>template = "I just moved to {{city}} from {{country}}"
         >>>fake_sentence_result = SentenceFaker().parse(template)
-        >>>print(fake_sentence_result.fake)
+        >>>print(fake_sentence_result.full_text)
         I just moved to North Kim from Ukraine
         >>>print(fake_sentence_result.spans)
-        [{"value": "Ukraine", "start": 31, "end": 38, "type": "country"}, {"value": "North Kim", "start": 16, "end": 25, "type": "city"}]
+        [{"entity_value": "Ukraine", "start_position": 31, "end_position": 38, "entity_type": "country"}, {"entity_value": "North Kim", "start_position": 16, "end_position": 25, "entity_type": "city"}]
         """
-        if custom_faker and locale:
-            raise ValueError("If a custom faker is passed, it's expected to have its locales loaded")
 
-        if custom_faker:
-            self.faker = custom_faker
+        if records is not None:
+            if isinstance(records, pd.DataFrame):
+                records = records.to_dict(orient="records")
+            generator = RecordGenerator(records=records)
         else:
-            generator = (
-                SpanGenerator()
-            )  # To allow PresidioDataGenerator to return spans and not just strings
-            self.faker = Faker(local=locale, generator=generator)
+            generator = SpanGenerator()
+
+        super().__init__(generator=generator, **faker_kwargs)
         self.lower_case_ratio = lower_case_ratio
 
     def parse(
-            self, template: str, template_id: Optional[int] = None, add_spans: Optional[bool] = True
-    ) -> Union[FakeSentenceResult, str]:
+        self,
+        template: str,
+        template_id: Optional[int] = None,
+        add_spans: Optional[bool] = True,
+    ) -> Union[InputSample, str]:
         """
         This function replaces known PII {{tokens}} in a template sentence
         with a fake value for each token and returns a sentence with fake PII.
@@ -192,12 +184,13 @@ class SentenceFaker:
 
         """
         try:
-            if isinstance(self.faker.factories[0], SpanGenerator):
-                fake_pattern = self.faker.parse(
+            if isinstance(self.factories[0], SpanGenerator):
+                span_generator: SpanGenerator = self.factories[0]
+                fake_pattern = span_generator.parse(
                     template, add_spans=add_spans, template_id=template_id
                 )
             else:
-                fake_pattern = self.faker.parse(template)
+                fake_pattern = self.factories[0].parse(template)
             if random.random() < self.lower_case_ratio:
                 fake_pattern = self._lower_pattern(fake_pattern)
             return fake_pattern
@@ -209,20 +202,14 @@ class SentenceFaker:
             )
 
     @staticmethod
-    def _lower_pattern(pattern: Union[str, FakeSentenceResult]):
+    def _lower_pattern(pattern: Union[str, InputSample]):
         if isinstance(pattern, str):
             return pattern.lower()
-        elif isinstance(pattern, FakeSentenceResult):
-            pattern.fake = pattern.fake.lower()
+        elif isinstance(pattern, InputSample):
+            pattern.fake = pattern.full_text.lower()
             for span in pattern.spans:
-                span.value = str(span.value).lower()
+                span.entity_value = str(span.entity_value).lower()
             return pattern
-
-    def seed(self, seed_value=42):
-        Faker.seed(seed_value)
-        self.faker.seed_instance(seed_value)
-        random.seed(seed_value)
-        np.random.seed(seed_value)
 
     def add_provider_alias(self, provider_name: str, new_name: str) -> None:
         """
@@ -230,11 +217,11 @@ class SentenceFaker:
         :param provider_name: Name of original provider
         :param new_name: New name
         :example:
-        >>>add_provider_alias(provider_name="name", new_name="person")
-        >>>self.faker.person()
+        >>>self.add_provider_alias(provider_name="name", new_name="person")
+        >>>self.person()
         """
-        original = getattr(self.faker, provider_name)
+        original = getattr(self, provider_name)
 
-        new_provider = BaseProvider(self.faker)
+        new_provider = BaseProvider(self)
         setattr(new_provider, new_name, original)
-        self.faker.add_provider(new_provider)
+        self.add_provider(new_provider)

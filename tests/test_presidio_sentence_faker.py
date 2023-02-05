@@ -26,7 +26,7 @@ def test_generate_new_fake_sentences(num_sentences: int):
     expected_providers.extend(presidio_providers)
     expected_providers.extend([standard_faker.__getattr__(key)
                                for key in PresidioSentenceFaker.PROVIDER_ALIASES.keys()])
-    actual_providers = sentence_faker._sentence_faker.faker.providers
+    actual_providers = sentence_faker._sentence_faker.providers
     num_aliases = len(PresidioSentenceFaker.PROVIDER_ALIASES)
     actual_num_providers = len(actual_providers)
     expected_aliases = set(getattr(standard_faker, provider_name)
@@ -40,6 +40,6 @@ def test_generate_new_fake_sentences(num_sentences: int):
     fake_sentence_results = sentence_faker.generate_new_fake_sentences(num_sentences)
     assert len(fake_sentence_results) == num_sentences
     for fake_sentence_result in fake_sentence_results:
-        assert fake_sentence_result.fake
-        assert fake_sentence_result.template
+        assert fake_sentence_result.full_text
+        assert fake_sentence_result.masked
         assert fake_sentence_result.template_id >= 0

@@ -1,2 +1,0 @@
-{"fake": "Dan is my name. Tel Aviv is my home.", "spans": "[{\"value\": \"Dan\", \"start\": 0, \"end\": 3, \"type\": \"name\"}, {\"value\": \"Tel Aviv\", \"start\": 16, \"end\": 24, \"type\": \"city\"}]", "template": "{{name}} is my name. {{city}} is my home", "template_id": 4}
-{"fake": "Dan is my name. Tel Aviv is my home.", "spans": "[{\"value\": \"Dan\", \"start\": 0, \"end\": 3, \"type\": \"name\"}, {\"value\": \"Tel Aviv\", \"start\": 16, \"end\": 24, \"type\": \"city\"}]", "template": "{{name}} is my name. {{city}} is my home", "template_id": 4}

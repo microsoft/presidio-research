@@ -7,15 +7,12 @@ from presidio_evaluator.data_generator import PresidioPseudonymization
 
 
 @pytest.fixture(scope="session")
-def fake_faker():
+def faker_providers():
 
-    faker = Faker()
-    person_provider = DynamicProvider("PERSON", ["James"])
-    location_provider = DynamicProvider("LOCATION", ["Africa"])
-    faker.add_provider(person_provider)
-    faker.add_provider(location_provider)
+    person_provider = DynamicProvider("person", ["James"])
+    location_provider = DynamicProvider("location", ["Africa"])
 
-    return faker
+    return [person_provider, location_provider]
 
 
 @pytest.mark.parametrize(
@@ -24,14 +21,14 @@ def fake_faker():
     [
         (
             "Hi I live in South Africa and my name is Toma",
-            "LOCATION", "PERSON", 13, 25, 41, 45, "Africa", "James"
+            "location", "person", 13, 25, 41, 45, "Africa", "James"
         ),
-        ("Africa is my continent, James", "LOCATION", "PERSON", 0, 6, 24, 29, "Africa", "James"),
+        ("Africa is my continent, James", "location", "person", 0, 6, 24, 29, "Africa", "James"),
     ],
     # fmt: on
 )
 def test_presidio_psudonymize_two_entities(
-    text, entity1, entity2, start1, end1, start2, end2, value1, value2, fake_faker
+    text, entity1, entity2, start1, end1, start2, end2, value1, value2, faker_providers
 ):
 
     presidio_response = [
@@ -39,8 +36,10 @@ def test_presidio_psudonymize_two_entities(
         RecognizerResult(entity_type=entity2, start=start2, end=end2, score=0.85),
     ]
     presidio_pseudonymizer = PresidioPseudonymization(
-        custom_faker=fake_faker, lower_case_ratio=0.0, map_to_presidio_entities=False
+        lower_case_ratio=0.0, map_to_presidio_entities=False
     )
+    presidio_pseudonymizer.add_provider(faker_providers[0])
+    presidio_pseudonymizer.add_provider(faker_providers[1])
     pseudonyms = presidio_pseudonymizer.pseudonymize(
         original_text=text, presidio_response=presidio_response, count=5
     )
