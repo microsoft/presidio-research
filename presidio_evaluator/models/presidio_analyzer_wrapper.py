@@ -69,14 +69,18 @@ class PresidioAnalyzerWrapper(BaseModel):
 
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
     presidio_entities_map = dict(PERSON="PERSON",
+                                 NAME="PERSON",
                                  GPE="LOCATION",
                                  EMAIL_ADDRESS="EMAIL_ADDRESS",
+                                 EMAIL="EMAIL_ADDRESS",
                                  CREDIT_CARD="CREDIT_CARD",
+                                 CREDIT_CARD_NUMBER="CREDIT_CARD",
                                  FIRST_NAME="PERSON",
                                  LAST_NAME="PERSON",
                                  PHONE_NUMBER="PHONE_NUMBER",
                                  BIRTHDAY="DATE_TIME",
                                  DATE_TIME="DATE_TIME",
+                                 DATE_OF_BIRTH="DATE_TIME",
                                  DOMAIN_NAME="URL",
                                  CITY="LOCATION",
                                  ADDRESS="LOCATION",
@@ -90,8 +94,9 @@ class PresidioAnalyzerWrapper(BaseModel):
                                  NRP="NRP",
                                  TITLE="O",  # not supported
                                  PREFIX="O",  # not supported
-                                 STREET_ADDRESS="O",  # not supported
+                                 STREET_ADDRESS="LOCATION",
                                  ZIP_CODE="O",  # not supported
+                                 ZIPCODE="O",  # not supported
                                  AGE="O",  # not supported
                                  O="O")
 
