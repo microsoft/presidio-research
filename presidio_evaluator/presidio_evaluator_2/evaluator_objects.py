@@ -63,7 +63,8 @@ class TokenOutput:
         )
 
     def __repr__(self):
-        return "<TokenOutput {self.__str__()}"
+        """ Return repr(self). """
+        return f"<TokenOutput {self.__str__()}"
 
     @staticmethod
     def get_token_error_by_type(errors=List["TokenOutput"],
@@ -123,6 +124,7 @@ class SpanOutput:
         self.predicted_span = predicted_span
 
     def __repr__(self):
+        """ Return repr(self). """
         return (
             f"Output type: {self.output_type}\n"
             f"Overlap score: {self.overlap_score}\n"
