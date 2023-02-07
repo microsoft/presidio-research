@@ -31,7 +31,7 @@ class EvaluationResult:
 
     ):
         """
-        Holds the output of token and span evaluation for a given dataset
+        Constructs all the necessary attributes for the EvaluationResult object
         :param sample_errors: contain the token, span errors and input text for further inspection
         :param token_confusion_matrix: List of objects of type Counter
         with structure {(actual, predicted) : count}
