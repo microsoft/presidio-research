@@ -49,7 +49,8 @@ class TokenOutput:
         self.predicted_tag = predicted_tag
         self.token = token
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """ Return str(self). """
         return (
             "type: {}, "
             "Annotated tag = {}, "
@@ -62,7 +63,7 @@ class TokenOutput:
             )
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """ Return repr(self). """
         return f"<TokenOutput {self.__str__()}"
 
@@ -123,7 +124,7 @@ class SpanOutput:
         self.annotated_span = annotated_span
         self.predicted_span = predicted_span
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """ Return repr(self). """
         return (
             f"Output type: {self.output_type}\n"
