@@ -27,6 +27,16 @@ class Evaluator:
     span_entity_eval: Dict[str, Dict[str, Counter]]
         cover the four evaluation schemes for each entity in entities_to_keep.
     -------
+    Methods
+    -------
+    compare_token(annotated_tokens: List[str], predicted_tokens: List[str]) -> Tuple[List[TokenOutput], Counter]:
+        Compare between 2 list of predicted and annotated token for a given sample
+    compare_span(annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
+                                    List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
+        Compare between 2 list of predicted and annotated span for a given sample
+    evaluate_all(model_predictions: List[ModelPrediction]) -> EvaluationResult:
+        Evaluate the PII performance at token and span levels for all sample in the reference dataset
+    -------
     """
 
     def __init__(
@@ -55,11 +65,13 @@ class Evaluator:
         # copy results dict to cover the four evaluation schemes for each entity in entities_to_keep.
         self.span_entity_eval = {e: deepcopy(self.span_pii_eval) for e in self.entities_to_keep}
 
-    def compare_token(self, model_prediction: ModelPrediction) -> Tuple[List[TokenOutput], Counter]:
+    def compare_token(self, annotated_tokens: List[str], predicted_tokens: List[str]) -> \
+            Tuple[List[TokenOutput], Counter]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at token level.
         Return a list of TokenOutput and a list of objects of type Counter with structure {(actual, predicted) : count}
-        :param model_prediction: model_prediction containing an InputSample and a list of predicted tags and tokens
+        :param annotated_tokens: truth annotation tokens from InputSample
+        :param predicted_tokens: predicted tokens from PII model/system
         """
         raise NotImplementedError
 
@@ -67,7 +79,7 @@ class Evaluator:
                                     List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level.
-        :param annotated_spans: truth annotation from InputSample
+        :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         Returns:
         List[SpanOutput]: a list of SpanOutput
@@ -78,7 +90,7 @@ class Evaluator:
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
         """
-        Evaluate the PII performance at token and span levels.
+        Evaluate the PII performance at token and span levels for all sample in the reference dataset.
         :param model_predictions: list of ModelPrediction
         :returns:
         EvaluationResult: the evaluation outcomes in EvaluationResult format

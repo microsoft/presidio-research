@@ -165,6 +165,7 @@ class ModelPrediction:
         Turns a list of start and end values with corresponding labels, into a NER tagging (BILUO,BIO/IOB)
     tag_to_span(predicted_tags: List[str]) -> List[Span]:
         Turns a list of tokens with corresponding labels, into a list of span
+    -------
     """
 
     def __init__(
