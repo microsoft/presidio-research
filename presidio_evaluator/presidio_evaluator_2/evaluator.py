@@ -17,6 +17,7 @@ class Evaluator:
     ):
         """
         Constructs all the necessary attributes for the Evaluator object
+
         :param entities_to_keep: List of entity names to focus the evaluator on (and ignore the rest).
         Default is None = all entities. If the provided model has a list of entities to keep,
         this list would be used for evaluation.
@@ -41,6 +42,7 @@ class Evaluator:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at token level.
         Return a list of TokenOutput and a list of objects of type Counter with structure {(actual, predicted) : count}
+
         :param annotated_tokens: truth annotation tokens from InputSample
         :param predicted_tokens: predicted tokens from PII model/system
         """
@@ -50,6 +52,7 @@ class Evaluator:
                                     List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level.
+
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         :returns:
