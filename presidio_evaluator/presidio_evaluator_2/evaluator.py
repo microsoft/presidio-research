@@ -10,35 +10,6 @@ from presidio_evaluator.presidio_evaluator_2 import (TokenOutput,
 
 
 class Evaluator:
-    """
-    Evaluate a PII detection model or a Presidio analyzer / recognizer
-    ...
-
-    Attributes
-    ----------
-    entities_to_keep : List[SampleError]
-        contain the token, span errors and input text for further inspection
-    compare_by_io : bool = True
-        True if comparison should be done on the entity level and not the sub-entity level
-    span_category_output : Dict
-        a dictionary for storing the span metrics
-    span_pii_eval: Dict[str, Counter]
-        cover the four evaluation schemes for PII.
-    span_entity_eval: Dict[str, Dict[str, Counter]]
-        cover the four evaluation schemes for each entity in entities_to_keep.
-    -------
-    Methods
-    -------
-    compare_token(annotated_tokens: List[str], predicted_tokens: List[str]) -> Tuple[List[TokenOutput], Counter]:
-        Compare between 2 list of predicted and annotated token for a given sample
-    compare_span(annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
-                                    List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
-        Compare between 2 list of predicted and annotated span for a given sample
-    evaluate_all(model_predictions: List[ModelPrediction]) -> EvaluationResult:
-        Evaluate the PII performance at token and span levels for all sample in the reference dataset
-    -------
-    """
-
     def __init__(
             self,
             entities_to_keep: List[str],
@@ -81,7 +52,7 @@ class Evaluator:
         Compares ground truth tags (annotation) and predicted (prediction) at span level.
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
-        Returns:
+        :returns:
         List[SpanOutput]: a list of SpanOutput
         dict: a dictionary of global PII results with structure {eval_type : {}}
         dict: a dictionary of PII results per entity with structure {entity_name: {eval_type : {}}}
