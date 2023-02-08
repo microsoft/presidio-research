@@ -4,6 +4,7 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 from collections import Counter
 
 import pandas as pd
+import numpy as np
 import spacy
 from spacy import Language
 from spacy.tokens import Doc, DocBin
@@ -46,7 +47,7 @@ class Span:
         self.start_position = start_position
         self.end_position = end_position
 
-    def intersect(self, other, ignore_entity_type: bool):
+    def intersect(self, other: "Span", ignore_entity_type: bool) -> float:
         """
         Checks if self intersects with a different Span
         :return: If intersecting, returns the number of
@@ -69,6 +70,19 @@ class Span:
         return min(self.end_position, other.end_position) - max(
             self.start_position, other.start_position
         )
+
+    def get_overlap_ratio(self, other: "Span", ignore_entity_type: bool) -> float:
+        """
+        Calculates the ratio as: ratio = 2.0*M / T , where M = matches , T = total number of elements in both sequences
+        :return: If intersecting, returns the ratio of overlapping
+        If not, returns 0
+        """
+        try:
+            nb_matches = self.intersect(other, ignore_entity_type=ignore_entity_type)
+            total_characters = (self.end_position - self.start_position) + (other.end_position - other.start_position)
+            return np.round((2*nb_matches/total_characters), 2)
+        except ZeroDivisionError as e:
+            print("Error: Cannot divide by zero.")
 
     @classmethod
     def from_faker_span(cls, faker_span: FakerSpan) -> "Span":
