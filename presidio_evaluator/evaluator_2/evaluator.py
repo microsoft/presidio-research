@@ -49,8 +49,10 @@ class Evaluator:
         """
         raise NotImplementedError
 
-    def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
-                                    List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
+    # def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
+    #                                 List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
+    @staticmethod
+    def compare_span(annotated_spans: List[Span], predicted_spans: List[Span]) -> List[SpanOutput]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level.
 
@@ -81,9 +83,10 @@ class Evaluator:
             else:
                 # check overlaps with every span in true entities
                 for true in annotated_spans:
+                    # calculate the overlap ratio between true and pred
+                    overlap_ratio = pred.get_overlap_ratio(true, ignore_entity_type=True)
                     # Scenario IV: Offsets match, but entity type is wrong
-                    if true.start_position == pred.start_position and true.end_position == pred.end_position \
-                            and true.entity_type != pred.entity_type:
+                    if overlap_ratio == 1 and true.entity_type != pred.entity_type:
                         span_outputs.append(SpanOutput(
                             output_type="EXACT",
                             predicted_span=pred,
@@ -94,10 +97,89 @@ class Evaluator:
                         # remove this predicted span from miss_spans
                         miss_spans = [x for x in miss_spans if x != true]
                         break
-                    else:
-                        overlap_ratio = pred.get_overlap_ratio(true)
+                    # Scenario V: There is an overlap (but offsets don't match and entity type is correct)
+                    elif overlap_ratio > 0 and pred.entity_type == true.entity_type:
+                        span_outputs.append(SpanOutput(
+                            output_type="ENT_TYPE",
+                            predicted_span=pred,
+                            annotated_span=true,
+                            overlap_score=overlap_ratio
+                        ))
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+                    # Scenario VI: There is an overlap (but offsets don't match and entity type is wrong)
+                    elif overlap_ratio > 0 and pred.entity_type != true.entity_type:
+                        span_outputs.append(SpanOutput(
+                            output_type="PARTIAL",
+                            predicted_span=pred,
+                            annotated_span=true,
+                            overlap_score=overlap_ratio
+                        ))
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+            # Scenario II: No overlap with any true entity
+            if not found_overlap:
+                span_outputs.append(SpanOutput(
+                    output_type="SPURIOUS",
+                    predicted_span=pred,
+                    overlap_score=0
+                ))
+        # Scenario III: Span is missing in predicted list
+        if len(miss_spans) > 0:
+            for miss in miss_spans:
+                span_outputs.append(SpanOutput(
+                    output_type="MISSED",
+                    annotated_span=miss,
+                    overlap_score=0
+                ))
 
-        raise NotImplementedError
+        return span_outputs
+
+    def get_eval_schema(self, span_outputs: List[SpanOutput]) -> Dict[str, Dict[str, Counter]]:
+        """Update the evaluation schema with the new schema.
+
+        param:span_outputs (dict): The new schema to update the evaluation schema with.
+        returns: dict: The updated evaluation schema.
+        """
+        for span_output in span_outputs:
+            if span_output.output_type == "STRICT":
+                for eval_type in ["strict", "ent_type", "partial", "exact"]:
+                    self.span_pii_eval[eval_type]["correct"] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["correct"] += 1
+            elif span_output.output_type == "EXACT":
+                for eval_type in ["strict", "ent_type"]:
+                    self.span_pii_eval[eval_type]["incorrect"] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["incorrect"] += 1
+                for eval_type in ["partial", "exact"]:
+                    self.span_pii_eval[eval_type]['correct'] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["correct"] += 1
+            elif span_output.output_type == "ENT_TYPE":
+                self.span_pii_eval["strict"]["incorrect"] += 1
+                self.span_pii_eval["ent_type"]["correct"] += 1
+                self.span_pii_eval["partial"]["partial"] += 1
+                self.span_pii_eval["exact"]["incorrect"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["incorrect"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["correct"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["incorrect"] += 1
+            elif span_output.output_type == "PARTIAL":
+                for eval_type in ["strict", "ent_type", "exact"]:
+                    self.span_pii_eval[eval_type]['incorrect'] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["incorrect"] += 1
+                self.span_pii_eval["partial"]["partial"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"]["partial"] += 1
+            elif span_output.output_type == "SPURIOUS":
+                for eval_type in ["strict", "ent_type", "partial", "exact"]:
+                    self.span_pii_eval[eval_type]["spurious"] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["spurious"] += 1
+            elif span_output.output_type == "MISSED":
+                for eval_type in ["strict", "ent_type", "partial", "exact"]:
+                    self.span_pii_eval[eval_type]["miss"] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["miss"] += 1
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
         """
