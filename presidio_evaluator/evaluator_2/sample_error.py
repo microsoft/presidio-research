@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict
 
-from presidio_evaluator.presidio_evaluator_2 import TokenOutput, SpanOutput
+from presidio_evaluator.evaluator_2 import TokenOutput, SpanOutput
 
 
 @dataclass

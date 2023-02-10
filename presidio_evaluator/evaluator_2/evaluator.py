@@ -1,12 +1,13 @@
+import copy
 from collections import Counter
 from copy import deepcopy
 from typing import List, Tuple, Dict
 
 from presidio_evaluator import Span
-from presidio_evaluator.presidio_evaluator_2 import (TokenOutput,
-                                                     SpanOutput,
-                                                     ModelPrediction,
-                                                     EvaluationResult)
+from presidio_evaluator.evaluator_2 import (TokenOutput,
+                                            SpanOutput,
+                                            ModelPrediction,
+                                            EvaluationResult)
 
 
 class Evaluator:
@@ -60,6 +61,42 @@ class Evaluator:
         dict: a dictionary of global PII results with structure {eval_type : {}}
         dict: a dictionary of PII results per entity with structure {entity_name: {eval_type : {}}}
         """
+        # keep track for further analysis
+        span_outputs = []
+        # keep track of MISS spans
+        # go through each predicted
+        miss_spans = copy.deepcopy(annotated_spans)
+        for pred in predicted_spans:
+            found_overlap = False
+            # Scenario I: Exact match between true and pred
+            if pred in annotated_spans:
+                span_outputs.append(SpanOutput(
+                    output_type="STRICT",
+                    predicted_span=pred,
+                    annotated_span=pred,
+                    overlap_score=1
+                ))
+                # remove this predicted span from miss_spans
+                miss_spans = [x for x in miss_spans if x != pred]
+            else:
+                # check overlaps with every span in true entities
+                for true in annotated_spans:
+                    # Scenario IV: Offsets match, but entity type is wrong
+                    if true.start_position == pred.start_position and true.end_position == pred.end_position \
+                            and true.entity_type != pred.entity_type:
+                        span_outputs.append(SpanOutput(
+                            output_type="EXACT",
+                            predicted_span=pred,
+                            annotated_span=true,
+                            overlap_score=1
+                        ))
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+                    else:
+                        overlap_ratio = pred.get_overlap_ratio(true)
+
         raise NotImplementedError
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:

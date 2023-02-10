@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import List, Dict, Tuple
 
-from presidio_evaluator.presidio_evaluator_2 import SampleError
+from presidio_evaluator.evaluator_2 import SampleError
 
 
 class EvaluationResult:
