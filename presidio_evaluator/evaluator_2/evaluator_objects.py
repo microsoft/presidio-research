@@ -1,4 +1,5 @@
 from typing import Optional, List
+import math
 
 from spacy.tokens import Token
 
@@ -87,6 +88,15 @@ class SpanOutput:
             f"Overlap score: {self.overlap_score}\n"
             f"Annotated span: {self.annotated_span}\n"
             f"Predicted span: {self.predicted_span}\n"
+        )
+
+    def __eq__(self, other) -> bool:
+        """ Compare two SpanOutput objects. """
+        return (
+                self.output_type == other.output_type
+                and math.isclose(self.overlap_score, other.overlap_score)
+                and self.annotated_span == other.annotated_span
+                and self.predicted_span == other.predicted_span
         )
 
     @staticmethod
