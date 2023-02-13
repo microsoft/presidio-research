@@ -78,6 +78,7 @@ class Evaluator:
                     annotated_span=pred,
                     overlap_score=1
                 ))
+                found_overlap = True
                 # remove this predicted span from miss_spans
                 miss_spans = [x for x in miss_spans if x != pred]
             else:
@@ -139,7 +140,7 @@ class Evaluator:
 
         return span_outputs
 
-    def get_eval_schema(self, span_outputs: List[SpanOutput]) -> Dict[str, Dict[str, Counter]]:
+    def get_span_eval_schema(self, span_outputs: List[SpanOutput]) -> Dict[str, Dict[str, Counter]]:
         """Update the evaluation schema with the new schema.
 
         param:span_outputs (dict): The new schema to update the evaluation schema with.
@@ -162,10 +163,10 @@ class Evaluator:
                 self.span_pii_eval["ent_type"]["correct"] += 1
                 self.span_pii_eval["partial"]["partial"] += 1
                 self.span_pii_eval["exact"]["incorrect"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["incorrect"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["correct"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["incorrect"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["strict"]["incorrect"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["ent_type"]["correct"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"]["partial"] += 1
+                self.span_entity_eval[span_output.annotated_span.entity_type]["exact"]["incorrect"] += 1
             elif span_output.output_type == "PARTIAL":
                 for eval_type in ["strict", "ent_type", "exact"]:
                     self.span_pii_eval[eval_type]['incorrect'] += 1
@@ -175,11 +176,11 @@ class Evaluator:
             elif span_output.output_type == "SPURIOUS":
                 for eval_type in ["strict", "ent_type", "partial", "exact"]:
                     self.span_pii_eval[eval_type]["spurious"] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["spurious"] += 1
+                    self.span_entity_eval[span_output.predicted_span.entity_type][eval_type]["spurious"] += 1
             elif span_output.output_type == "MISSED":
                 for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    self.span_pii_eval[eval_type]["miss"] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["miss"] += 1
+                    self.span_pii_eval[eval_type]["missed"] += 1
+                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["missed"] += 1
 
     def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
         """
