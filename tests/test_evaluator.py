@@ -108,3 +108,4 @@ def test_get_span_eval_schema():
                        'partial': Counter({'correct': 3, 'partial': 2, 'missed': 1, 'spurious': 1, 'incorrect': 0}),
                        'exact': Counter({'correct': 3, 'incorrect': 2, 'missed': 1, 'spurious': 1, 'partial': 0})}
     assert evaluator.span_pii_eval == expected_schema
+
