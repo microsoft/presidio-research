@@ -1,7 +1,6 @@
 import copy
 from collections import Counter
-from copy import deepcopy
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 from tqdm import tqdm
 
@@ -9,9 +8,7 @@ from presidio_evaluator import Span
 from presidio_evaluator.evaluator_2 import (TokenOutput,
                                             SpanOutput,
                                             ModelPrediction,
-                                            EvaluationResult,
-                                            SampleError,
-                                            evaluation_helpers)
+                                            SampleError)
 
 
 class Evaluator:
@@ -32,16 +29,6 @@ class Evaluator:
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
 
-        # set up a dict for storing the span metrics
-        self.span_category_output = {'correct': 0, 'incorrect': 0, 'partial': 0, 'missed': 0, 'spurious': 0}
-        # copy results dict to cover the four evaluation schemes for PII.
-        self.span_pii_eval = {'strict': Counter(self.span_category_output),
-                              'ent_type': Counter(self.span_category_output),
-                              'partial': Counter(self.span_category_output),
-                              'exact': Counter(self.span_category_output)}
-        # copy results dict to cover the four evaluation schemes for each entity in entities_to_keep.
-        self.span_entity_eval = {e: deepcopy(self.span_pii_eval) for e in self.entities_to_keep}
-
     def compare_token(self, annotated_tokens: List[str], predicted_tokens: List[str]) -> \
             Tuple[List[TokenOutput], Counter]:
         """
@@ -53,8 +40,6 @@ class Evaluator:
         """
         raise NotImplementedError
 
-    # def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
-    #                                 List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
     @staticmethod
     def compare_span(annotated_spans: List[Span], predicted_spans: List[Span]) -> List[SpanOutput]:
         """
@@ -144,49 +129,7 @@ class Evaluator:
 
         return span_outputs
 
-    def get_span_eval_schema(self, span_outputs: List[SpanOutput]) -> Dict[str, Dict[str, Counter]]:
-        """Update the evaluation schema with the new schema.
-
-        param:span_outputs (dict): The new schema to update the evaluation schema with.
-        returns: dict: The updated evaluation schema.
-        """
-        for span_output in span_outputs:
-            if span_output.output_type == "STRICT":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    self.span_pii_eval[eval_type]["correct"] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["correct"] += 1
-            elif span_output.output_type == "EXACT":
-                for eval_type in ["strict", "ent_type"]:
-                    self.span_pii_eval[eval_type]["incorrect"] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["incorrect"] += 1
-                for eval_type in ["partial", "exact"]:
-                    self.span_pii_eval[eval_type]['correct'] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["correct"] += 1
-            elif span_output.output_type == "ENT_TYPE":
-                self.span_pii_eval["strict"]["incorrect"] += 1
-                self.span_pii_eval["ent_type"]["correct"] += 1
-                self.span_pii_eval["partial"]["partial"] += 1
-                self.span_pii_eval["exact"]["incorrect"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["strict"]["incorrect"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["ent_type"]["correct"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"]["partial"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["exact"]["incorrect"] += 1
-            elif span_output.output_type == "PARTIAL":
-                for eval_type in ["strict", "ent_type", "exact"]:
-                    self.span_pii_eval[eval_type]['incorrect'] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["incorrect"] += 1
-                self.span_pii_eval["partial"]["partial"] += 1
-                self.span_entity_eval[span_output.annotated_span.entity_type]["partial"]["partial"] += 1
-            elif span_output.output_type == "SPURIOUS":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    self.span_pii_eval[eval_type]["spurious"] += 1
-                    self.span_entity_eval[span_output.predicted_span.entity_type][eval_type]["spurious"] += 1
-            elif span_output.output_type == "MISSED":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    self.span_pii_eval[eval_type]["missed"] += 1
-                    self.span_entity_eval[span_output.annotated_span.entity_type][eval_type]["missed"] += 1
-
-    def evaluate_all(self, model_predictions: List[ModelPrediction]) -> EvaluationResult:
+    def evaluate_all(self, model_predictions: List[ModelPrediction]) -> SampleError:
         """
         Evaluate the PII performance at token and span levels for all sample in the reference dataset.
         :param model_predictions: list of ModelPrediction
@@ -208,19 +151,4 @@ class Evaluator:
                 span_output=span_outputs
             ))
 
-        # Calculate the possible and actual for the whole dataset
-        for eval_type in self.span_pii_eval:
-            self.span_pii_eval[eval_type] = evaluation_helpers.get_actual_possible_span(self.span_pii_eval[eval_type])
-        # at entity level
-        for entity_type, entity_level in self.span_pii_metrics_per_entity.items():
-            for eval_type in entity_level:
-                self.span_pii_metrics_per_entity[entity_type][eval_type] = evaluation_helpers.get_actual_possible_span(
-                    self.span_pii_metrics_per_entity[entity_type][eval_type])
-
-        # Calculate the precision and recall for the whole dataset
-        # global PII
-        self.span_pii_eval = evaluation_helpers.span_compute_precision_recall_wrapper(self.span_pii_eval)
-        # at entity level
-        for entity in self.entities_to_keep:
-            self.span_pii_metrics_per_entity[entity] = evaluation_helpers.span_compute_precision_recall_wrapper(
-                self.span_pii_metrics_per_entity[entity])
+        return SampleError
