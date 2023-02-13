@@ -3,11 +3,13 @@ from collections import Counter
 from copy import deepcopy
 from typing import List, Tuple, Dict
 
+from tqdm import tqdm
+
 from presidio_evaluator import Span
 from presidio_evaluator.evaluator_2 import (TokenOutput,
                                             SpanOutput,
                                             ModelPrediction,
-                                            EvaluationResult)
+                                            EvaluationResult, SampleError)
 
 
 class Evaluator:
@@ -189,4 +191,25 @@ class Evaluator:
         :returns:
         EvaluationResult: the evaluation outcomes in EvaluationResult format
         """
-        raise NotImplementedError
+        sample_errors = []
+        for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
+            # Span evaluation
+            annotated_spans = model_prediction.annotated_spans
+            predicted_spans = model_prediction.predicted_spans
+            span_outputs = self.get_span_outputs(annotated_spans, predicted_spans)
+            # Update the evaluation schema
+            self.get_span_eval_schema(span_outputs)
+            sample_errors.append(SampleError(
+                full_text=model_prediction.input_sample.full_text,
+                metadata=model_prediction.input_sample.metadata,
+                token_output=None,  # TODO: replace by output of compare_token function
+                span_output=span_outputs
+            ))
+
+        # Calculate the precision and recall for the whole dataset
+        # global PII
+        self.span_pii_metrics = evaluation_helpers.span_compute_precision_recall_wrapper(self.span_pii_metrics)
+        # at entity level
+        for entity in self.entities_to_keep:
+            self.span_pii_metrics_per_entity[entity] = evaluation_helpers.span_compute_precision_recall_wrapper(
+                self.span_pii_metrics_per_entity[entity])
