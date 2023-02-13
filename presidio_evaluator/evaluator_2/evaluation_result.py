@@ -2,7 +2,7 @@ from collections import Counter
 from copy import deepcopy
 from typing import List, Dict, Tuple
 
-from presidio_evaluator.evaluator_2 import SampleError
+from presidio_evaluator.evaluator_2 import SampleError, evaluation_helpers
 
 
 class EvaluationResult:
@@ -25,7 +25,7 @@ class EvaluationResult:
 
     def __init__(
             self,
-            sample_errors: List[SampleError],
+            sample_errors: List[SampleError] = None,
             token_confusion_matrix: Counter = None,
             token_model_metrics: Dict[str, Counter] = None
     ):
@@ -102,3 +102,29 @@ class EvaluationResult:
                 elif span_output.output_type == "MISSED":
                     for eval_type, entity in zip(["strict", "ent_type", "partial", "exact"], entity_list):
                         self.span_model_metrics[entity][eval_type]["missed"] += 1
+
+    def get_possible_actual_span_pii(self):
+        # Calculate the possible and actual for the whole dataset
+        # at entity level
+        for entity_type, entity_level in self.span_model_metrics.items():
+            for eval_type in entity_level:
+                self.span_model_metrics[entity_type][eval_type] = evaluation_helpers.get_actual_possible_span(
+                    self.span_model_metrics[entity_type][eval_type])
+
+    def generate_possible_actual_span_pii(self):
+        # Calculate the precision and recall for the whole dataset
+        # at entity level
+        for entity in self.entities_to_keep:
+            self.span_model_metrics[entity] = evaluation_helpers.span_compute_precision_recall_wrapper(
+                self.span_model_metrics[entity])
+
+    def get_span_model_metrics(self):
+        # Generate the evaluation schema from the span outputs
+        self.get_span_eval_schema()
+        # Calculate the possible and actual for the whole dataset
+        # at entity level
+        self.get_possible_actual_span_pii()
+        # Calculate the precision and recall for the whole dataset
+        # at entity level
+        self.generate_possible_actual_span_pii()
+        print(self.span_model_metrics)
