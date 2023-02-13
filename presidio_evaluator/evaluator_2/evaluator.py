@@ -9,7 +9,9 @@ from presidio_evaluator import Span
 from presidio_evaluator.evaluator_2 import (TokenOutput,
                                             SpanOutput,
                                             ModelPrediction,
-                                            EvaluationResult, SampleError)
+                                            EvaluationResult,
+                                            SampleError,
+                                            evaluation_helpers)
 
 
 class Evaluator:
@@ -72,7 +74,7 @@ class Evaluator:
         miss_spans = copy.deepcopy(annotated_spans)
         for prediction in predicted_spans:
             found_overlap = False
-            # Scenario I: Exact match between true and pred
+            # Scenario I: Exact match between true and prediction
             if prediction in annotated_spans:
                 span_outputs.append(SpanOutput(
                     output_type="STRICT",
@@ -206,9 +208,18 @@ class Evaluator:
                 span_output=span_outputs
             ))
 
+        # Calculate the possible and actual for the whole dataset
+        for eval_type in self.span_pii_eval:
+            self.span_pii_eval[eval_type] = evaluation_helpers.get_actual_possible_span(self.span_pii_eval[eval_type])
+        # at entity level
+        for entity_type, entity_level in self.span_pii_metrics_per_entity.items():
+            for eval_type in entity_level:
+                self.span_pii_metrics_per_entity[entity_type][eval_type] = evaluation_helpers.get_actual_possible_span(
+                    self.span_pii_metrics_per_entity[entity_type][eval_type])
+
         # Calculate the precision and recall for the whole dataset
         # global PII
-        self.span_pii_metrics = evaluation_helpers.span_compute_precision_recall_wrapper(self.span_pii_metrics)
+        self.span_pii_eval = evaluation_helpers.span_compute_precision_recall_wrapper(self.span_pii_eval)
         # at entity level
         for entity in self.entities_to_keep:
             self.span_pii_metrics_per_entity[entity] = evaluation_helpers.span_compute_precision_recall_wrapper(
