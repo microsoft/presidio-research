@@ -1,6 +1,6 @@
 from collections import Counter
-from copy import deepcopy
 from typing import List, Dict, Tuple
+import pandas as pd
 
 from presidio_evaluator.evaluator_2 import SampleError
 
@@ -57,10 +57,11 @@ class EvaluationResult:
         pass
 
     @staticmethod
-    def span_fb_score(precision: float, recall: float, beta:int=2) -> float:
+    def span_fb_score(precision: float, recall: float, beta: int = 2) -> float:
         """
         Calculate the span F1 score
         :param precision: span precision
         :param recall: span recall
+        :param beta: which metric to compute (1 for F1, 2 for F2, etc.)
         """
-        pass
+        return (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
