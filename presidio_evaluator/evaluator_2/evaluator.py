@@ -212,9 +212,12 @@ class Evaluator:
         # Calculate the precision and recall for the whole dataset
         self.cal_precision_recall_span_pii()
 
+        span_model_metrics = self.span_entity_eval
+        span_model_metrics["pii"] = self.span_pii_eval
+
         return EvaluationResult(
             sample_errors=sample_errors,
-            span_model_metrics=self.span_model_metrics
+            span_model_metrics=span_model_metrics
         )
 
     def cal_possible_actual_span_pii(self) -> None:
