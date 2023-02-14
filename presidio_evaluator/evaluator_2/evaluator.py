@@ -1,7 +1,6 @@
 from collections import Counter
 from copy import deepcopy
 from typing import List, Tuple, Dict
-import itertools
 
 from tqdm import tqdm
 
@@ -53,8 +52,6 @@ class Evaluator:
         """
         raise NotImplementedError
 
-    # def compare_span(self, annotated_spans: List[Span], predicted_spans: List[Span]) -> Tuple[
-    #                                 List[SpanOutput], Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
     @staticmethod
     def compare_span(annotated_spans: List[Span], predicted_spans: List[Span]) -> List[SpanOutput]:
         """
@@ -223,7 +220,7 @@ class Evaluator:
     def cal_possible_actual_span_pii(self) -> None:
         """
         Calculate the number of actual, possible from the category errors in span_model_metrics.
-        :returns:
+        :returns: None
         the self.span_model_metrics is updated with the actual and possible values
         """
         # Calculate the overall and entity level possible and actual for the whole dataset
@@ -235,7 +232,7 @@ class Evaluator:
     def cal_precision_recall_span_pii(self) -> None:
         """
         Calculate the precision and recall from the category errors in span_model_metrics.
-        :returns:
+        :returns: None
         the self.span_model_metrics is updated with the precision and recall values
         """
         # Calculate the overall and entity level precision and recall for the whole dataset
