@@ -102,10 +102,23 @@ def test_get_span_eval_schema():
                                annotated_span=Span(entity_type="PER", entity_value="", start_position=59,
                                                    end_position=69), overlap_score=0)]
     evaluator.get_span_eval_schema(span_outputs=span_outputs)
-    print(evaluator.span_pii_eval)
-    expected_schema = {'strict': Counter({'incorrect': 3, 'correct': 2, 'missed': 1, 'spurious': 1, 'partial': 0}),
+    expected_pii_eval = {'strict': Counter({'incorrect': 3, 'correct': 2, 'missed': 1, 'spurious': 1, 'partial': 0}),
                        'ent_type': Counter({'correct': 3, 'incorrect': 2, 'missed': 1, 'spurious': 1, 'partial': 0}),
                        'partial': Counter({'correct': 3, 'partial': 2, 'missed': 1, 'spurious': 1, 'incorrect': 0}),
                        'exact': Counter({'correct': 3, 'incorrect': 2, 'missed': 1, 'spurious': 1, 'partial': 0})}
-    assert evaluator.span_pii_eval == expected_schema
+    expected_entity_eval = \
+        {'PER': {'strict': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
+                'ent_type': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
+                'partial': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
+                 'exact': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0})},
+         'LOC': {'strict': Counter({'correct': 2, 'incorrect': 2, 'partial': 0, 'missed': 0, 'spurious': 0}),
+                 'ent_type': Counter({'correct': 3, 'incorrect': 1, 'partial': 0, 'missed': 0, 'spurious': 0}),
+                 'partial': Counter({'correct': 3, 'partial': 1, 'incorrect': 0, 'missed': 0, 'spurious': 0}),
+                 'exact': Counter({'correct': 3, 'incorrect': 1, 'partial': 0, 'missed': 0, 'spurious': 0})},
+         'MISC': {'strict': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0}),
+                  'ent_type': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0}),
+                  'partial': Counter({'partial': 1, 'correct': 0, 'incorrect': 0, 'missed': 0, 'spurious': 0}),
+                  'exact': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0})}}
 
+    assert evaluator.span_pii_eval == expected_pii_eval
+    assert evaluator.span_entity_eval == expected_entity_eval
