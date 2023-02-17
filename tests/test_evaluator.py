@@ -1,4 +1,5 @@
 from collections import Counter
+from copy import deepcopy
 
 from presidio_evaluator import Span
 from presidio_evaluator.evaluator_2 import Evaluator, SpanOutput
@@ -18,7 +19,7 @@ def test_compare_span_simple_case_1():
                        Span(entity_type="LOC", entity_value="", start_position=208, end_position=219),
                        Span(entity_type="LOC", entity_value="", start_position=225, end_position=243)]
 
-    evaluator = Evaluator(entities_to_keep=['PER', 'LOC', 'MISC'])
+    evaluator = Evaluator(entities_to_keep=["PER", "LOC", "MISC"])
     span_outputs = evaluator.compare_span(annotated_spans, predicted_spans)
     expected_span_outputs = [SpanOutput(output_type="SPURIOUS",
                                         predicted_span=Span(entity_type="PER", entity_value="", start_position=24,
@@ -63,7 +64,7 @@ def test_compare_span_simple_case_1():
 
 
 def test_get_span_eval_schema():
-    evaluator = Evaluator(entities_to_keep=['PER', 'LOC', 'MISC'])
+    evaluator = Evaluator(entities_to_keep=["PER", "LOC", "MISC"])
     span_outputs = [SpanOutput(output_type="SPURIOUS",
                                predicted_span=Span(entity_type="PER", entity_value="", start_position=24,
                                                    end_position=30),
@@ -101,24 +102,33 @@ def test_get_span_eval_schema():
                     SpanOutput(output_type="MISSED",
                                annotated_span=Span(entity_type="PER", entity_value="", start_position=59,
                                                    end_position=69), overlap_score=0)]
-    evaluator.get_span_eval_schema(span_outputs=span_outputs)
-    expected_pii_eval = {'strict': Counter({'incorrect': 3, 'correct': 2, 'missed': 1, 'spurious': 1, 'partial': 0}),
-                       'ent_type': Counter({'correct': 3, 'incorrect': 2, 'missed': 1, 'spurious': 1, 'partial': 0}),
-                       'partial': Counter({'correct': 3, 'partial': 2, 'missed': 1, 'spurious': 1, 'incorrect': 0}),
-                       'exact': Counter({'correct': 3, 'incorrect': 2, 'missed': 1, 'spurious': 1, 'partial': 0})}
+    span_pii_eval = {
+        "strict": Counter({"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}),
+        "ent_type": Counter({"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}),
+        "partial": Counter({"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}),
+        "exact": Counter({"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}),
+    }
+    span_ent_eval = {
+        e: deepcopy(span_pii_eval) for e in ["PER", "LOC", "MISC"]
+    }
+    span_pii_eval, span_ent_eval = evaluator.get_span_eval_schema(span_pii_eval, span_ent_eval, span_outputs=span_outputs)
+    expected_pii_eval = {"strict": Counter({"incorrect": 3, "correct": 2, "missed": 1, "spurious": 1, "partial": 0}),
+                       "ent_type": Counter({"correct": 3, "incorrect": 2, "missed": 1, "spurious": 1, "partial": 0}),
+                       "partial": Counter({"correct": 3, "partial": 2, "missed": 1, "spurious": 1, "incorrect": 0}),
+                       "exact": Counter({"correct": 3, "incorrect": 2, "missed": 1, "spurious": 1, "partial": 0})}
     expected_entity_eval = \
-        {'PER': {'strict': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
-                'ent_type': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
-                'partial': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0}),
-                 'exact': Counter({'missed': 1, 'spurious': 1, 'correct': 0, 'incorrect': 0, 'partial': 0})},
-         'LOC': {'strict': Counter({'correct': 2, 'incorrect': 2, 'partial': 0, 'missed': 0, 'spurious': 0}),
-                 'ent_type': Counter({'correct': 3, 'incorrect': 1, 'partial': 0, 'missed': 0, 'spurious': 0}),
-                 'partial': Counter({'correct': 3, 'partial': 1, 'incorrect': 0, 'missed': 0, 'spurious': 0}),
-                 'exact': Counter({'correct': 3, 'incorrect': 1, 'partial': 0, 'missed': 0, 'spurious': 0})},
-         'MISC': {'strict': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0}),
-                  'ent_type': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0}),
-                  'partial': Counter({'partial': 1, 'correct': 0, 'incorrect': 0, 'missed': 0, 'spurious': 0}),
-                  'exact': Counter({'incorrect': 1, 'correct': 0, 'partial': 0, 'missed': 0, 'spurious': 0})}}
+        {"PER": {"strict": Counter({"missed": 1, "spurious": 1, "correct": 0, "incorrect": 0, "partial": 0}),
+                "ent_type": Counter({"missed": 1, "spurious": 1, "correct": 0, "incorrect": 0, "partial": 0}),
+                "partial": Counter({"missed": 1, "spurious": 1, "correct": 0, "incorrect": 0, "partial": 0}),
+                 "exact": Counter({"missed": 1, "spurious": 1, "correct": 0, "incorrect": 0, "partial": 0})},
+         "LOC": {"strict": Counter({"correct": 2, "incorrect": 2, "partial": 0, "missed": 0, "spurious": 0}),
+                 "ent_type": Counter({"correct": 3, "incorrect": 1, "partial": 0, "missed": 0, "spurious": 0}),
+                 "partial": Counter({"correct": 3, "partial": 1, "incorrect": 0, "missed": 0, "spurious": 0}),
+                 "exact": Counter({"correct": 3, "incorrect": 1, "partial": 0, "missed": 0, "spurious": 0})},
+         "MISC": {"strict": Counter({"incorrect": 1, "correct": 0, "partial": 0, "missed": 0, "spurious": 0}),
+                  "ent_type": Counter({"incorrect": 1, "correct": 0, "partial": 0, "missed": 0, "spurious": 0}),
+                  "partial": Counter({"partial": 1, "correct": 0, "incorrect": 0, "missed": 0, "spurious": 0}),
+                  "exact": Counter({"incorrect": 1, "correct": 0, "partial": 0, "missed": 0, "spurious": 0})}}
 
-    assert evaluator.span_pii_eval == expected_pii_eval
-    assert evaluator.span_entity_eval == expected_entity_eval
+    assert span_pii_eval == expected_pii_eval
+    assert span_ent_eval == expected_entity_eval

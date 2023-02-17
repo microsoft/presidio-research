@@ -154,7 +154,7 @@ class Evaluator:
     @staticmethod
     def get_span_eval_schema(
             span_pii_eval, span_ent_eval, span_outputs: List[SpanOutput]
-    ) -> Dict[str, Dict[str, Counter]]:
+    ) -> Tuple[Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
         """Update the evaluation schema with the new schema.
         param:span_outputs (dict): The new schema to update the evaluation schema with.
         returns: dict: The updated evaluation schema.
@@ -232,7 +232,7 @@ class Evaluator:
         sample_errors = []
         # set up a dict for storing the span metrics
         span_cat_output = \
-            {"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}
+                {"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}
         # copy results dict to cover the four evaluation schemes for PII.
         span_pii_eval = {
             "strict": Counter(span_cat_output),
