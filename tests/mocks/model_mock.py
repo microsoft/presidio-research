@@ -1,12 +1,13 @@
 from typing import List, Optional
 
 from presidio_evaluator import InputSample
-from presidio_evaluator.models import BaseModel
+from presidio_evaluator.models_2 import BaseModel
+from presidio_evaluator.evaluator_2 import ModelPrediction
 
 
 class MockModel(BaseModel):
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample) -> ModelPrediction:
         pass
 
 
@@ -25,8 +26,10 @@ class MockTokensModel(BaseModel):
         super().__init__(entities_to_keep=entities_to_keep, verbose=verbose, **kwargs)
         self.prediction = prediction
 
-    def predict(self, sample: InputSample) -> List[str]:
-        return self.prediction
+    def predict(self, sample: InputSample) -> ModelPrediction:
+        return ModelPrediction(
+            input_sample=sample,
+            predicted_tags=self.prediction)
 
 
 class IdentityTokensMockModel(BaseModel):
@@ -37,8 +40,10 @@ class IdentityTokensMockModel(BaseModel):
     def __init__(self, verbose: bool = False):
         super().__init__(verbose=verbose)
 
-    def predict(self, sample: InputSample) -> List[str]:
-        return sample.tags
+    def predict(self, sample: InputSample) -> ModelPrediction:
+        return ModelPrediction(
+            input_sample=sample,
+            predicted_tags=sample.tags)
 
 
 class FiftyFiftyIdentityTokensMockModel(BaseModel):
@@ -51,9 +56,13 @@ class FiftyFiftyIdentityTokensMockModel(BaseModel):
         super().__init__(entities_to_keep=entities_to_keep, verbose=verbose)
         self.counter = 0
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample) -> ModelPrediction:
         self.counter += 1
         if self.counter % 2 == 0:
-            return sample.tags
+            return ModelPrediction(
+                input_sample=sample,
+                predicted_tags=sample.tags)
         else:
-            return ["O" for i in range(len(sample.tags))]
+            return ModelPrediction(
+                input_sample=sample,
+                predicted_tags=["O" for i in range(len(sample.tags))])
