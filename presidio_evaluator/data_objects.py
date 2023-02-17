@@ -41,11 +41,17 @@ class Span:
     of an entity in a text
     """
 
-    def __init__(self, entity_type, entity_value, start_position, end_position):
+    def __init__(self,
+                 entity_type,
+                 entity_value,
+                 start_position,
+                 end_position,
+                 score: Optional[float] = None):
         self.entity_type = entity_type
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
+        self.score = score
 
     def intersect(self, other: "Span", ignore_entity_type: bool) -> float:
         """
