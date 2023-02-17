@@ -12,5 +12,5 @@ __all__ = [
     "SampleError",
     "EvaluationResult",
     "Evaluator",
-    "evaluation_helpers"
+    "evaluation_helpers",
 ]

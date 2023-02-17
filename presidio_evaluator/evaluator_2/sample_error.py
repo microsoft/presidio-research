@@ -7,7 +7,8 @@ from presidio_evaluator.evaluator_2 import TokenOutput, SpanOutput
 @dataclass
 class SampleError:
     """
-    Holds information about token and span errors for made a given sample for analysis purposes
+    Holds information about token and span errors for made a given sample for
+    analysis purposes
     ...
 
     Attributes
@@ -24,11 +25,11 @@ class SampleError:
     """
 
     def __init__(
-            self,
-            full_text: str,
-            metadata: Dict = None,
-            token_output: List[TokenOutput] = None,
-            span_output: List[SpanOutput] = None
+        self,
+        full_text: str,
+        metadata: Dict = None,
+        token_output: List[TokenOutput] = None,
+        span_output: List[SpanOutput] = None,
     ):
         """
         Constructs all the necessary attributes for the SampleError object
@@ -43,16 +44,13 @@ class SampleError:
         self.span_output = span_output
 
     def __str__(self):
-        """ Return str(self). """
+        """Return str(self)."""
         return (
             "Full text = {}, "
             "Token errors = {}, "
             "Span outputs = {}, "
             "Metadata = {}".format(
-                self.full_text,
-                self.token_output,
-                self.span_output,
-                self.metadata
+                self.full_text, self.token_output, self.span_output, self.metadata
             )
         )
 

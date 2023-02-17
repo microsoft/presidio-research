@@ -1,6 +1,5 @@
 from collections import Counter
 from typing import List, Dict, Tuple
-import pandas as pd
 
 from presidio_evaluator.evaluator_2 import SampleError
 
@@ -24,15 +23,16 @@ class EvaluationResult:
     """
 
     def __init__(
-            self,
-            sample_errors: List[SampleError] = None,
-            token_confusion_matrix: Counter = None,
-            token_model_metrics: Dict[str, Counter] = None,
-            span_model_metrics: Dict[str, Counter] = None
+        self,
+        sample_errors: List[SampleError] = None,
+        token_confusion_matrix: Counter = None,
+        token_model_metrics: Dict[str, Counter] = None,
+        span_model_metrics: Dict[str, Counter] = None,
     ):
         """
         Constructs all the necessary attributes for the EvaluationResult object
-        :param sample_errors: contain the token, span errors and input text for further inspection
+        :param sample_errors: contain the token, span errors and input text
+        for further inspection
         :param token_confusion_matrix: List of objects of type Counter
         with structure {(actual, predicted) : count}
         :param token_model_metrics: metrics calculated based on token results
@@ -64,4 +64,4 @@ class EvaluationResult:
         :param recall: span recall
         :param beta: which metric to compute (1 for F1, 2 for F2, etc.)
         """
-        return (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
+        return (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall)

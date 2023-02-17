@@ -10,18 +10,16 @@ def get_actual_possible_span(results: Counter) -> Counter:
     partial_or_type=True to ensure the right calculation is used for
     calculating precision and recall.
     """
-    correct = results['correct']
-    incorrect = results['incorrect']
-    partial = results['partial']
-    missed = results['missed']
-    spurious = results['spurious']
+    correct = results["correct"]
+    incorrect = results["incorrect"]
+    partial = results["partial"]
+    missed = results["missed"]
+    spurious = results["spurious"]
 
-    # Possible: number annotations in the gold-standard which contribute to the final score
-
+    # Possible: number annotations in the gold-standard
     possible = correct + incorrect + partial + missed
 
     # Actual: number of annotations produced by the NER system
-
     actual = correct + incorrect + partial + spurious
 
     results["actual"] = actual
@@ -41,8 +39,8 @@ def span_compute_precision_recall(results: dict, partial_or_type=False) -> dict:
 
     actual = results["actual"]
     possible = results["possible"]
-    partial = results['partial']
-    correct = results['correct']
+    partial = results["partial"]
+    correct = results["correct"]
 
     if partial_or_type:
         precision = (correct + 0.5 * partial) / actual if actual > 0 else 0
@@ -63,10 +61,16 @@ def span_compute_precision_recall_wrapper(results: dict) -> dict:
     Wraps the compute_precision_recall function and runs on a dict of results
     """
 
-    results_a = {key: span_compute_precision_recall(value, True) for key, value in results.items() if
-                 key in ['partial', 'ent_type']}
-    results_b = {key: span_compute_precision_recall(value) for key, value in results.items() if
-                 key in ['strict', 'exact']}
+    results_a = {
+        key: span_compute_precision_recall(value, True)
+        for key, value in results.items()
+        if key in ["partial", "ent_type"]
+    }
+    results_b = {
+        key: span_compute_precision_recall(value)
+        for key, value in results.items()
+        if key in ["strict", "exact"]
+    }
 
     results = {**results_a, **results_b}
 
