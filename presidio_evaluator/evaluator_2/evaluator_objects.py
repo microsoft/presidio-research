@@ -121,8 +121,8 @@ class ModelPrediction:
     def __init__(
         self,
         input_sample: InputSample,
-        predicted_tags: Optional[List[str]],
-        predicted_spans: Optional[List[Span]],
+        predicted_tags: List[str] = None,
+        predicted_spans: List[Span] = None
     ):
         """
         Constructs all the necessary attributes for the ModelPrediction object

@@ -247,7 +247,7 @@ class Evaluator:
         }
         for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
             # Span evaluation
-            annotated_spans = model_prediction.annotated_spans
+            annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
             span_outputs = self.get_span_outputs(annotated_spans, predicted_spans)
             # Update the evaluation schema
