@@ -249,7 +249,7 @@ class Evaluator:
             # Span evaluation
             annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
-            span_outputs = self.get_span_outputs(annotated_spans, predicted_spans)
+            span_outputs = self.compare_span(annotated_spans, predicted_spans)
             # Update the evaluation schema
             span_pii_eval, span_ent_eval = self.get_span_eval_schema(span_pii_eval,
                                                                      span_ent_eval,
