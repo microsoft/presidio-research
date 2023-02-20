@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict
 
 from presidio_analyzer import AnalyzerEngine
+from tqdm import tqdm
 
 from presidio_evaluator import InputSample, Span
 from presidio_evaluator.models_2 import BaseModel
@@ -68,6 +69,20 @@ class PresidioAnalyzerWrapper(BaseModel):
             input_sample=sample,
             predicted_spans=response_spans
         )
+
+    def predict_all(self, samples: List[InputSample]) -> List[ModelPrediction]:
+        """
+        Returns the list predicted tokens/spans for a whole dataset
+        from the evaluated model
+        :param samples: List of samples to be evaluated
+        :return: List of ModelPrediction objects
+        """
+        model_predictions = []
+        for sample in tqdm(samples, desc="PII detection process...."):
+            model_prediction = self.predict(sample)
+            model_predictions.append(model_prediction)
+
+        return model_predictions
 
     # Mapping between dataset entities and Presidio entities.
     # Key: Dataset entity, Value: Presidio entity
