@@ -75,3 +75,13 @@ def span_compute_precision_recall_wrapper(results: dict) -> dict:
     results = {**results_a, **results_b}
 
     return results
+
+
+def span_fb_score(precision: float, recall: float, beta: int = 2) -> float:
+    """
+    Calculate the span F1 score
+    :param precision: span precision
+    :param recall: span recall
+    :param beta: which metric to compute (1 for F1, 2 for F2, etc.)
+    """
+    return (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
