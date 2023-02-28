@@ -1,6 +1,6 @@
 from collections import Counter
 from copy import deepcopy
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 from tqdm import tqdm
 
@@ -173,8 +173,7 @@ class Evaluator:
                     metadata=model_prediction.input_sample.metadata,
                     token_output=None,
                     # TODO: replace by output of compare_token function
-                    span_output=span_outputs,
-                    entities_to_keep=self.entities_to_keep
+                    span_output=span_outputs
                 )
             )
 
