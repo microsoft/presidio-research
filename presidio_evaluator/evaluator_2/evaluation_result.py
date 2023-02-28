@@ -1,48 +1,26 @@
-from collections import Counter
 from typing import List, Dict, Tuple
 
-from presidio_evaluator.evaluator_2 import SampleError
+import pandas as pd
+
+from presidio_evaluator.evaluator_2 import (SampleError,
+                                            span_evaluation_helpers)
 
 
 class EvaluationResult:
-    """
-    Holds the output of token and span evaluation for a given dataset
-    ...
-
-    Attributes
-    ----------
-    sample_errors : List[SampleError]
-        contain the token, span errors and input text for further inspection
-    token_confusion_matrix : Optional[Counter] = None
-        list of objects of type Counter with structure {(actual, predicted) : count}
-    token_model_metrics : Optional[Dict[str, Counter]] = None
-        metrics calculated based on token results for the reference dataset
-    span_model_metrics: Optional[Dict[str, Counter]] = None
-        metrics calculated based on token results for the reference dataset
-    -------
-    """
-
     def __init__(
         self,
         sample_errors: List[SampleError] = None,
-        token_confusion_matrix: Counter = None,
-        token_model_metrics: Dict[str, Counter] = None,
-        span_model_metrics: Dict[str, Counter] = None,
+        entities_to_keep: List[str] = None,
     ):
         """
         Constructs all the necessary attributes for the EvaluationResult object
         :param sample_errors: contain the token, span errors and input text
         for further inspection
-        :param token_confusion_matrix: List of objects of type Counter
-        with structure {(actual, predicted) : count}
-        :param token_model_metrics: metrics calculated based on token results
-        :param span_model_metrics: metrics calculated based on span results
+        :param entities_to_keep: List of entity names to focus the evaluator on
         """
 
         self.sample_errors = sample_errors
-        self.token_confusion_matrix = token_confusion_matrix
-        self.token_model_metrics = token_model_metrics
-        self.span_model_metrics = span_model_metrics
+        self.entities_to_keep = entities_to_keep
 
     def to_log(self) -> Dict:
         """
@@ -57,11 +35,56 @@ class EvaluationResult:
         pass
 
     @staticmethod
-    def span_fb_score(precision: float, recall: float, beta: int = 2) -> float:
+    def to_span_df(span_result_dict) -> pd.DataFrame:
         """
-        Calculate the span F1 score
-        :param precision: span precision
-        :param recall: span recall
-        :param beta: which metric to compute (1 for F1, 2 for F2, etc.)
+        Convert the span_eval_schema to a pandas DataFrame
+        :param span_result_dict: dictionary of span evaluation schema or span metrics
+        :return: pandas DataFrame
         """
-        return (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall)
+        span_eval_df = pd.DataFrame()
+        for key, value in span_result_dict.items():
+            temps_df = pd.DataFrame()
+            for k, v in value.items():
+                temps_df = temps_df.append(v, ignore_index=True)
+            temps_df.insert(0, "entity", key)
+            temps_df.insert(1, "eval_type", value.keys())
+            span_eval_df = pd.concat([span_eval_df, temps_df], ignore_index=True)
+        return span_eval_df
+
+    def cal_span_metrics(self):
+        """
+        Calculate the span metrics based on the span outputs
+        :param span_outputs: List of SpanOutput objects
+        """
+        # Step 1: convert span_outputs to a dictionary of evaluation schema
+        span_outputs = []
+        for sample_error in self.sample_errors:
+            span_outputs += sample_error.span_output
+        entities_to_keep = self.entities_to_keep
+
+        span_eval_schema = span_evaluation_helpers.\
+            get_span_eval_schema(span_outputs, entities_to_keep)
+        # Step 2: Calculate the precision and recall for each entity type
+        span_model_metrics = {}
+        for key, value in span_eval_schema.items():
+            span_model_metrics[key] = \
+                span_evaluation_helpers.span_compute_precision_recall_wrapper(
+                    span_eval_schema[key]
+                )
+
+        # Step 3: Convert span_output to a pandas DataFrame
+        entities_df = span_evaluation_helpers.span_output_to_df(span_outputs)
+
+        # Step 4: Calculate the f1 and fb score
+        for entity, value in span_model_metrics.items():
+            for k, v in value.items():
+                span_model_metrics[entity][k]['f1_score'] = span_evaluation_helpers. \
+                    span_f1_score(v['precision'], v['recall'])
+                span_model_metrics[entity][k]['fb_score'] = span_evaluation_helpers.\
+                    span_fb_score(v['precision'], v['recall'])
+
+        # Step 5: Convert result to dataframe for display purpose
+        span_eval_df = self.to_span_df(span_eval_schema)
+        span_metric_df = self.to_span_df(span_model_metrics)
+        span_results = span_eval_df.merge(span_metric_df, on=['entity', 'eval_type'])
+        return span_eval_schema, span_model_metrics, span_results
