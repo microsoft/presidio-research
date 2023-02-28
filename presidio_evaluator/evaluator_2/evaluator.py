@@ -10,7 +10,7 @@ from presidio_evaluator.evaluator_2 import (
     SpanOutput,
     ModelPrediction,
     SampleError,
-    evaluation_helpers,
+    EvaluationResult
 )
 
 
@@ -152,7 +152,7 @@ class Evaluator:
 
     def evaluate_all(
             self, model_predictions: List[ModelPrediction]
-    ) -> SampleError:
+    ) -> EvaluationResult:
         """
         Evaluate the PII performance at token and span levels for all sample
         in the reference dataset.
@@ -178,4 +178,7 @@ class Evaluator:
                 )
             )
 
-        return sample_errors
+        return EvaluationResult(
+            sample_errors=sample_errors,
+            entities_to_keep=self.entities_to_keep,
+        )
