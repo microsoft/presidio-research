@@ -9,7 +9,6 @@ from presidio_evaluator.evaluator_2 import (
     TokenOutput,
     SpanOutput,
     ModelPrediction,
-    EvaluationResult,
     SampleError,
     evaluation_helpers,
 )
@@ -151,77 +150,9 @@ class Evaluator:
 
         return span_outputs
 
-    @staticmethod
-    def get_span_eval_schema(
-            span_pii_eval, span_ent_eval, span_outputs: List[SpanOutput]
-    ) -> Tuple[Dict[str, Counter], Dict[str, Dict[str, Counter]]]:
-        """Update the evaluation schema with the new schema.
-        param:span_outputs (dict): The new schema to update the evaluation schema with.
-        returns: dict: The updated evaluation schema.
-        """
-        for span_output in span_outputs:
-            if span_output.output_type == "STRICT":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    span_pii_eval[eval_type]["correct"] += 1
-                    span_ent_eval[span_output.annotated_span.entity_type][
-                        eval_type
-                    ]["correct"] += 1
-            elif span_output.output_type == "EXACT":
-                for eval_type in ["strict", "ent_type"]:
-                    span_pii_eval[eval_type]["incorrect"] += 1
-                    span_ent_eval[span_output.annotated_span.entity_type][
-                        eval_type
-                    ]["incorrect"] += 1
-                for eval_type in ["partial", "exact"]:
-                    span_pii_eval[eval_type]["correct"] += 1
-                    span_ent_eval[span_output.annotated_span.entity_type][
-                        eval_type
-                    ]["correct"] += 1
-            elif span_output.output_type == "ENT_TYPE":
-                span_pii_eval["strict"]["incorrect"] += 1
-                span_pii_eval["ent_type"]["correct"] += 1
-                span_pii_eval["partial"]["partial"] += 1
-                span_pii_eval["exact"]["incorrect"] += 1
-                span_ent_eval[span_output.annotated_span.entity_type]["strict"][
-                    "incorrect"
-                ] += 1
-                span_ent_eval[span_output.annotated_span.entity_type][
-                    "ent_type"
-                ]["correct"] += 1
-                span_ent_eval[span_output.annotated_span.entity_type][
-                    "partial"
-                ]["partial"] += 1
-                span_ent_eval[span_output.annotated_span.entity_type]["exact"][
-                    "incorrect"
-                ] += 1
-            elif span_output.output_type == "PARTIAL":
-                for eval_type in ["strict", "ent_type", "exact"]:
-                    span_pii_eval[eval_type]["incorrect"] += 1
-                    span_ent_eval[span_output.annotated_span.entity_type][
-                        eval_type
-                    ]["incorrect"] += 1
-                span_pii_eval["partial"]["partial"] += 1
-                span_ent_eval[span_output.annotated_span.entity_type][
-                    "partial"
-                ]["partial"] += 1
-            elif span_output.output_type == "SPURIOUS":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    span_pii_eval[eval_type]["spurious"] += 1
-                    span_ent_eval[span_output.predicted_span.entity_type][
-                        eval_type
-                    ]["spurious"] += 1
-            elif span_output.output_type == "MISSED":
-                for eval_type in ["strict", "ent_type", "partial", "exact"]:
-                    span_pii_eval[eval_type]["missed"] += 1
-                    span_ent_eval[span_output.annotated_span.entity_type][
-                        eval_type
-                    ]["missed"] += 1
-
-        return span_pii_eval, span_ent_eval
-
     def evaluate_all(
             self, model_predictions: List[ModelPrediction]
-    ) -> EvaluationResult:
+    ) -> SampleError:
         """
         Evaluate the PII performance at token and span levels for all sample
         in the reference dataset.
@@ -230,30 +161,12 @@ class Evaluator:
         EvaluationResult: the evaluation outcomes in EvaluationResult format
         """
         sample_errors = []
-        # set up a dict for storing the span metrics
-        span_cat_output = \
-                {"correct": 0, "incorrect": 0, "partial": 0, "missed": 0, "spurious": 0}
-        # copy results dict to cover the four evaluation schemes for PII.
-        span_pii_eval = {
-            "strict": Counter(span_cat_output),
-            "ent_type": Counter(span_cat_output),
-            "partial": Counter(span_cat_output),
-            "exact": Counter(span_cat_output),
-        }
-        # copy results dict to cover the four evaluation schemes
-        # for each entity in entities_to_keep.
-        span_ent_eval = {
-            e: deepcopy(span_pii_eval) for e in self.entities_to_keep
-        }
         for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
             # Span evaluation
             annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
             span_outputs = self.compare_span(annotated_spans, predicted_spans)
-            # Update the evaluation schema
-            span_pii_eval, span_ent_eval = self.get_span_eval_schema(span_pii_eval,
-                                                                     span_ent_eval,
-                                                                     span_outputs)
+            # TODO: token evaluation
             sample_errors.append(
                 SampleError(
                     full_text=model_prediction.input_sample.full_text,
@@ -261,53 +174,8 @@ class Evaluator:
                     token_output=None,
                     # TODO: replace by output of compare_token function
                     span_output=span_outputs,
+                    entities_to_keep=self.entities_to_keep
                 )
             )
 
-        span_ent_eval["pii"] = span_pii_eval
-        # Calculate the possible and actual for the whole dataset
-        span_ent_eval = self.cal_possible_actual_span_pii(span_ent_eval)
-        # Calculate the precision and recall for the whole dataset
-        span_ent_eval = self.cal_precision_recall_span_pii(span_ent_eval)
-
-        return EvaluationResult(
-            sample_errors=sample_errors,
-            span_model_metrics=span_ent_eval
-        )
-
-    @staticmethod
-    def cal_possible_actual_span_pii(span_model_metrics) -> Dict[str, Dict]:
-        """
-        Calculate the number of actual, possible from the category errors
-        in span_model_metrics.
-        :returns: None
-        the self.span_model_metrics is updated with the actual and possible values
-        """
-        # Calculate the overall and entity level possible
-        # and actual for the whole dataset
-        for entity_type, entity_level in span_model_metrics.items():
-            for eval_type in entity_level:
-                span_model_metrics[entity_type][
-                    eval_type
-                ] = evaluation_helpers.get_actual_possible_span(
-                    span_model_metrics[entity_type][eval_type]
-                )
-        return span_model_metrics
-
-    @staticmethod
-    def cal_precision_recall_span_pii(span_model_metrics) -> Dict[str, Dict]:
-        """
-        Calculate the precision and recall from the category errors in
-        span_model_metrics.
-        :returns: the span_model_metrics is updated with the precision and recall values
-        """
-        # Calculate the overall and entity level precision
-        # and recall for the whole dataset
-        for key, value in span_model_metrics.items():
-            span_model_metrics[
-                key
-            ] = evaluation_helpers.span_compute_precision_recall_wrapper(
-                span_model_metrics[key]
-            )
-
-        return span_model_metrics
+        return sample_errors
