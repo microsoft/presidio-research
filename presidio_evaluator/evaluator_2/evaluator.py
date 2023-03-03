@@ -169,7 +169,7 @@ class Evaluator:
         for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
             if self.entity_mapping:
                 # Align tag values to the ones expected by the model
-                input_sample = evaluation_helpers.\
+                input_sample = evaluation_helpers. \
                     align_entity_types(model_prediction.input_sample,
                                        self.entities_to_keep,
                                        self.entity_mapping)
@@ -179,6 +179,11 @@ class Evaluator:
                 annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
             span_outputs = self.compare_span(annotated_spans, predicted_spans)
+            # filter span_outputs based on entities_to_keep
+            if self.entities_to_keep:
+                span_outputs = self.filter_span_outputs_in_entities_to_keep(
+                    span_outputs
+                )
             # TODO: token evaluation
             sample_errors.append(
                 SampleError(
@@ -194,3 +199,31 @@ class Evaluator:
             sample_errors=sample_errors,
             entities_to_keep=self.entities_to_keep,
         )
+
+    def filter_span_outputs_in_entities_to_keep(self,
+                                                span_outputs: List[SpanOutput]) -> \
+            List[SpanOutput]:
+        """
+        Filter span_outputs based on the entities_to_keep list.
+        :param span_outputs: list of SpanOutput
+        :returns:
+        List[SpanOutput]: filtered list of SpanOutput
+        """
+        ent_to_keep = self.entities_to_keep
+        if ent_to_keep is None:
+            return span_outputs
+        else:
+            filtered_span_outputs = []
+            for span_output in span_outputs:
+                if span_output.output_type in ["STRICT", "EXACT", "ENT_TYPE",
+                                               "PARTIAL"]:
+                    if span_output.predicted_span.entity_type in ent_to_keep \
+                            or span_output.annotated_span.entity_type in ent_to_keep:
+                        filtered_span_outputs.append(span_output)
+                elif span_output.output_type == "SPURIOUS" and \
+                        span_output.predicted_span.entity_type in ent_to_keep:
+                    filtered_span_outputs.append(span_output)
+                elif span_output.output_type == "MISSED" and \
+                        span_output.annotated_span.entity_type in ent_to_keep:
+                    filtered_span_outputs.append(span_output)
+            return filtered_span_outputs

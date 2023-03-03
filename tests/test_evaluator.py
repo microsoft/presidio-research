@@ -18,15 +18,10 @@ def test_compare_span_simple_case_1():
         Span(entity_type="LOC", entity_value="", start_position=208, end_position=219),
         Span(entity_type="LOC", entity_value="", start_position=225, end_position=243)]
 
-    evaluator = Evaluator(entities_to_keep=["PER", "LOC", "MISC"])
+    evaluator = Evaluator(entities_to_keep=["LOC", "MISC"])
     span_outputs = evaluator.compare_span(annotated_spans, predicted_spans)
-    expected_span_outputs = [SpanOutput(output_type="SPURIOUS",
-                                        predicted_span=Span(entity_type="PER",
-                                                            entity_value="",
-                                                            start_position=24,
-                                                            end_position=30),
-                                        overlap_score=0),
-                             SpanOutput(output_type="ENT_TYPE",
+    filtered_output = evaluator.filter_span_outputs_in_entities_to_keep(span_outputs)
+    expected_span_outputs = [SpanOutput(output_type="ENT_TYPE",
                                         annotated_span=Span(entity_type="LOC",
                                                             entity_value="",
                                                             start_position=127,
@@ -75,13 +70,7 @@ def test_compare_span_simple_case_1():
                                                             entity_value="",
                                                             start_position=225,
                                                             end_position=243),
-                                        overlap_score=0.71),
-                             SpanOutput(output_type="MISSED",
-                                        annotated_span=Span(entity_type="PER",
-                                                            entity_value="",
-                                                            start_position=59,
-                                                            end_position=69),
-                                        overlap_score=0)]
+                                        overlap_score=0.71)]
 
-    assert len(span_outputs) == len(expected_span_outputs)
-    assert all([a.__eq__(b) for a, b in zip(span_outputs, expected_span_outputs)])
+    assert len(filtered_output) == len(expected_span_outputs)
+    assert all([a.__eq__(b) for a, b in zip(filtered_output, expected_span_outputs)])
