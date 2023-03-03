@@ -2,7 +2,7 @@ from .evaluator_objects import SpanOutput, TokenOutput, ModelPrediction
 from .sample_error import SampleError
 from .evaluation_result import EvaluationResult
 from .evaluator import Evaluator
-from . import evaluation_helpers
+from . import evaluation_helpers, span_evaluation_helpers
 
 
 __all__ = [
@@ -13,4 +13,5 @@ __all__ = [
     "EvaluationResult",
     "Evaluator",
     "evaluation_helpers",
+    "span_evaluation_helpers"
 ]
