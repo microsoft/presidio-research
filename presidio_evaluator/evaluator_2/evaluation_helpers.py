@@ -283,5 +283,4 @@ def align_entity_types(
                     input_sample.tags[i] = "O"
 
         new_list.append(input_sample)
-
     return new_list
