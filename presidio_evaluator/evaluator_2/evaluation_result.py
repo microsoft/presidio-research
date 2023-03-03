@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple
 import pandas as pd
 
 from presidio_evaluator.evaluator_2 import (SampleError,
-                                            span_evaluation_helpers)
+                                            evaluation_helpers)
 
 
 class EvaluationResult:
@@ -62,23 +62,23 @@ class EvaluationResult:
             span_outputs += sample_error.span_output
         entities_to_keep = self.entities_to_keep
 
-        span_eval_schema = span_evaluation_helpers. \
+        span_eval_schema = evaluation_helpers. \
             get_span_eval_schema(span_outputs, entities_to_keep)
 
         # Step 2: Calculate the precision and recall for each entity type
         span_model_metrics = {}
         for key, value in span_eval_schema.items():
             span_model_metrics[key] = \
-                span_evaluation_helpers.span_compute_precision_recall_wrapper(
+                evaluation_helpers.span_compute_precision_recall_wrapper(
                     span_eval_schema[key]
                 )
 
         # Step 3: Calculate the f1 and fb score
         for entity, value in span_model_metrics.items():
             for k, v in value.items():
-                span_model_metrics[entity][k]['f1_score'] = span_evaluation_helpers. \
+                span_model_metrics[entity][k]['f1_score'] = evaluation_helpers. \
                     span_f1_score(v['precision'], v['recall'])
-                span_model_metrics[entity][k]['fb_score'] = span_evaluation_helpers. \
+                span_model_metrics[entity][k]['fb_score'] = evaluation_helpers. \
                     span_fb_score(v['precision'], v['recall'])
 
         # Step 4: Convert result to dataframe for display purpose
