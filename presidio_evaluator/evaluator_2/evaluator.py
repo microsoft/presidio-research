@@ -1,6 +1,6 @@
 from collections import Counter
 from copy import deepcopy
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from tqdm import tqdm
 
@@ -10,12 +10,16 @@ from presidio_evaluator.evaluator_2 import (
     SpanOutput,
     ModelPrediction,
     SampleError,
-    EvaluationResult
+    EvaluationResult,
+    evaluation_helpers
 )
 
 
 class Evaluator:
-    def __init__(self, entities_to_keep: List[str], compare_by_io: bool = True):
+    def __init__(self,
+                 entities_to_keep: List[str],
+                 compare_by_io: bool = True,
+                 entity_mapping: Dict[str, str] = None):
         """
         Constructs all the necessary attributes for the Evaluator object
 
@@ -28,6 +32,7 @@ class Evaluator:
         """
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
+        self.entity_mapping = entity_mapping
 
     def compare_token(
             self, annotated_tokens: List[str], predicted_tokens: List[str]
@@ -162,8 +167,16 @@ class Evaluator:
         """
         sample_errors = []
         for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
-            # Span evaluation
-            annotated_spans = model_prediction.input_sample.spans
+            if self.entity_mapping:
+                # Align tag values to the ones expected by the model
+                input_sample = evaluation_helpers.\
+                    align_entity_types(model_prediction.input_sample,
+                                       self.entities_to_keep,
+                                       self.entity_mapping)
+                # Span evaluation
+                annotated_spans = input_sample.spans
+            else:
+                annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
             span_outputs = self.compare_span(annotated_spans, predicted_spans)
             # TODO: token evaluation
