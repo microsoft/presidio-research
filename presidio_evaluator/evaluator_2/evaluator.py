@@ -3,10 +3,10 @@ from copy import deepcopy
 from typing import List, Tuple, Dict
 
 from presidio_evaluator import Span
-from presidio_evaluator.presidio_evaluator_2 import (TokenOutput,
-                                                     SpanOutput,
-                                                     ModelPrediction,
-                                                     EvaluationResult)
+from presidio_evaluator.evaluator_2 import (TokenOutput,
+                                            SpanOutput,
+                                            ModelPrediction,
+                                            EvaluationResult)
 
 
 class Evaluator:
