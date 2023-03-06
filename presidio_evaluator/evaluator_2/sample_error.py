@@ -6,22 +6,6 @@ from presidio_evaluator.evaluator_2 import TokenOutput, SpanOutput
 
 @dataclass
 class SampleError:
-    """
-    Holds information about token and span errors for made a given sample for analysis purposes
-    ...
-
-    Attributes
-    ----------
-    full_text : str
-        the full input text from InputSample
-    metadata : Dict
-        the metadata on text from InputSample
-    token_output : List[TokenOutput]
-        list of token errors of a given model for a sample
-    span_output: List[SpanOutput]
-        list of span outputs of a given model for a sample
-    -------
-    """
 
     def __init__(
             self,
@@ -42,7 +26,7 @@ class SampleError:
         self.token_output = token_output
         self.span_output = span_output
 
-    def __str__(self):
+    def __str__(self) -> str:
         """ Return str(self). """
         return (
             "Full text = {}, "
@@ -56,5 +40,5 @@ class SampleError:
             )
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ModelError {self.__str__()}"
