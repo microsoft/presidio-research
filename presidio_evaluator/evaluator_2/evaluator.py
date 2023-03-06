@@ -1,4 +1,5 @@
 from collections import Counter
+from copy import deepcopy
 from typing import List, Tuple, Dict
 
 from presidio_evaluator import Span
@@ -51,9 +52,103 @@ class Evaluator:
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         :returns:
-        List[SpanOutput]: a list of SpanOutput
+        List[SpanOutput]: a list of SpanOutpu
         """
-        raise NotImplementedError
+        # keep track for further analysis
+        span_outputs = []
+        # keep track of MISS spans
+        # go through each predicted
+        miss_spans = deepcopy(annotated_spans)
+        for prediction in predicted_spans:
+            found_overlap = False
+            # Scenario I: Exact match between true and prediction
+            if prediction in annotated_spans:
+                span_outputs.append(
+                    SpanOutput(
+                        output_type="STRICT",
+                        predicted_span=prediction,
+                        annotated_span=prediction,
+                        overlap_score=1,
+                    )
+                )
+                found_overlap = True
+                # remove this predicted span from miss_spans
+                miss_spans = [x for x in miss_spans if x != prediction]
+            else:
+                # check overlaps with every span in true entities
+                for true in annotated_spans:
+                    # calculate the overlap ratio between true and pred
+                    overlap_ratio = prediction.get_overlap_ratio(
+                        true, ignore_entity_type=True
+                    )
+                    # Scenario IV: Offsets match, but entity type is wrong
+                    if (
+                            overlap_ratio == 1
+                            and true.entity_type != prediction.entity_type
+                    ):
+                        span_outputs.append(
+                            SpanOutput(
+                                output_type="EXACT",
+                                predicted_span=prediction,
+                                annotated_span=true,
+                                overlap_score=1,
+                            )
+                        )
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+                    # Scenario V: There is an overlap (but offsets don't match
+                    # and entity type is correct)
+                    elif overlap_ratio > 0 \
+                            and prediction.entity_type == true.entity_type:
+                        span_outputs.append(
+                            SpanOutput(
+                                output_type="ENT_TYPE",
+                                predicted_span=prediction,
+                                annotated_span=true,
+                                overlap_score=overlap_ratio,
+                            )
+                        )
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+                    # Scenario VI: There is an overlap (but offsets don't match
+                    # and entity type is wrong)
+                    elif overlap_ratio > 0 \
+                            and prediction.entity_type != true.entity_type:
+                        span_outputs.append(
+                            SpanOutput(
+                                output_type="PARTIAL",
+                                predicted_span=prediction,
+                                annotated_span=true,
+                                overlap_score=overlap_ratio,
+                            )
+                        )
+                        found_overlap = True
+                        # remove this predicted span from miss_spans
+                        miss_spans = [x for x in miss_spans if x != true]
+                        break
+            # Scenario II: No overlap with any true entity
+            if not found_overlap:
+                span_outputs.append(
+                    SpanOutput(
+                        output_type="SPURIOUS",
+                        predicted_span=prediction,
+                        overlap_score=0,
+                    )
+                )
+        # Scenario III: Span is missing in predicted list
+        if len(miss_spans) > 0:
+            for miss in miss_spans:
+                span_outputs.append(
+                    SpanOutput(
+                        output_type="MISSED", annotated_span=miss, overlap_score=0
+                    )
+                )
+
+        return span_outputs
 
     def evaluate_all(
             self, model_predictions: List[ModelPrediction]
