@@ -1,4 +1,5 @@
 from .span_to_tag import span_to_tag, tokenize, io_to_scheme
+
 from .data_objects import Span, InputSample
 from .validation import (
     split_dataset,
@@ -7,6 +8,7 @@ from .validation import (
     group_by_template,
     save_to_json,
 )
+from .tag_to_span import tag_to_span
 
 from dotenv import load_dotenv
 
@@ -24,4 +26,5 @@ __all__ = [
     "get_samples_by_pattern",
     "group_by_template",
     "save_to_json",
+    "tag_to_span"
 ]
