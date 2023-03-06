@@ -161,3 +161,31 @@ class Evaluator:
         EvaluationResult: the evaluation outcomes in EvaluationResult format
         """
         raise NotImplementedError
+
+    def filter_span_outputs_in_entities_to_keep(self,
+                                                span_outputs: List[SpanOutput]) -> \
+            List[SpanOutput]:
+        """
+        Filter span_outputs based on the entities_to_keep list.
+        :param span_outputs: list of SpanOutput
+        :returns:
+        List[SpanOutput]: filtered list of SpanOutput
+        """
+        ent_to_keep = self.entities_to_keep
+        if ent_to_keep is None:
+            return span_outputs
+        else:
+            filtered_span_outputs = []
+            for span_output in span_outputs:
+                if span_output.output_type in ["STRICT", "EXACT", "ENT_TYPE",
+                                               "PARTIAL"]:
+                    if span_output.predicted_span.entity_type in ent_to_keep \
+                            or span_output.annotated_span.entity_type in ent_to_keep:
+                        filtered_span_outputs.append(span_output)
+                elif span_output.output_type == "SPURIOUS" and \
+                        span_output.predicted_span.entity_type in ent_to_keep:
+                    filtered_span_outputs.append(span_output)
+                elif span_output.output_type == "MISSED" and \
+                        span_output.annotated_span.entity_type in ent_to_keep:
+                    filtered_span_outputs.append(span_output)
+            return filtered_span_outputs
