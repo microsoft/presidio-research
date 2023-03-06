@@ -2,10 +2,13 @@ from collections import Counter
 from copy import deepcopy
 from typing import List, Tuple, Dict
 
+from tqdm import tqdm
+
 from presidio_evaluator import Span
 from presidio_evaluator.evaluator_2 import (TokenOutput,
                                             SpanOutput,
                                             ModelPrediction,
+                                            SampleError,
                                             EvaluationResult)
 
 
@@ -160,7 +163,36 @@ class Evaluator:
         :returns:
         EvaluationResult: the evaluation outcomes in EvaluationResult format
         """
-        raise NotImplementedError
+        sample_errors = []
+        for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
+            if self.entity_mapping:
+                # Align tag values to the ones expected by the model
+                model_prediction.input_sample.translate_input_sample_tags(
+                    dictionary=self.entity_mapping
+                )
+            annotated_spans = model_prediction.input_sample.spans
+            predicted_spans = model_prediction.predicted_spans
+            span_outputs = self.compare_span(annotated_spans, predicted_spans)
+            # filter span_outputs based on entities_to_keep
+            if self.entities_to_keep:
+                span_outputs = self.filter_span_outputs_in_entities_to_keep(
+                    span_outputs
+                )
+            # TODO: token evaluation
+            sample_errors.append(
+                SampleError(
+                    full_text=model_prediction.input_sample.full_text,
+                    metadata=model_prediction.input_sample.metadata,
+                    token_output=None,
+                    # TODO: replace by output of compare_token function
+                    span_output=span_outputs
+                )
+            )
+
+        return EvaluationResult(
+            sample_errors=sample_errors,
+            entities_to_keep=self.entities_to_keep,
+        )
 
     def filter_span_outputs_in_entities_to_keep(self,
                                                 span_outputs: List[SpanOutput]) -> \
