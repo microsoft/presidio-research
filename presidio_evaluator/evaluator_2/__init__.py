@@ -8,5 +8,6 @@ __all__ = [
     "TokenOutput",
     "ModelPrediction",
     "SampleError",
-    "EvaluationResult"
+    "EvaluationResult",
+    "Evaluator"
 ]
