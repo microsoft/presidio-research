@@ -169,14 +169,10 @@ class Evaluator:
         for model_prediction in tqdm(model_predictions, desc="Evaluating process...."):
             if self.entity_mapping:
                 # Align tag values to the ones expected by the model
-                input_sample = evaluation_helpers. \
-                    align_entity_types(model_prediction.input_sample,
-                                       self.entities_to_keep,
-                                       self.entity_mapping)
-                # Span evaluation
-                annotated_spans = input_sample.spans
-            else:
-                annotated_spans = model_prediction.input_sample.spans
+                model_prediction.input_sample.translate_input_sample_tags(
+                    dictionary=self.entity_mapping
+                )
+            annotated_spans = model_prediction.input_sample.spans
             predicted_spans = model_prediction.predicted_spans
             span_outputs = self.compare_span(annotated_spans, predicted_spans)
             # filter span_outputs based on entities_to_keep
