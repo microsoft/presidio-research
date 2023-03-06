@@ -18,13 +18,13 @@ def tag_to_span(tokens: Doc, tags: List[str]) -> List[Span]:
     :return: List of spans
     """
 
-    # If IO, translate to BIO for easier manipulation
+    if not len(tags):
+        return []
+
+    # If not IO, translate to IO for easier manipulation
     not_io = any([tag[1] == "-" for tag in tags if len(tag) > 1])
     if not_io:
         tags = [_to_io(tag) for tag in tags]
-
-    if not len(tags):
-        return []
 
     spans: List[Span] = []
     prev_tag = "O"
