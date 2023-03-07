@@ -15,7 +15,8 @@ class SampleError:
             span_output: List[SpanOutput] = None
     ):
         """
-        Constructs all the necessary attributes for the SampleError object
+        Holds information about token and span errors/outputs for a
+        given sample for analysis purposes
         :param full_text: full input text from InputSample
         :param metadata: metadata on text from InputSample
         :param token_output: list of token errors of a given model for a sample

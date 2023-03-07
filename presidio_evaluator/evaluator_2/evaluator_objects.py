@@ -14,7 +14,8 @@ class TokenOutput:
             token: Token,
     ):
         """
-        Constructs all the necessary attributes for the TokenOutput object
+        Hold information of a single token output (error_type, annotated_tag,
+        predicted_tag and token text in question)
         :param error_type: str, e.g. FP, FN, Person->Address etc.
         :param annotated_tag: str, actual label, e.g. Person
         :param predicted_tag: str, predicted label, e.g. Address
@@ -71,14 +72,14 @@ class SpanOutput:
             predicted_span: Span = None
     ):
         """
-        Print the n most common tokens by error type
-        :param errors: List of token error in TokenOutput format.
-        :param error_type: str, token error type, e.g. FP, FN
-        :param n: int, top n most common error to filter.
-        Default is None = all token errors of error_type are returned.
-        :param entity: str, List of entities to filter, e.g. Person, Address.
-        Default is None = all entities
-        :returns: List of token errors of error_type
+        Hold information of a single span output (output_type, annotated_span,
+        predicted_span and overlap_score)
+        :param output_type: str, e.g. STRICT, EXACT, ENT_TYPE, PARTIAL, SPURIOUS, MISS.
+        :param overlap_score: float, overlapping ratio between annotated_span
+        and predicted_span
+        :param annotated_span: str, actual span which comes from the annotated file,
+        e.g. Address, Person
+        :param predicted_span: str, predicted span of a given model
         """
         self.output_type = output_type
         self.overlap_score = overlap_score
@@ -117,7 +118,7 @@ class ModelPrediction:
             predicted_spans: Optional[List[Span]]
     ):
         """
-        Constructs all the necessary attributes for the ModelPrediction object
+        Hold information about model prediction in both span and token level
         :param: input_sample: InputSample, input sample object
         :param: predicted_tags: List[str], list of predicted tags
         :param: predicted_spans: List[Span], list of predicted spans

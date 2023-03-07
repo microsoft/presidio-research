@@ -10,7 +10,8 @@ class EvaluationResult:
             entities_to_keep: List[str] = None,
     ):
         """
-        Constructs all the necessary attributes for the EvaluationResult object
+        Holds the output of a comparison between ground truth and predicted
+        at the token and span level
         :param sample_errors: contain the token, span errors and input text
         for further inspection
         :param entities_to_keep: List of entity names to focus the evaluator on
