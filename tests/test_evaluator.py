@@ -14,7 +14,7 @@ def test_compare_span_simple_case_1():
     predicted_spans = [
         # No overlap between annotated and predicted spans - SPURIOUS case
         Span(entity_type="PER", entity_value="", start_position=24, end_position=30),
-        # Entity matched and overlap ratio is < 1 - ENT_TYPE case
+        # Entity matched and 0 < overlap ratio < 1 - ENT_TYPE case
         Span(entity_type="LOC", entity_value="", start_position=124, end_position=134),
         # Entity doesn't match but offset is 100% overlap - EXACT case
         Span(entity_type="PER", entity_value="", start_position=164, end_position=174),
@@ -22,7 +22,7 @@ def test_compare_span_simple_case_1():
         Span(entity_type="LOC", entity_value="", start_position=197, end_position=205),
         # Entity matched and offset are 100% match - STRICT case
         Span(entity_type="LOC", entity_value="", start_position=208, end_position=219),
-        # Entity doesn't match and overlap ratio is < 1 - PARTIAL case
+        # Entity doesn't match and 0 < overlap ratio < 1 - PARTIAL case
         Span(entity_type="LOC", entity_value="", start_position=225, end_position=243)]
 
     evaluator = Evaluator(entities_to_keep=["LOC", "MISC"])
