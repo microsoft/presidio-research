@@ -54,12 +54,14 @@ class Evaluator:
         Compares ground truth tags (annotation) and predicted (prediction) at span level
         by using the SEM EVAL 2013 approach:
         https://www.davidsbatista.net/blog/2018/05/09/Named_Entity_Evaluation/
+        The entity mapping (e.g. PERSON->PER) should be done before calling this
+        function.
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         :returns:
         List[SpanOutput]: a list of SpanOutput
         """
-        # keep track for further analysis
+        # keep track for further analysis.
         span_outputs = []
         # keep track of MISS spans
         miss_spans = deepcopy(annotated_spans)
