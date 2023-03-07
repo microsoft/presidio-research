@@ -1,27 +1,11 @@
 from dataclasses import dataclass
 from typing import List, Dict
 
-from presidio_evaluator.presidio_evaluator_2 import TokenOutput, SpanOutput
+from presidio_evaluator.evaluator_2 import TokenOutput, SpanOutput
 
 
 @dataclass
 class SampleError:
-    """
-    Holds information about token and span errors for made a given sample for analysis purposes
-    ...
-
-    Attributes
-    ----------
-    full_text : str
-        the full input text from InputSample
-    metadata : Dict
-        the metadata on text from InputSample
-    token_output : List[TokenOutput]
-        list of token errors of a given model for a sample
-    span_output: List[SpanOutput]
-        list of span outputs of a given model for a sample
-    -------
-    """
 
     def __init__(
             self,
@@ -31,7 +15,8 @@ class SampleError:
             span_output: List[SpanOutput] = None
     ):
         """
-        Constructs all the necessary attributes for the SampleError object
+        Holds information about token and span errors/outputs for a
+        given sample for analysis purposes
         :param full_text: full input text from InputSample
         :param metadata: metadata on text from InputSample
         :param token_output: list of token errors of a given model for a sample
@@ -42,7 +27,7 @@ class SampleError:
         self.token_output = token_output
         self.span_output = span_output
 
-    def __str__(self):
+    def __str__(self) -> str:
         """ Return str(self). """
         return (
             "Full text = {}, "
@@ -56,5 +41,5 @@ class SampleError:
             )
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ModelError {self.__str__()}"

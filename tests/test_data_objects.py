@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from copy import deepcopy
 
@@ -181,3 +182,27 @@ def test_spans_intersection(
 
     intersection = span1.intersect(span2, ignore_entity_type=ignore_entity_type)
     assert intersection == intersection_length
+
+
+@pytest.mark.parametrize(
+    "start1, end1, start2, end2, expected_overlap_ratio, ignore_entity_type",
+    [
+        (150, 153, 160, 165, 0.0, True),
+        (150, 153, 150, 153, 1.0, True),
+        (150, 153, 152, 154, 0.4, True),
+        (150, 153, 100, 151, 0.04, True),
+        (150, 153, 100, 151, 0.0, False),
+    ],
+)
+def test_get_overlap_ratio(
+        start1, end1, start2, end2, expected_overlap_ratio, ignore_entity_type
+):
+    span1 = Span(
+        entity_type="A", entity_value="123", start_position=start1, end_position=end1
+    )
+    span2 = Span(
+        entity_type="B", entity_value="123", start_position=start2, end_position=end2
+    )
+
+    overlap_ratio = span1.get_overlap_ratio(span2, ignore_entity_type=ignore_entity_type)
+    assert math.isclose(overlap_ratio, expected_overlap_ratio)
