@@ -52,6 +52,8 @@ class Evaluator:
     ) -> List[SpanOutput]:
         """
         Compares ground truth tags (annotation) and predicted (prediction) at span level
+        by using the SEM EVAL 2013 approach:
+        https://www.davidsbatista.net/blog/2018/05/09/Named_Entity_Evaluation/
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         :returns:
