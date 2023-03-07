@@ -20,7 +20,7 @@ class Evaluator:
             entity_mapping: Dict[str, str] = None
     ):
         """
-        Constructs all the necessary attributes for the Evaluator object
+        Evaluate a PII detection model or a PII model.
         :param entities_to_keep: List of entity names to focus the evaluator on
         (and ignore the rest).
         Default is None = all entities. If the provided model has a list of
@@ -55,13 +55,14 @@ class Evaluator:
         :param annotated_spans: truth annotation span from InputSample
         :param predicted_spans: predicted span from PII model/system
         :returns:
-        List[SpanOutput]: a list of SpanOutpu
+        List[SpanOutput]: a list of SpanOutput
         """
         # keep track for further analysis
         span_outputs = []
         # keep track of MISS spans
-        # go through each predicted
         miss_spans = deepcopy(annotated_spans)
+        # go through each predicted
+        # Mapping between annotated and predicted spans
         for prediction in predicted_spans:
             found_overlap = False
             # Scenario I: Exact match between true and prediction
@@ -143,7 +144,7 @@ class Evaluator:
                     )
                 )
         # Scenario III: Span is missing in predicted list
-        if len(miss_spans) > 0:
+        if not miss_spans:
             for miss in miss_spans:
                 span_outputs.append(
                     SpanOutput(
