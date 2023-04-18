@@ -122,8 +122,7 @@ or a specific PII recognizer for precision and recall and error-analysis.
 - [Evaluate Stanza models](notebooks/models/Evaluate%20stanza%20models.ipynb)
 - [Evaluate CRF models](notebooks/models/Evaluate%20CRF%20models.ipynb)
 - [Evaluate Flair models](notebooks/models/Evaluate%20flair%20models.ipynb)
-- [Evaluate Azure Text Analytics](notebooks/models/Evaluate%azure%text%analytics.ipynb)
-
+- [Evaluate Azure Text Analytics](notebooks/models/Evaluate%20azure%20text%20analytics.ipynb)
 
 ## 4. Training PII detection models
 
