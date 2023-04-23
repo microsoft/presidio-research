@@ -1,10 +1,10 @@
-from presidio_evaluator import InputSample
-from presidio_evaluator.data_generator import PresidioDataGenerator
-from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
-import pytest
 import numpy as np
-
+import pandas as pd
+import pytest
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
+
+from presidio_evaluator.data_generator import PresidioSentenceFaker
+from presidio_evaluator.evaluation.scorers import score_presidio_recognizer
 
 
 class TemplateTextTestCase:
@@ -48,7 +48,7 @@ cc_test_template_testdata = [
         utterances="{}/data/templates.txt",
         num_of_examples=100,
         acceptance_threshold=0.9,
-        marks=pytest.mark.slow,
+        marks=pytest.mark.none,
     )
 ]
 
@@ -71,21 +71,22 @@ def test_credit_card_recognizer_with_template(
     :param acceptance_threshold: minimum precision/recall
      allowed for tests to pass
     """
-
-    # read template and CSV files
     import os
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    # generate examples
-    generator = PresidioDataGenerator()
-    templates = utterances.format(dir_path)
-    examples = generator.generate_fake_data(
-        templates=templates, n_samples=num_of_examples
+    with open(utterances.format(dir_path)) as utterances_file:
+        templates = [line.rstrip() for line in utterances_file]
+
+    pii_csv = pii_csv.format(dir_path)
+    base_records = pd.read_csv(pii_csv)
+    sentence_faker = PresidioSentenceFaker(
+        "en_US",
+        lower_case_ratio=0.05,
+        sentence_templates=templates,
+        base_records=base_records,
     )
-    input_samples = [
-        InputSample.from_faker_spans_result(example) for example in examples
-    ]
+    input_samples = sentence_faker.generate_new_fake_sentences(num_of_examples)
 
     scores = score_presidio_recognizer(
         recognizer=CreditCardRecognizer(),
