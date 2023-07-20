@@ -78,7 +78,7 @@ class PresidioDataGenerator:
             generator = (
                 SpanGenerator()
             )  # To allow PresidioDataGenerator to return spans and not just strings
-            self.faker = Faker(local=locale, generator=generator)
+            self.faker = Faker(locale=locale, generator=generator)
         self.lower_case_ratio = lower_case_ratio
 
     def parse(
