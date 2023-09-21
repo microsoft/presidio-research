@@ -40,7 +40,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         results = self.analyzer_engine.analyze(
             text=sample.full_text,
             entities=self.entities,
-            language="en",
+            language=self.language,
             score_threshold=self.score_threshold,
         )
         starts = []
