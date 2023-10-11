@@ -94,9 +94,7 @@ class CRFModel(BaseModel):
 
     @staticmethod
     def crf_predict(sample, model):
-        sample.translate_input_sample_tags()
-
-        conll = sample.to_conll(translate_tags=True)
+        conll = sample.to_conll(translate_tags=False)
         sentence = [(di["text"], di["pos"], di["label"]) for di in conll]
         features = CRFModel.sent2features(sentence)
         return model.predict([features])[0]
