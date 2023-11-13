@@ -537,7 +537,7 @@ class InputSample(object):
             if span.entity_type in dictionary:
                 span.entity_type = dictionary[span.entity_type]
             elif ignore_unknown:
-                span.entity_value = "O"
+                span.entity_type = "O"
 
         # Remove spans if they were changed to "O"
         self.spans = [span for span in self.spans if span.entity_type != "O"]
