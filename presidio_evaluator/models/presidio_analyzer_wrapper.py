@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, EntityRecognizer
 
 from presidio_evaluator import InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
@@ -16,6 +16,9 @@ class PresidioAnalyzerWrapper(BaseModel):
         score_threshold: float = 0.4,
         language: str = "en",
         entity_mapping: Optional[Dict[str, str]] = None,
+        ad_hoc_recognizers: Optional[List[EntityRecognizer]] = None,
+        context: Optional[List[str]] = None,
+        allow_list: Optional[List[str]] = None,
     ):
         """
         Evaluation wrapper for the Presidio Analyzer
@@ -29,6 +32,9 @@ class PresidioAnalyzerWrapper(BaseModel):
         )
         self.score_threshold = score_threshold
         self.language = language
+        self.ad_hoc_recognizers = ad_hoc_recognizers
+        self.context = context
+        self.allow_list = allow_list
 
         if not analyzer_engine:
             analyzer_engine = AnalyzerEngine()
