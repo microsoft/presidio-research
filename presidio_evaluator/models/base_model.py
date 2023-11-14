@@ -33,7 +33,7 @@ class BaseModel(ABC):
         self.verbose = verbose
 
     @abstractmethod
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         """
         Abstract. Returns the predicted tokens/spans from the evaluated model
         :param sample: Sample to be evaluated
