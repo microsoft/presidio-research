@@ -77,7 +77,7 @@ class UsDriverLicenseProvider(BaseProvider):
         formats = yaml.safe_load(open(us_driver_license_file))
         self.formats = formats['en']['faker']['driving_license']['usa']
 
-    def driver_license(self) -> str:
+    def us_driver_license(self) -> str:
         # US driver's licenses patterns vary by state. Here we sample a random state and format
         us_state = random.choice(list(self.formats))
         us_state_format = random.choice(self.formats[us_state])
