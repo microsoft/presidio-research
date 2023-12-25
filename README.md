@@ -39,7 +39,7 @@ conda activate presidio
 pip install poetry
 poetry install
 # To install with all additional NER dependencies (e.g. Flair, Stanza, CRF), run:
-# poetry install -with ner 
+# poetry install --with ner 
 
 # Download a spaCy model used by presidio-analyzer
 python -m spacy download en_core_web_lg
