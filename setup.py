@@ -25,10 +25,6 @@ package_data = {"": ["*"], "presidio_evaluator.data_generator": ["raw_data/*"]}
 
 install_requires = [
     "azure-ai-textanalytics>=5.3.0,<6.0.0",
-    "en_core_web_lg @ "
-    "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1.tar.gz",
-    "en_core_web_sm @ "
-    "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz",
     "faker>=21.0,<22.0",
     "numpy>=1.22,<2.0",
     "pandas>=2.1.4,<3.0.0",
