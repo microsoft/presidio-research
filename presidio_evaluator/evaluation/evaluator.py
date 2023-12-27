@@ -1,6 +1,8 @@
+import copy
 from collections import Counter
 from typing import List, Optional, Dict
 from pathlib import Path
+import string
 
 import numpy as np
 from tqdm import tqdm
@@ -39,7 +41,6 @@ class Evaluator:
             self.entities_to_keep = self.model.entities
 
     def compare(self, input_sample: InputSample, prediction: List[str]):
-
         """
         Compares ground truth tags (annotation) and predicted (prediction)
         :param input_sample: input sample containing list of tags with scheme
@@ -71,6 +72,9 @@ class Evaluator:
         if self.entities_to_keep:
             prediction = self._adjust_per_entities(prediction)
             new_annotation = self._adjust_per_entities(new_annotation)
+
+        skip_words = self.get_skip_words()
+
         for i in range(0, len(new_annotation)):
             results[(new_annotation[i], prediction[i])] += 1
 
@@ -81,6 +85,10 @@ class Evaluator:
 
             # check if there was an error
             is_error = new_annotation[i] != prediction[i]
+            if str(tokens[i]).lower().strip() in skip_words:
+                is_error = False
+                results[(new_annotation[i], prediction[i])] -= 1
+
             if is_error:
                 if prediction[i] == "O":
                     mistakes.append(
@@ -151,7 +159,6 @@ class Evaluator:
                 f"Mapping entity values using this dictionary: {self.model.entity_mapping}"
             )
         for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
-
             # Align tag values to the ones expected by the model
             self.model.align_entity_types(sample)
 
@@ -345,13 +352,13 @@ class Evaluator:
         if np.isnan(precision) or np.isnan(recall) or (precision == 0 and recall == 0):
             return np.nan
 
-        return ((1 + beta ** 2) * precision * recall) / (
-            ((beta ** 2) * precision) + recall
+        return ((1 + beta**2) * precision * recall) / (
+            ((beta**2) * precision) + recall
         )
 
     class Plotter:
         """
-        Plot scores (f2, precision, recall) and errors (false-positivies, false-negatives) 
+        Plot scores (f2, precision, recall) and errors (false-positivies, false-negatives)
         for a PII detection model evaluated via Evaluator
 
         :param model: Instance of a fitted model (of base type BaseModel)
@@ -362,7 +369,9 @@ class Evaluator:
         which gives more or less weight to precision vs. recall
         """
 
-        def __init__(self, model, results, output_folder: Path, model_name: str, beta: float):
+        def __init__(
+            self, model, results, output_folder: Path, model_name: str, beta: float
+        ):
             self.model = model
             self.results = results
             self.output_folder = output_folder
@@ -372,41 +381,66 @@ class Evaluator:
 
         def plot_scores(self) -> None:
             """
-            Plots per-entity recall, precision, or F2 score for evaluated model. 
-            :param plot_type: which metric to graph (default is F2 score)
+            Plots per-entity recall, precision, or F2 score for evaluated model.
             """
             scores = {}
-            scores['entity'] = list(self.results.entity_recall_dict.keys())
-            scores['recall'] = list(self.results.entity_recall_dict.values())
-            scores['precision'] = list(self.results.entity_precision_dict.values())
-            scores['count'] = list(self.results.n_dict.values())
-            scores[f"f{self.beta}_score"] = [Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
-                                  for recall, precision in zip(scores['recall'], scores['precision'])]
+
+            entity_recall_dict = copy.deepcopy(self.results.entity_recall_dict)
+            entity_precision_dict = copy.deepcopy(self.results.entity_precision_dict)
+
+            scores["entity"] = list(entity_recall_dict.keys())
+            scores["recall"] = list(entity_recall_dict.values())
+            scores["precision"] = list(entity_precision_dict.values())
+            scores["count"] = list(self.results.n_dict.values())
+
+            scores[f"f{self.beta}_score"] = [
+                Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
+                for recall, precision in zip(scores["recall"], scores["precision"])
+            ]
+
+            # Add PII detection rates
+            scores["entity"].append("PII")
+            scores["recall"].append(self.results.pii_recall)
+            scores["precision"].append(self.results.pii_precision)
+            scores["count"].append(self.results.n)
+            scores[f"f{self.beta}_score"].append(self.results.pii_f)
+
             df = pd.DataFrame(scores)
-            df['model'] = self.model_name
+            df["model"] = self.model_name
             self._plot(df, plot_type="f2_score")
             self._plot(df, plot_type="precision")
             self._plot(df, plot_type="recall")
 
         def _plot(self, df, plot_type) -> None:
-            fig = px.bar(df, text_auto=".2", y='entity', orientation="h",
-                         x=plot_type, color='count', barmode='group', title=f"Per-entity {plot_type} for {self.model_name}")
-            fig.update_layout(barmode='group', yaxis={
-                'categoryorder': 'total ascending'})
+            fig = px.bar(
+                df,
+                text_auto=".2",
+                y="entity",
+                orientation="h",
+                x=plot_type,
+                color="count",
+                barmode="group",
+                height=30*len(set(df["entity"])),
+                title=f"Per-entity {plot_type} for {self.model_name}",
+            )
+            fig.update_layout(
+                barmode="group", yaxis={"categoryorder": "total ascending"}
+            )
             fig.update_layout(yaxis_title=f"{plot_type}", xaxis_title="PII Entity")
-            fig.update_traces(textfont_size=12, textangle=0,
-                              textposition="outside", cliponaxis=False)
+            fig.update_traces(
+                textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
+            )
             fig.update_layout(
                 plot_bgcolor="#FFF",
                 xaxis=dict(
                     title="PII entity",
                     linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False  # Removes X-axis grid lines
+                    showgrid=False,  # Removes X-axis grid lines
                 ),
                 yaxis=dict(
                     title=f"{plot_type}",
                     linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False  # Removes X-axis grid lines
+                    showgrid=False,  # Removes X-axis grid lines
                 ),
             )
             fig.show()
@@ -419,47 +453,100 @@ class Evaluator:
             for entity in self.model.entity_mapping.values():
                 fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
                 if fps_df is not None:
-                    fps_path = self.output_folder / \
-                        f"{self.model_name}-{entity}-fps.csv"
+                    fps_path = (
+                        self.output_folder / f"{self.model_name}-{entity}-fps.csv"
+                    )
                     fps_df.to_csv(fps_path)
                     fps_frames.append(fps_path)
                 fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
                 if fns_df is not None:
-                    fns_path = self.output_folder / \
-                        f"{self.model_name}-{entity}-fns.csv"
+                    fns_path = (
+                        self.output_folder / f"{self.model_name}-{entity}-fns.csv"
+                    )
                     fns_df.to_csv(fns_path)
                     fns_frames.append(fns_path)
 
             def group_tokens(df):
-                return df.groupby(['token', 'annotation']).size().to_frame(
-                ).sort_values([0], ascending=False).head(3).reset_index()
+                return (
+                    df.groupby(["token", "annotation"])
+                    .size()
+                    .to_frame()
+                    .sort_values([0], ascending=False)
+                    .head(3)
+                    .reset_index()
+                )
 
             fps_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fps_frames])
+                [group_tokens(pd.read_csv(df_path)) for df_path in fps_frames]
+            )
             fns_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fns_frames])
+                [group_tokens(pd.read_csv(df_path)) for df_path in fns_frames]
+            )
 
             def generate_graph(title, tokens_df):
-                fig = px.histogram(tokens_df, x=0, y="token", orientation='h', color='annotation',
-                                   title=f"Most common {title} for {self.model_name}")
+                fig = px.histogram(
+                    tokens_df,
+                    x=0,
+                    y="token",
+                    orientation="h",
+                    color="annotation",
+                    title=f"Most common {title} for {self.model_name}",
+                )
 
                 fig.update_layout(yaxis_title=f"count", xaxis_title="PII Entity")
-                fig.update_traces(textfont_size=12, textangle=0,
-                                  textposition="outside", cliponaxis=False)
+                fig.update_traces(
+                    textfont_size=12,
+                    textangle=0,
+                    textposition="outside",
+                    cliponaxis=False,
+                )
                 fig.update_layout(
                     plot_bgcolor="#FFF",
                     xaxis=dict(
                         title="Count",
                         linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False  # Removes X-axis grid lines
+                        showgrid=False,  # Removes X-axis grid lines
                     ),
                     yaxis=dict(
                         title=f"Tokens",
                         linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False  # Removes X-axis grid lines
+                        showgrid=False,  # Removes X-axis grid lines
                     ),
                 )
-                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                fig.update_layout(yaxis={"categoryorder": "total ascending"})
                 fig.show()
+
             generate_graph(title="false-negatives", tokens_df=fns_tokens_df)
             generate_graph(title="false-positives", tokens_df=fps_tokens_df)
+
+    @staticmethod
+    def get_skip_words():
+        skip_words = [x for x in string.punctuation]
+        skip_words.extend(
+            [
+                "\n",
+                "\n\n",
+                "\n\n\n",
+                ">>",
+                ">>>",
+                ">>>>",
+                "street",
+                "st.",
+                "st",
+                "de",
+                "rue",
+                "via",
+                "and",
+                "or",
+                "do",
+                "as",
+                "of",
+                "day",
+                "address",
+                "country",
+                "state",
+                "city",
+            ]
+        )
+
+        return skip_words

@@ -91,23 +91,28 @@ class PresidioAnalyzerWrapper(BaseModel):
         "PHONE_NUMBER": "PHONE_NUMBER",
         "BIRTHDAY": "DATE_TIME",
         "DATE_TIME": "DATE_TIME",
-        "DOMAIN_NAME": "DOMAIN_NAME",
+        "DOMAIN_NAME": "URL",
+        "TIME" : "DATE_TIME",
+        "DATE" : "DATE_TIME",
         "CITY": "LOCATION",
         "ADDRESS": "LOCATION",
+        "STREET_ADDRESS": "LOCATION",
         "NATIONALITY": "LOCATION",
         "LOCATION": "LOCATION",
         "IBAN_CODE": "IBAN_CODE",
-        "URL": "DOMAIN_NAME",
+        "URL": "URL",
         "US_SSN": "US_SSN",
         "IP_ADDRESS": "IP_ADDRESS",
-        "ORGANIZATION": "ORG",
+        "ORGANIZATION": "ORGANIZATION",
+        "ORG": "ORGANIZATION",
         "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
-        "NRP": "NRP",
-        "TITLE": "O",  # not supported
-        "PREFIX": "O",  # not supported
-        "STREET_ADDRESS": "O",  # not supported
-        "ZIP_CODE": "O",  # not supported
-        "AGE": "O",  # not supported
+        "NRP": "LOCATION",
+        "NORP": "LOCATION",
+        "ID": "ID",
+        "TITLE": "O",  # not supported through spaCy
+        "PREFIX": "O",  # not supported through spaCy
+        "ZIP_CODE": "O",  # not supported through spaCy
+        "AGE": "O",  # not supported through spaCy
         "O": "O",
     }
 

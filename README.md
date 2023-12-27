@@ -72,7 +72,7 @@ Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans
 
 Once data is generated, it could be split into train/test/validation sets 
 while ensuring that each template only exists in one set. 
-See [this notebook for more details](notebooks/3_Split_by_pattern_%23.ipynb).
+See [this notebook for more details](notebooks/3_Split_by_pattern_number.ipynb).
 
 ## 2. Data representation
 

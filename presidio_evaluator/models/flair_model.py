@@ -48,7 +48,7 @@ class FlairModel(BaseModel):
 
         self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_sm"))
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
 
         sentence = Sentence(text=sample.full_text, use_tokenizer=self.spacy_tokenizer)
         self.model.predict(sentence)

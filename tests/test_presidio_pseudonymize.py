@@ -30,7 +30,7 @@ def fake_faker():
     ],
     # fmt: on
 )
-def test_presidio_psudonymize_two_entities(
+def test_presidio_pseudonymize_two_entities(
     text, entity1, entity2, start1, end1, start2, end2, value1, value2, fake_faker
 ):
 
@@ -51,3 +51,15 @@ def test_presidio_psudonymize_two_entities(
         assert value2 in pseudonym
         assert text[:start1].lower() in pseudonym.lower()
         assert text[end1:start2].lower() in pseudonym.lower()
+
+
+def test_simple_scenario():
+    original_text = "Hi my name is Doug Funny and this is my website: https://www.dougf.io" # noqa
+    presidio_response = [
+        RecognizerResult(entity_type="PERSON", start=14, end=24, score=0.85),
+        RecognizerResult(entity_type="URL", start=49, end=69, score=0.95),
+    ]
+
+    PresidioPseudonymization().pseudonymize(original_text=original_text,
+                                            presidio_response=presidio_response,
+                                            count=5)

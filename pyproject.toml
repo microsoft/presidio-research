@@ -4,26 +4,23 @@ version = "0.1.0"
 description = ""
 authors = ["Omri Mendels <omri374@users.noreply.github.com>"]
 readme = "README.md"
+include = [{ path= "presidio_evaluator/data_generator/raw_data/*"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-spacy = ">=3.2.0, <4.0.0"
-numpy = ">=1.20.2,<2.0.0"
-jupyter = ">=1"
-pandas = ">=1.2.4,<2.0.0"
-tqdm = ">=4.60.0,<5.0.0"
-haikunator = ">=2.1.0,<3.0.0"
-schwifty = ">=2023.11.2,<2024.0.0"
-faker = ">=9.6.0,<10.0.0"
-scikit-learn = ">1.3.2,<2.0.0"
-pytest = ">=6.2.3"
+spacy = "^3.5.0"
+numpy = "^1.22"
+pandas = "^2.1.4"
+tqdm = "^4.60.0"
+faker = "^21.0"
+scikit-learn = "^1.3.2"
 presidio-analyzer = "^2.2.351"
 presidio-anonymizer = "^2.2.351"
-requests = ">=2.25.1"
-xmltodict = ">=0.12.0"
+requests = "^2.25"
+xmltodict = "^0.12.0"
 python-dotenv = "^1.0.0"
 plotly = "^5.18.0"
-azure-ai-textanalytics = ">=5.3.0"
+azure-ai-textanalytics = "^5.3.0"
 en_core_web_sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz"}
 en_core_web_lg = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1.tar.gz"}
 
