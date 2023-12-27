@@ -31,6 +31,7 @@ class BaseModel(ABC):
         self.labeling_scheme = labeling_scheme
         self.entity_mapping = entity_mapping
         self.verbose = verbose
+        self.name = self.__class__.__name__
 
     @abstractmethod
     def predict(self, sample: InputSample, **kwargs) -> List[str]:

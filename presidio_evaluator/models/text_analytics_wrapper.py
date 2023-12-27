@@ -48,8 +48,7 @@ class TextAnalyticsWrapper(BaseModel):
         )
         return text_analytics_client
 
-
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         documents = [sample.full_text]
         response = self.ta_client.recognize_pii_entities(documents, 
                                                         language="en")
