@@ -345,3 +345,22 @@ def test_align_entity_types_wrong_mapping_exception():
         Evaluator.align_entity_types(
             input_samples=[sample1], entities_mapping=entities_mapping
         )
+
+
+def test_skip_words_are_not_counted_as_errors():
+    prediction = ["U-PERSON", "O", "O", "O", "U-LOCATION"]
+    model = MockTokensModel(prediction=prediction,
+                            entities_to_keep=["LOCATION", "PERSON"])
+
+    evaluator = Evaluator(model=model)
+    sample = InputSample(
+        full_text="John is on the street", masked="I am the street", spans=None
+    )
+    sample.tokens = ["John", "is", "on", "the", "street"]
+    sample.tags = ["U-PERSON", "O", "O", "O", "O"]
+
+    evaluated = evaluator.evaluate_sample(sample, prediction)
+    final_evaluation = evaluator.calculate_score([evaluated])
+
+    assert final_evaluation.pii_precision == 1
+    assert final_evaluation.pii_recall == 1

@@ -31,7 +31,7 @@ class SpacyModel(BaseModel):
         else:
             self.model = model
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         """
         Predict a list of tags for an inpuit sample.
         :param sample: InputSample

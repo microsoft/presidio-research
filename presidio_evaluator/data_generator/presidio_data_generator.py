@@ -170,6 +170,8 @@ class PresidioDataGenerator:
 
         new_provider = BaseProvider(self.faker)
         setattr(new_provider, new_name, original)
+        setattr(new_provider, new_name.lower(), original)  # avoid case sensitivity
+        setattr(new_provider, new_name.upper(), original)  # avoid case sensitivity
         self.faker.add_provider(new_provider)
 
     @staticmethod

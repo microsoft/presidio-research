@@ -25,7 +25,7 @@ class PresidioPseudonymization(PresidioDataGenerator):
             self.add_provider_alias("credit_card_number", "CREDIT_CARD")
             self.add_provider_alias("iban", "IBAN_CODE")
             self.add_provider_alias("phone_number", "PHONE_NUMBER")
-            self.add_provider_alias("url", "DOMAIN_NAME")
+            self.add_provider_alias("url", "URL")
             self.add_provider_alias("ssn", "US_SSN")
             self.add_provider_alias("email", "EMAIL_ADDRESS")
             self.add_provider_alias("date_time", "DATE_TIME")

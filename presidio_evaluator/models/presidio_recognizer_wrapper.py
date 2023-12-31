@@ -41,12 +41,15 @@ class PresidioRecognizerWrapper(BaseModel):
         self.recognizer = recognizer
         self.nlp_engine = nlp_engine
 
+        if not self.nlp_engine.is_loaded():
+            self.nlp_engine.load()
+
     #
     def __make_nlp_artifacts(self, text: str):
         return self.nlp_engine.process_text(text, "en")
 
     #
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         nlp_artifacts = None
         if self.with_nlp_artifacts:
             nlp_artifacts = self.__make_nlp_artifacts(sample.full_text)

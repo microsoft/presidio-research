@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, EntityRecognizer
 
 from presidio_evaluator import InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
@@ -16,6 +16,9 @@ class PresidioAnalyzerWrapper(BaseModel):
         score_threshold: float = 0.4,
         language: str = "en",
         entity_mapping: Optional[Dict[str, str]] = None,
+        ad_hoc_recognizers: Optional[List[EntityRecognizer]] = None,
+        context: Optional[List[str]] = None,
+        allow_list: Optional[List[str]] = None,
     ):
         """
         Evaluation wrapper for the Presidio Analyzer
@@ -29,25 +32,37 @@ class PresidioAnalyzerWrapper(BaseModel):
         )
         self.score_threshold = score_threshold
         self.language = language
+        self.ad_hoc_recognizers = ad_hoc_recognizers
+        self.context = context
+        self.allow_list = allow_list
 
         if not analyzer_engine:
             analyzer_engine = AnalyzerEngine()
             self._update_recognizers_based_on_entities_to_keep(analyzer_engine)
         self.analyzer_engine = analyzer_engine
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
+        language = kwargs.get("language", self.language)
+        score_threshold = kwargs.get("score_threshold", self.score_threshold)
+        ad_hoc_recognizers = kwargs.get("ad_hoc_recognizers", self.ad_hoc_recognizers)
+        context = kwargs.get("context", self.context)
+        allow_list = kwargs.get("allow_list", self.allow_list)
 
         results = self.analyzer_engine.analyze(
             text=sample.full_text,
             entities=self.entities,
-            language=self.language,
-            score_threshold=self.score_threshold,
+            language=language,
+            score_threshold=score_threshold,
+            ad_hoc_recognizers=ad_hoc_recognizers,
+            context=context,
+            allow_list=allow_list,
+            **kwargs,
         )
         starts = []
         ends = []
         scores = []
         tags = []
-        #
+
         for res in results:
             starts.append(res.start)
             ends.append(res.end)
@@ -76,23 +91,28 @@ class PresidioAnalyzerWrapper(BaseModel):
         "PHONE_NUMBER": "PHONE_NUMBER",
         "BIRTHDAY": "DATE_TIME",
         "DATE_TIME": "DATE_TIME",
-        "DOMAIN_NAME": "DOMAIN_NAME",
+        "DOMAIN_NAME": "URL",
+        "TIME" : "DATE_TIME",
+        "DATE" : "DATE_TIME",
         "CITY": "LOCATION",
         "ADDRESS": "LOCATION",
+        "STREET_ADDRESS": "LOCATION",
         "NATIONALITY": "LOCATION",
         "LOCATION": "LOCATION",
         "IBAN_CODE": "IBAN_CODE",
-        "URL": "DOMAIN_NAME",
+        "URL": "URL",
         "US_SSN": "US_SSN",
         "IP_ADDRESS": "IP_ADDRESS",
-        "ORGANIZATION": "ORG",
+        "ORGANIZATION": "ORGANIZATION",
+        "ORG": "ORGANIZATION",
         "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
-        "NRP": "NRP",
-        "TITLE": "O",  # not supported
-        "PREFIX": "O",  # not supported
-        "STREET_ADDRESS": "O",  # not supported
-        "ZIP_CODE": "O",  # not supported
-        "AGE": "O",  # not supported
+        "NRP": "LOCATION",
+        "NORP": "LOCATION",
+        "ID": "ID",
+        "TITLE": "O",  # not supported through spaCy
+        "PREFIX": "O",  # not supported through spaCy
+        "ZIP_CODE": "O",  # not supported through spaCy
+        "AGE": "O",  # not supported through spaCy
         "O": "O",
     }
 

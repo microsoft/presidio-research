@@ -85,7 +85,7 @@ class CRFModel(BaseModel):
         y_train = [self.sent2labels(s) for s in sentences]
         return X_train, y_train
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         tags = CRFModel.crf_predict(sample, self.model)
 
         if len(tags) != len(sample.tokens):

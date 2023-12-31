@@ -13,6 +13,8 @@ In addition, it contains a fake data generator which creates fake sentences base
 
 ## Getting started
 
+>Note: Presidio evaluator requires Python>=3.9
+
 ### From PyPI
 
 ``` sh
@@ -36,8 +38,10 @@ conda create --name presidio python=3.9
 conda activate presidio
 
 # Install package+dependencies
-pip install -r requirements.txt
-python setup.py install
+pip install poetry
+poetry install
+# To install with all additional NER dependencies (e.g. Flair, Stanza, CRF), run:
+# poetry install --with ner 
 
 # Download a spaCy model used by presidio-analyzer
 python -m spacy download en_core_web_lg
@@ -70,7 +74,7 @@ Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans
 
 Once data is generated, it could be split into train/test/validation sets 
 while ensuring that each template only exists in one set. 
-See [this notebook for more details](notebooks/3_Split_by_pattern_%23.ipynb).
+See [this notebook for more details](notebooks/3_Split_by_pattern_number.ipynb).
 
 ## 2. Data representation
 
