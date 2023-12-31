@@ -13,6 +13,8 @@ In addition, it contains a fake data generator which creates fake sentences base
 
 ## Getting started
 
+>Note: Presidio evaluator requires Python>=3.9
+
 ### From PyPI
 
 ``` sh
