@@ -33,15 +33,12 @@ To install the package:
 2. Install all dependencies, preferably in a virtual environment:
 
 ``` sh
-# Create conda env (optional)
-conda create --name presidio python=3.9
-conda activate presidio
-
 # Install package+dependencies
 pip install poetry
-poetry install
+poetry install --with=dev
+
 # To install with all additional NER dependencies (e.g. Flair, Stanza, CRF), run:
-# poetry install --with ner 
+# poetry install --with='ner,dev'
 
 # Download a spaCy model used by presidio-analyzer
 python -m spacy download en_core_web_lg
