@@ -50,7 +50,7 @@ def test_evaluate_sample_wrong_entities_to_keep_correct_statistics():
 def test_evaluate_same_entity_correct_statistics():
     prediction = ["O", "U-ANIMAL", "O", "U-ANIMAL"]
     model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"])
+    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"], skip_words=["-"])
     sample = InputSample(
         full_text="I dog the walrus", masked="I [ANIMAL] the [ANIMAL]", spans=None
     )
@@ -67,7 +67,9 @@ def test_evaluate_multiple_entities_to_keep_correct_statistics():
     prediction = ["O", "U-ANIMAL", "O", "U-ANIMAL"]
     entities_to_keep = ["ANIMAL", "PLANT", "SPACESHIP"]
     model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=entities_to_keep)
+    evaluator = Evaluator(
+        model=model, entities_to_keep=entities_to_keep, skip_words=["-"]
+    )
 
     sample = InputSample(
         full_text="I dog the walrus", masked="I [ANIMAL] the [ANIMAL]", spans=None
@@ -135,7 +137,7 @@ def test_evaluate_multiple_tokens_no_match_match_correct_statistics():
 def test_evaluate_multiple_examples_correct_statistics():
     prediction = ["U-PERSON", "O", "O", "U-PERSON", "O", "O"]
     model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["PERSON"])
+    evaluator = Evaluator(model=model, entities_to_keep=["PERSON"], skip_words=["-"])
     input_sample = InputSample("My name is Raphael or David", masked=None, spans=None)
     input_sample.tokens = ["My", "name", "is", "Raphael", "or", "David"]
     input_sample.tags = ["O", "O", "O", "U-PERSON", "O", "U-PERSON"]
@@ -302,7 +304,6 @@ def test_dataset_to_metric_50_50_model():
 
 
 def test_align_entity_types_correct_output():
-
     sample1 = InputSample(
         "I live in ABC",
         spans=[Span("A", "a", 0, 1), Span("A", "a", 10, 11), Span("B", "b", 100, 101)],
@@ -332,7 +333,6 @@ def test_align_entity_types_correct_output():
 
 
 def test_align_entity_types_wrong_mapping_exception():
-
     sample1 = InputSample(
         "I live in ABC",
         spans=[Span("A", "a", 0, 1), Span("A", "a", 10, 11), Span("B", "b", 100, 101)],
@@ -347,20 +347,92 @@ def test_align_entity_types_wrong_mapping_exception():
         )
 
 
-def test_skip_words_are_not_counted_as_errors():
-    prediction = ["U-PERSON", "O", "O", "O", "U-LOCATION"]
-    model = MockTokensModel(prediction=prediction,
-                            entities_to_keep=["LOCATION", "PERSON"])
+@pytest.mark.parametrize(
+    "tokens, tags, predicted_tags, precision, recall",
+    [
+        (
+            ["John", "is", "in", "\n", "\t", "London"],
+            ["U-PERSON", "O", "O", "B-LOCATION", "I-LOCATION", "I-LOCATION"],
+            ["U-PERSON", "O", "O", "O", "O", "B-LOCATION"],
+            1,
+            1,
+        ),
+        (
+            [">", ">>", ">>>", "Baku"],
+            ["O", "O", "O", "U-LOCATION"],
+            ["B-LOCATION", "I-LOCATION", "I-LOCATION", "L-LOCATION"],
+            1,
+            1,
+        ),
+        (
+            ["Mr.", "", "Smith"],
+            ["O", "O", "U-PERSON"],
+            ["O", "B-PERSON", "I-PERSON"],
+            1,
+            1,
+        ),
+        (["!"], ["O"], ["U-PERSON"], np.NaN, np.NaN),
+        ([], [], [], np.NaN, np.NaN),
+    ],
+)
+def test_skip_words_are_not_counted_as_errors(
+    tokens, tags, predicted_tags, precision, recall
+):
+    model = MockTokensModel(
+        prediction=predicted_tags, entities_to_keep=["LOCATION", "PERSON"]
+    )
 
     evaluator = Evaluator(model=model)
-    sample = InputSample(
-        full_text="John is on the street", masked="I am the street", spans=None
-    )
-    sample.tokens = ["John", "is", "on", "the", "street"]
-    sample.tags = ["U-PERSON", "O", "O", "O", "O"]
+    sample = InputSample(full_text=" ".join(tokens), spans=None)
+    sample.tokens = tokens
+    sample.tags = tags
 
-    evaluated = evaluator.evaluate_sample(sample, prediction)
+    evaluated = evaluator.evaluate_sample(sample, predicted_tags)
     final_evaluation = evaluator.calculate_score([evaluated])
 
-    assert final_evaluation.pii_precision == 1
-    assert final_evaluation.pii_recall == 1
+    if np.isnan(precision):
+        assert np.isnan(final_evaluation.pii_precision)
+    else:
+        assert final_evaluation.pii_precision == precision
+
+    if np.isnan(recall):
+        assert np.isnan(final_evaluation.pii_recall)
+    else:
+        assert final_evaluation.pii_recall == recall
+
+
+@pytest.mark.parametrize(
+    "tags, predicted_tags, expected_dict",
+    [
+        (
+            ["O", "ID", "SSN"],
+            ["O", "SSN", "SSN"],
+            {("O", "O"): 1, ("SSN", "SSN"): 2},
+        ),
+        (
+            ["O", "SSN", "SSN"],
+            ["O", "ID", "SSN"],
+            {("O", "O"): 1, ("SSN", "SSN"): 2},
+        ),
+        (
+            ["O", "MID", "SSN"],
+            ["O", "SSN", "SSN"],
+            {("O", "O"): 1, ("MID", "SSN"): 1, ("SSN", "SSN"): 1},
+        ),
+    ],
+)
+def test_generic_entities_are_treated_like_specific_entities(
+    tags, predicted_tags, expected_dict
+):
+    model = MockTokensModel(prediction=predicted_tags)
+    evaluator = Evaluator(model=model)
+
+    tokens = ["A", "123", "456"]
+
+    sample = InputSample(full_text=" ".join(tokens), spans=None)
+    sample.tokens = tokens
+    sample.tags = tags
+
+    evaluated = evaluator.evaluate_sample(sample, predicted_tags)
+
+    assert evaluated.results == expected_dict

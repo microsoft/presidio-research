@@ -37,7 +37,7 @@ To install the package:
 pip install poetry
 poetry install --with=dev
 
-# To install with all additional NER dependencies (e.g. Flair, Stanza, CRF), run:
+# To install with all additional NER dependencies (e.g. Flair, Stanza), run:
 # poetry install --with='ner,dev'
 
 # Download a spaCy model used by presidio-analyzer
@@ -53,7 +53,7 @@ Note that some dependencies (such as Flair and Stanza) are not automatically ins
 
 1. **Fake data generator** for PII recognizers and NER models
 2. **Data representation layer** for data generation, modeling and analysis
-3. Multiple **Model/Recognizer evaluation** files (e.g. for Spacy, Flair, CRF, Presidio API, Presidio Analyzer python package, specific Presidio recognizers)
+3. Multiple **Model/Recognizer evaluation** files (e.g. for Spacy, Flair, Presidio API, Presidio Analyzer python package, specific Presidio recognizers)
 4. **Training and modeling code** for multiple models
 5. Helper functions for **results analysis**
 
@@ -121,15 +121,10 @@ or a specific PII recognizer for precision and recall and error-analysis.
 - [Evaluate Presidio](notebooks/4_Evaluate_Presidio_Analyzer.ipynb)
 - [Evaluate spaCy models](notebooks/models/Evaluate%20spacy%20models.ipynb)
 - [Evaluate Stanza models](notebooks/models/Evaluate%20stanza%20models.ipynb)
-- [Evaluate CRF models](notebooks/models/Evaluate%20CRF%20models.ipynb)
 - [Evaluate Flair models](notebooks/models/Evaluate%20flair%20models.ipynb)
 - [Evaluate Azure Text Analytics](notebooks/models/Evaluate%20azure%20text%20analytics.ipynb)
 
 ## 4. Training PII detection models
-
-### CRF
-
-To train a vanilla CRF on a new dataset, see [this notebook](notebooks/models/Train%20CRF.ipynb). To evaluate, see [this notebook](notebooks/models/Evaluate%20CRF%20models.ipynb).
 
 ### spaCy
 

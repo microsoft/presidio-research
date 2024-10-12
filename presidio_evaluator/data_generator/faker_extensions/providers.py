@@ -1,6 +1,8 @@
 import random
+import warnings
 from collections import OrderedDict
 from pathlib import Path
+import socket
 from typing import Union, List
 import yaml
 import requests
@@ -53,7 +55,9 @@ class OrganizationProvider(BaseProvider):
             # company names assembled from stock exchange listings (aex, bse, cnq, ger, lse, nasdaq, nse, nyse, par, tyo),
             # US government websites like https://www.sec.gov/rules/other/4-460list.htm, and other sources
             organizations_file = Path(
-                Path(__file__).parent.parent, "raw_data", "companies_and_organizations.csv"
+                Path(__file__).parent.parent,
+                "raw_data",
+                "companies_and_organizations.csv",
             ).resolve()
         self.organizations_file = organizations_file
         self.organizations = self.load_organizations()
@@ -75,7 +79,7 @@ class UsDriverLicenseProvider(BaseProvider):
             Path(__file__).parent.parent, "raw_data", "us_driver_license_format.yaml"
         ).resolve()
         formats = yaml.safe_load(open(us_driver_license_file))
-        self.formats = formats['en']['faker']['driving_license']['usa']
+        self.formats = formats["en"]["faker"]["driving_license"]["usa"]
 
     def us_driver_license(self) -> str:
         # US driver's licenses patterns vary by state. Here we sample a random state and format
@@ -117,7 +121,6 @@ class IpAddressProvider(BaseProvider):
 
 
 class AgeProvider(BaseProvider):
-
     formats = OrderedDict(
         [
             ("%#", 0.8),
@@ -265,37 +268,51 @@ class PhoneNumberProviderNew(PhoneNumberProvider):
 
 class HospitalProvider(BaseProvider):
     def __init__(self, generator, hospital_file: str = None):
-        super().__init__(generator=generator)
-        self.hospital_list = self.load_hospitals(hospital_file)
-
-    def load_hospitals(self, hospital_file: str):
-        """Loads a list of hospital names based in the US.
-        If a static file with hospital names is provided, the hospital names should be under a 
-        column named "name". If a nothing is provided then,
-        the information will be retrieved from WikiData.
+        """Load hospital data from file or wiki.
 
         :param hospital_file: Path to static file containing hospital names
-        :type hospital_file: str
         """
+
+        super().__init__(generator=generator)
+
+        self.default_list = [
+            "Apollo Hospital",
+            "St. Peter",
+            "Mount Sinai",
+            "Providence",
+        ]
+        self.hospitals = self.load_hospitals(hospital_file)
+
+    def load_hospitals(self, hospital_file: str) -> List[str]:
+        """Loads a list of hospital names based in the US.
+        If a static file with hospital names is provided,
+        the hospital names should be under a column named "name".
+        If no file is provided, the information will be retrieved from WikiData.
+
+        :param hospital_file: Path to static file containing hospital names
+        """
+
         if hospital_file:
-            self.hospitals = pd.read_csv(hospital_file)
-            if 'name' not in self.hospitals:
-                print("Unable to retrieve hospital names, file is missing column named 'name'")
-                self.hospitals = list()
-                return
-            self.hospitals = self.hospitals['name'].to_list()
+            hospitals = pd.read_csv(hospital_file)
+            if "name" not in self.hospitals:
+                print(
+                    "Unable to retrieve hospital names, "
+                    "file is missing column named 'name'"
+                )
+                return self.default_list
+            return hospitals["name"].to_list()
         else:
-            self.hospitals = self.load_wiki_hospitals()
+            return self.load_wiki_hospitals()
 
     def hospital_name(self):
         return self.random_element(self.hospitals)
 
-    def load_wiki_hospitals(self,):
-        """Executes a query on WikiData and extracts a list of US based hospitals
-
-        """
-        url = 'https://query.wikidata.org/sparql'
-        query = '''
+    def load_wiki_hospitals(
+        self,
+    ):
+        """Executes a query on WikiData and extracts a list of US based hospitals"""
+        url = "https://query.wikidata.org/sparql"
+        query = """
         SELECT DISTINCT ?label_en
         WHERE 
         { ?item wdt:P31/wdt:P279* wd:Q16917; wdt:P17 wd:Q30
@@ -304,16 +321,20 @@ class HospitalProvider(BaseProvider):
         optional { ?item rdfs:label ?label_en FILTER((LANG(?label_en)) = "en") }   
         }
 
-        '''
-        r = requests.get(url, params={'format': 'json', 'query': query})
-        if r.status_code != 200:
-            print("Unable to read hospitals from WikiData, returning an empty list")
-            return list()
-        data = r.json()
-        bindings = data['results'].get('bindings', [])
-        hospitals = [self.deep_get(x, ['label_en', 'value']) for x in bindings]
-        hospitals = [x for x in hospitals if 'no key' not in x]
-        return hospitals
+        """
+        try:
+            r = requests.get(url, params={"format": "json", "query": query})
+            if r.status_code != 200:
+                print("Unable to read hospitals from WikiData, returning an empty list")
+                return self.default_list
+            data = r.json()
+            bindings = data["results"].get("bindings", [])
+            hospitals = [self.deep_get(x, ["label_en", "value"]) for x in bindings]
+            hospitals = [x for x in hospitals if "no key" not in x]
+            return hospitals
+        except socket.error:
+            warnings.warn("Can't download hospitals data. Returning default list")
+            return self.default_list
 
     def deep_get(self, dictionary: dict, keys: List[str]):
         """Retrieve values from a nested dictionary for specific nested keys

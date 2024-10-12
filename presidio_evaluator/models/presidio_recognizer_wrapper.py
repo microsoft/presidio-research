@@ -78,3 +78,6 @@ class PresidioRecognizerWrapper(BaseModel):
             scores=scores,
         )
         return response_tags
+
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        return [self.predict(sample, **kwargs) for sample in dataset]

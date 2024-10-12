@@ -5,14 +5,18 @@ from pathlib import Path
 import string
 
 import numpy as np
-from tqdm import tqdm
 
 import plotly.express as px
 import pandas as pd
 
+from spacy.lang.en.stop_words import STOP_WORDS
+
 from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import EvaluationResult, ModelError
 from presidio_evaluator.models import BaseModel
+
+
+GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENERIC_PII")
 
 
 class Evaluator:
@@ -22,6 +26,8 @@ class Evaluator:
         verbose: bool = False,
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
+        generic_entities: Optional[List[str]] = None,
+        skip_words: Optional[List] = None,
     ):
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
@@ -32,6 +38,9 @@ class Evaluator:
         :param entities_to_keep: List of entity names to focus the evaluator on (and ignore the rest).
         Default is None = all entities. If the provided model has a list of entities to keep,
         this list would be used for evaluation.
+        :param generic_entities: List of entities that are not considered an error if
+        detected instead of something other entity. For example: PII, ID, number
+        :param skip_words: List of words to skip. If None, the default list would be used.
         """
         self.model = model
         self.verbose = verbose
@@ -39,6 +48,12 @@ class Evaluator:
         self.entities_to_keep = entities_to_keep
         if self.entities_to_keep is None and self.model.entities:
             self.entities_to_keep = self.model.entities
+
+        self.generic_entities = (
+            generic_entities if generic_entities else GENERIC_ENTITIES
+        )
+
+        self.skip_words = skip_words if skip_words else self.__get_skip_words()
 
     def compare(self, input_sample: InputSample, prediction: List[str]):
         """
@@ -73,30 +88,35 @@ class Evaluator:
             prediction = self._adjust_per_entities(prediction)
             new_annotation = self._adjust_per_entities(new_annotation)
 
-        skip_words = self.get_skip_words()
-
         for i in range(0, len(new_annotation)):
-            results[(new_annotation[i], prediction[i])] += 1
+            cur_token = tokens[i]
+            cur_prediction = prediction[i]
+            cur_annotation = new_annotation[i]
+            results[(cur_annotation, cur_prediction)] += 1
 
             if self.verbose:
-                print("Annotation:", new_annotation[i])
-                print("Prediction:", prediction[i])
+                print("Annotation:", cur_annotation)
+                print("Prediction:", cur_prediction)
                 print(results)
 
             # check if there was an error
-            is_error = new_annotation[i] != prediction[i]
-            if str(tokens[i]).lower().strip() in skip_words:
-                is_error = False
-                results[(new_annotation[i], prediction[i])] -= 1
+            is_error = cur_annotation != cur_prediction
 
             if is_error:
+                reverted = self.__revert_known_errors(
+                    cur_annotation, cur_prediction, cur_token, results
+                )
+                if reverted:
+                    # This isn't really an error, continue.
+                    continue
+
                 if prediction[i] == "O":
                     mistakes.append(
                         ModelError(
                             error_type="FN",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
@@ -105,9 +125,9 @@ class Evaluator:
                     mistakes.append(
                         ModelError(
                             error_type="FP",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
@@ -116,15 +136,45 @@ class Evaluator:
                     mistakes.append(
                         ModelError(
                             error_type="Wrong entity",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
                     )
 
         return results, mistakes
+
+    def __revert_known_errors(
+        self, current_annotation, current_prediction, current_token, results
+    ) -> bool:
+        reverted = False
+
+        if str(current_token).lower().strip() in self.skip_words:
+            # Ignore cases where the token is a skip word
+            results[(current_annotation, current_prediction)] -= 1
+            reverted = True
+
+        if current_prediction in self.generic_entities and current_annotation != "O":
+            # Ignore cases where the prediction is generic
+            results[(current_annotation, current_prediction)] -= 1
+            # Add a result which assumes the generic equals the specific
+            results[(current_annotation, current_annotation)] += 1
+            reverted = True
+
+        elif current_annotation in self.generic_entities and current_prediction != "O":
+            # Ignore cases where the prediction is generic
+            results[(current_annotation, current_prediction)] -= 1
+            # Add a result which assumes the generic equals the specific
+            results[(current_prediction, current_prediction)] += 1
+            reverted = True
+
+        # Remove temporary keys which should not be counted
+        if results[(current_annotation, current_prediction)] == 0:
+            del results[(current_annotation, current_prediction)]
+
+        return reverted
 
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
@@ -152,18 +202,28 @@ class Evaluator:
         results, mistakes = self.compare(input_sample=sample, prediction=prediction)
         return EvaluationResult(results, mistakes, sample.full_text)
 
-    def evaluate_all(self, dataset: List[InputSample]) -> List[EvaluationResult]:
+    def evaluate_all(
+        self, dataset: List[InputSample], **kwargs
+    ) -> List[EvaluationResult]:
+        """Evaluate a dataset given a model and labels.
+
+        :param dataset: A list of InputSample samples, containing the ground truth tags
+        :param kwargs: Additional arguments for the model's predict method
+        """
+
         evaluation_results = []
         if self.model.entity_mapping:
             print(
                 f"Mapping entity values using this dictionary: {self.model.entity_mapping}"
             )
-        for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
+
+        print(f"Running model {self.model.__class__.__name__} on dataset...")
+        predictions = self.model.batch_predict(dataset, **kwargs)
+        print("Finished running model on dataset")
+
+        for prediction, sample in zip(predictions, dataset):
             # Align tag values to the ones expected by the model
             self.model.align_entity_types(sample)
-
-            # Predict
-            prediction = self.model.predict(sample)
 
             # Remove entities not requested
             prediction = self.model.filter_tags_in_supported_entities(prediction)
@@ -258,7 +318,9 @@ class Evaluator:
         entity_precision = {}
         n = {}
         if not entities:
-            entities = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
+            entities1 = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
+            entities2 = list(set([x[1] for x in all_results.keys() if x[1] != "O"]))
+            entities = list(set(entities1).union(set(entities2)))
 
         for entity in entities:
             # all annotation of given type
@@ -352,9 +414,7 @@ class Evaluator:
         if np.isnan(precision) or np.isnan(recall) or (precision == 0 and recall == 0):
             return np.nan
 
-        return ((1 + beta**2) * precision * recall) / (
-            ((beta**2) * precision) + recall
-        )
+        return ((1 + beta**2) * precision * recall) / (((beta**2) * precision) + recall)
 
     class Plotter:
         """
@@ -407,9 +467,9 @@ class Evaluator:
 
             df = pd.DataFrame(scores)
             df["model"] = self.model_name
-            self._plot(df, plot_type="f2_score")
-            self._plot(df, plot_type="precision")
+            self._plot(df, plot_type=f"f{self.beta}_score")
             self._plot(df, plot_type="recall")
+            self._plot(df, plot_type="precision")
 
         def _plot(self, df, plot_type) -> None:
             fig = px.bar(
@@ -420,7 +480,7 @@ class Evaluator:
                 x=plot_type,
                 color="count",
                 barmode="group",
-                height=30*len(set(df["entity"])),
+                height=30 * len(set(df["entity"])),
                 title=f"Per-entity {plot_type} for {self.model_name}",
             )
             fig.update_layout(
@@ -447,58 +507,56 @@ class Evaluator:
 
         def plot_most_common_tokens(self) -> None:
             """Graph most common false positive and false negative tokens for each entity."""
-            ModelError.most_common_fp_tokens(self.errors)
             fps_frames = []
             fns_frames = []
             for entity in self.model.entity_mapping.values():
-                fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
+                fps_df = ModelError.get_fps_dataframe(
+                    self.errors, entity=[entity], verbose=False
+                )
                 if fps_df is not None:
-                    fps_path = (
-                        self.output_folder / f"{self.model_name}-{entity}-fps.csv"
+                    fps_path = Path(
+                        self.output_folder, f"{self.model_name}-{entity}-fps.csv"
                     )
                     fps_df.to_csv(fps_path)
                     fps_frames.append(fps_path)
-                fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
+
+                fns_df = ModelError.get_fns_dataframe(
+                    self.errors, entity=[entity], verbose=False
+                )
                 if fns_df is not None:
-                    fns_path = (
-                        self.output_folder / f"{self.model_name}-{entity}-fns.csv"
+                    fns_path = Path(
+                        self.output_folder, f"{self.model_name}-{entity}-fns.csv"
                     )
                     fns_df.to_csv(fns_path)
                     fns_frames.append(fns_path)
 
-            def group_tokens(df):
+            def group_tokens(df, key: str = "annotation"):
                 return (
-                    df.groupby(["token", "annotation"])
+                    df.groupby(["token", key])
                     .size()
                     .to_frame()
                     .sort_values([0], ascending=False)
-                    .head(3)
+                    .head(5)
                     .reset_index()
                 )
 
-            fps_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fps_frames]
-            )
-            fns_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fns_frames]
-            )
-
-            def generate_graph(title, tokens_df):
+            def generate_graph(title, tokens_df, key="annotation"):
                 fig = px.histogram(
                     tokens_df,
                     x=0,
                     y="token",
                     orientation="h",
-                    color="annotation",
-                    title=f"Most common {title} for {self.model_name}",
+                    color=key,
+                    text_auto=True,
+                    title=f"Most common {title} tokens",
                 )
 
-                fig.update_layout(yaxis_title=f"count", xaxis_title="PII Entity")
+                fig.update_layout(yaxis_title="count", xaxis_title="PII Entity")
                 fig.update_traces(
-                    textfont_size=12,
+                    textfont_size=8,
                     textangle=0,
                     textposition="outside",
-                    cliponaxis=False,
+                    cliponaxis=True,
                 )
                 fig.update_layout(
                     plot_bgcolor="#FFF",
@@ -508,28 +566,86 @@ class Evaluator:
                         showgrid=False,  # Removes X-axis grid lines
                     ),
                     yaxis=dict(
-                        title=f"Tokens",
+                        title="Tokens",
                         linecolor="#BCCCDC",  # Sets color of X-axis line
                         showgrid=False,  # Removes X-axis grid lines
                     ),
+                    height=10 * len(tokens_df),
                 )
                 fig.update_layout(yaxis={"categoryorder": "total ascending"})
                 fig.show()
 
-            generate_graph(title="false-negatives", tokens_df=fns_tokens_df)
-            generate_graph(title="false-positives", tokens_df=fps_tokens_df)
+            fps_tokens_df = pd.concat(
+                [
+                    group_tokens(pd.read_csv(df_path), key="prediction")
+                    for df_path in fps_frames
+                ]
+            )
+            fns_tokens_df = pd.concat(
+                [
+                    group_tokens(pd.read_csv(df_path), key="annotation")
+                    for df_path in fns_frames
+                ]
+            )
+
+            generate_graph(
+                title="false-negatives", tokens_df=fns_tokens_df, key="annotation"
+            )
+            generate_graph(
+                title="false-positives", tokens_df=fps_tokens_df, key="prediction"
+            )
+
+        def plot_confusion_matrix(
+            self, entities: List[str], confmatrix: List[List[int]]
+        ) -> None:
+            # Create a DataFrame from the 2D list
+            confusion_matrix_df = pd.DataFrame(
+                confmatrix, index=entities, columns=entities
+            )
+
+            confusion_matrix_df.loc["Total"] = confusion_matrix_df.sum()
+
+            # Add a column for the totals
+            confusion_matrix_df["Total"] = confusion_matrix_df.sum(axis=1)
+
+            # Create the heatmap
+            fig = px.imshow(
+                confusion_matrix_df,
+                labels=dict(x="Predicted", y="Actual", color="Count"),
+                x=confusion_matrix_df.columns,
+                y=confusion_matrix_df.index,
+                color_continuous_scale="Blues",
+                title="Confusion Matrix",
+                text_auto=True,
+            )
+            fig.update_xaxes(tickangle=90, side="top", title_standoff=10)
+            fig.update_traces(textfont=dict(size=10))
+            fig.update_layout(width=800, height=800)
+
+            fig.show()
 
     @staticmethod
-    def get_skip_words():
+    def __get_skip_words() -> List[str]:
+        """Return a list of tokens to ignore during evaluation."""
         skip_words = [x for x in string.punctuation]
         skip_words.extend(
             [
+                " ",
+                "",
                 "\n",
                 "\n\n",
                 "\n\n\n",
+                "\n\n\n\n",
+                "\t",
+                "\t\t",
+                "\t\t\t",
+                "\t\t\t\t",
                 ">>",
                 ">>>",
                 ">>>>",
+                ">>>>>",
+                ">>>>>>",
+                "'s",
                 "street",
                 "st.",
                 "st",
@@ -537,6 +653,8 @@ class Evaluator:
                 "rue",
                 "via",
                 "and",
+                "a",
+                "the",
                 "or",
                 "do",
                 "as",
@@ -546,7 +664,44 @@ class Evaluator:
                 "country",
                 "state",
                 "city",
+                "zip",
+                "po",
+                "apt",
+                "unit",
+                "corner",
+                "p.o.",
+                "box",
+                "suite",
+                "mr.",
+                "mrs.",
+                "miss",
+                "year",
+                "years",
+                "y/o",
+                "month",
+                "months",
+                "old",
+                "morning",
+                "noon",
+                "afternoon",
+                "night",
+                "evening",
+                "this",
+                "first",
+                "last",
+                "week",
+                "weeks",
+                "weekend",
+                "day",
+                "days",
+                "age",
+                "ago",
+                "inc",
+                "inc.",
+                "ltd",
             ]
         )
+
+        skip_words.extend(STOP_WORDS)
 
         return skip_words
