@@ -134,6 +134,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         AGE="AGE",
         ID="ID",
         TITLE="TITLE",
+        PREFIX="TITLE",
         # Financial
         CREDIT_CARD="CREDIT_CARD",
         IBAN_CODE="IBAN_CODE",
