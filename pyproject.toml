@@ -31,6 +31,7 @@ optional=true
 [tool.poetry.group.ner.dependencies]
 flair = "^0.13.0"
 spacy_stanza = "^1.0.0"
+sklearn_crfsuite = "^0.3.6"
 spacy_huggingface_pipelines = "^0.0.4"
 
 

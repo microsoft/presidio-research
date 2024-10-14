@@ -71,7 +71,7 @@ This will create entity aliases (e.g. faker supports "name" but templates contai
 4. Generate samples using the templates list
 5. Split the generated dataset to train/test/validation while making sure
 that samples from the same template would only appear in one set
-6. Adapt datasets for the various models (Spacy, Flair, sklearn)
+6. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
 7. Train models
 8. Evaluate using one of the [evaluation notebooks](../../notebooks/models)
 
