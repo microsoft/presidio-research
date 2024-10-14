@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "presidio_evaluator"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
-authors = ["Omri Mendels <omri374@users.noreply.github.com>"]
+authors = ["Microsoft"]
 readme = "README.md"
 include = [{ path= "presidio_evaluator/data_generator/raw_data/*"}]
 

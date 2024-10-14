@@ -31,7 +31,11 @@ class SpanGenerator(Generator):
     """
 
     def parse(
-        self, text: str, add_spans: bool = False, template_id: Optional[int] = None
+        self,
+        text: str,
+        add_spans: bool = False,
+        template_id: Optional[int] = None,
+        sample_id: Optional[int] = None,
     ) -> Union[str, FakerSpansResult]:
         """Parses a Faker template.
 
@@ -39,6 +43,7 @@ class SpanGenerator(Generator):
         :param text: Text holding the faker template, e.g. "My name is {{name}}".
         :param add_spans: Whether to return the spans of each fake value in the output string
         :param template_id: Template ID to be returned with the output
+        :param sample_id: unique sample id
         """
 
         # Create Span objects for original placeholders
@@ -57,7 +62,7 @@ class SpanGenerator(Generator):
             new_len = len(str(span.value))
 
             # Update full text
-            fake_text = str(text[span.end: prev_end]) + str(fake_text)
+            fake_text = str(text[span.end : prev_end]) + str(fake_text)
             fake_text = str(span.value) + str(fake_text)
             prev_end = span.start
 
@@ -77,7 +82,11 @@ class SpanGenerator(Generator):
 
         return (
             FakerSpansResult(
-                fake=fake_text, spans=spans, template=text, template_id=template_id
+                fake=fake_text,
+                spans=spans,
+                template=text,
+                template_id=template_id,
+                sample_id=sample_id,
             )
             if add_spans
             else fake_text

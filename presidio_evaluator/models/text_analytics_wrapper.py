@@ -23,7 +23,8 @@ class TextAnalyticsWrapper(BaseModel):
         :param ta_client: object of type TextAnalyticsClient
         :param ta_key: Azure cognitive Services for Language key
         :param ta_endpoint: Azure cognitive Services for Language endpoint
-        :param entity_mapping: Mapping between input dataset entities and entities expected by Azure cognitive Services for Language 
+        :param entity_mapping: Mapping between input dataset entities and entities
+        expected by Azure cognitive Services for Language
         """
         super().__init__(
             verbose=verbose,
@@ -39,19 +40,16 @@ class TextAnalyticsWrapper(BaseModel):
             ta_client = self.__authenticate_client(ta_key, ta_endpoint)
         self.ta_client = ta_client
 
-    
     def __authenticate_client(self, key: str, endpoint: str):
         ta_credential = AzureKeyCredential(key)
         text_analytics_client = TextAnalyticsClient(
-            endpoint=endpoint,
-            credential=ta_credential
+            endpoint=endpoint, credential=ta_credential
         )
         return text_analytics_client
 
     def predict(self, sample: InputSample, **kwargs) -> List[str]:
         documents = [sample.full_text]
-        response = self.ta_client.recognize_pii_entities(documents, 
-                                                        language="en")
+        response = self.ta_client.recognize_pii_entities(documents, language="en")
         results = [doc for doc in response if not doc.is_error]
         starts = []
         ends = []
@@ -78,3 +76,10 @@ class TextAnalyticsWrapper(BaseModel):
             tags=tags,
         )
         return response_tags
+
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        predictions = []
+        for sample in dataset:
+            predictions.append(self.predict(sample, **kwargs))
+
+        return predictions

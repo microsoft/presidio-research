@@ -33,7 +33,6 @@ class FlairModel(BaseModel):
         verbose: bool = False,
         entity_mapping: Dict[str, str] = PRESIDIO_SPACY_ENTITIES,
     ):
-
         super().__init__(
             entities_to_keep=entities_to_keep,
             verbose=verbose,
@@ -49,14 +48,16 @@ class FlairModel(BaseModel):
         self.spacy_tokenizer = SpacyTokenizer(model=spacy.load("en_core_web_sm"))
 
     def predict(self, sample: InputSample, **kwargs) -> List[str]:
-
         sentence = Sentence(text=sample.full_text, use_tokenizer=self.spacy_tokenizer)
         self.model.predict(sentence)
 
         ents = sentence.get_spans("ner")
         if ents:
             tags, texts, start, end = zip(
-                *[(ent.tag, ent.text, ent.start_position, ent.end_position) for ent in ents]
+                *[
+                    (ent.tag, ent.text, ent.start_position, ent.end_position)
+                    for ent in ents
+                ]
             )
 
             tags = [
@@ -84,3 +85,10 @@ class FlairModel(BaseModel):
             print("mismatch between input tokens and new tokens")
 
         return tags
+
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        predictions = []
+        for sample in dataset:
+            predictions.append(self.predict(sample, **kwargs))
+
+        return predictions
