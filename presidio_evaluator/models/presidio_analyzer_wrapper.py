@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict
 
-from presidio_analyzer import AnalyzerEngine, EntityRecognizer
+from presidio_analyzer import AnalyzerEngine, EntityRecognizer, BatchAnalyzerEngine
+from presidio_anonymizer import RecognizerResult
 
 from presidio_evaluator import InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
@@ -38,37 +39,46 @@ class PresidioAnalyzerWrapper(BaseModel):
 
         if not analyzer_engine:
             analyzer_engine = AnalyzerEngine()
-            self._update_recognizers_based_on_entities_to_keep(analyzer_engine)
+
         self.analyzer_engine = analyzer_engine
 
+        self.print_discrepancies()
+
     def predict(self, sample: InputSample, **kwargs) -> List[str]:
-        language = kwargs.get("language", self.language)
-        score_threshold = kwargs.get("score_threshold", self.score_threshold)
-        ad_hoc_recognizers = kwargs.get("ad_hoc_recognizers", self.ad_hoc_recognizers)
-        context = kwargs.get("context", self.context)
-        allow_list = kwargs.get("allow_list", self.allow_list)
+        self.__update_kwargs(kwargs)
 
         results = self.analyzer_engine.analyze(
             text=sample.full_text,
-            entities=self.entities,
-            language=language,
-            score_threshold=score_threshold,
-            ad_hoc_recognizers=ad_hoc_recognizers,
-            context=context,
-            allow_list=allow_list,
             **kwargs,
         )
+        response_tags = self.__recognizer_results_to_tags(results, sample)
+        return response_tags
+
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        self.__update_kwargs(kwargs)
+        texts = [sample.full_text for sample in dataset]
+        batch_analyzer = BatchAnalyzerEngine(analyzer_engine=self.analyzer_engine)
+        analyzer_results = batch_analyzer.analyze_iterator(texts=texts, **kwargs)
+
+        predictions = []
+        for prediction, sample in zip(analyzer_results, dataset):
+            predictions.append(self.__recognizer_results_to_tags(prediction, sample))
+
+        return predictions
+
+    @staticmethod
+    def __recognizer_results_to_tags(
+        results: List[RecognizerResult], sample: InputSample
+    ) -> List[str]:
         starts = []
         ends = []
         scores = []
         tags = []
-
         for res in results:
             starts.append(res.start)
             ends.append(res.end)
             tags.append(res.entity_type)
             scores.append(res.score)
-
         response_tags = span_to_tag(
             scheme="IO",
             text=sample.full_text,
@@ -80,54 +90,82 @@ class PresidioAnalyzerWrapper(BaseModel):
         )
         return response_tags
 
+    def __update_kwargs(self, kwargs):
+        kwargs["language"] = kwargs.get("language", self.language)
+        kwargs["score_threshold"] = kwargs.get("score_threshold", self.score_threshold)
+        kwargs["ad_hoc_recognizers"] = kwargs.get(
+            "ad_hoc_recognizers", self.ad_hoc_recognizers
+        )
+        kwargs["context"] = kwargs.get("context", self.context)
+        kwargs["allow_list"] = kwargs.get("allow_list", self.allow_list)
+        kwargs["entities"] = kwargs.get("entities", self.entities)
+
     # Mapping between dataset entities and Presidio entities. Key: Dataset entity, Value: Presidio entity
-    presidio_entities_map = {
-        "PERSON": "PERSON",
-        "GPE": "LOCATION",
-        "EMAIL_ADDRESS": "EMAIL_ADDRESS",
-        "CREDIT_CARD": "CREDIT_CARD",
-        "FIRST_NAME": "PERSON",
-        "LAST_NAME": "PERSON",
-        "PHONE_NUMBER": "PHONE_NUMBER",
-        "BIRTHDAY": "DATE_TIME",
-        "DATE_TIME": "DATE_TIME",
-        "DOMAIN_NAME": "URL",
-        "TIME" : "DATE_TIME",
-        "DATE" : "DATE_TIME",
-        "CITY": "LOCATION",
-        "ADDRESS": "LOCATION",
-        "STREET_ADDRESS": "LOCATION",
-        "NATIONALITY": "LOCATION",
-        "LOCATION": "LOCATION",
-        "IBAN_CODE": "IBAN_CODE",
-        "URL": "URL",
-        "US_SSN": "US_SSN",
-        "IP_ADDRESS": "IP_ADDRESS",
-        "ORGANIZATION": "ORGANIZATION",
-        "ORG": "ORGANIZATION",
-        "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
-        "NRP": "LOCATION",
-        "NORP": "LOCATION",
-        "ID": "ID",
-        "TITLE": "O",  # not supported through spaCy
-        "PREFIX": "O",  # not supported through spaCy
-        "ZIP_CODE": "O",  # not supported through spaCy
-        "AGE": "O",  # not supported through spaCy
-        "O": "O",
-    }
+    presidio_entities_map = dict(
+        # Names
+        PER="PERSON",
+        PERSON="PERSON",
+        FIRST_NAME="PERSON",
+        LAST_NAME="PERSON",
+        PATIENT="PERSON",
+        STAFF="PERSON",
+        HCW="PERSON",
+        # Locations, GPE
+        LOC="LOCATION",
+        LOCATION="LOCATION",
+        GPE="LOCATION",
+        FACILITY="LOCATION",
+        CITY="LOCATION",
+        ADDRESS="LOCATION",
+        STREET_ADDRESS="LOCATION",
+        NATIONALITY="LOCATION",
+        ZIP="ZIP_CODE",
+        ZIP_CODE="ZIP_CODE",
+        # Organizations, norps
+        ORG="ORGANIZATION",
+        ORGANIZATION="ORGANIZATION",
+        VENDOR="ORGANIZATION",
+        NORP="NRP",
+        NRP="NRP",
+        HOSP="ORGANIZATION",
+        PATORG="ORGANIZATION",
+        HOSPITAL="ORGANIZATION",
+        # Generic
+        AGE="AGE",
+        ID="ID",
+        TITLE="TITLE",
+        PREFIX="TITLE",
+        # Financial
+        CREDIT_CARD="CREDIT_CARD",
+        IBAN_CODE="IBAN_CODE",
+        IBAN="IBAN_CODE",
+        # Dates, times, birthdays
+        DATE="DATE_TIME",
+        TIME="DATE_TIME",
+        DATE_TIME="DATE_TIME",
+        BIRTHDAY="DATE_TIME",
+        DATE_OF_BIRTH="DATE_TIME",
+        DOB="DATE_TIME",
+        PHONE="PHONE_NUMBER",
+        PHONE_NUMBER="PHONE_NUMBER",
+        # Internet
+        DOMAIN_NAME="URL",
+        URL="URL",
+        DOMAIN="URL",
+        EMAIL="EMAIL_ADDRESS",
+        EMAIL_ADDRESS="EMAIL_ADDRESS",
+        IP_ADDRESS="IP_ADDRESS",
+        # US
+        SSN="US_SSN",
+        US_SSN="US_SSN",
+        US_DRIVER_LICENSE="US_DRIVER_LICENSE",
+        O="O",
+    )
 
-    def _update_recognizers_based_on_entities_to_keep(
-        self, analyzer_engine: AnalyzerEngine
-    ):
-        """Check if there are any entities not supported by this presidio instance.
-        Add ORGANIZATION as it is removed by default
-
-        """
-        supported_entities = analyzer_engine.get_supported_entities(
+    def print_discrepancies(self):
+        supported_entities = self.analyzer_engine.get_supported_entities(
             language=self.language
         )
-        print("Entities supported by this Presidio Analyzer instance:")
-        print(", ".join(supported_entities))
 
         if not self.entities:
             self.entities = supported_entities
@@ -135,11 +173,21 @@ class PresidioAnalyzerWrapper(BaseModel):
         for entity in self.entities:
             if entity not in supported_entities:
                 print(
-                    f"Entity {entity} is not supported by this instance of Presidio Analyzer Engine"
+                    f"Warning: Entity {entity} is not supported by this instance of Presidio Analyzer Engine"
                 )
+        print("--------")
+        print("Entities supported by this Presidio Analyzer instance:")
+        print(", ".join(supported_entities))
+
+    def _update_recognizers_based_on_entities_to_keep(self):
+        """Add ORGANIZATION as it is removed by default."""
+
+        supported_entities = self.analyzer_engine.get_supported_entities(
+            language=self.language
+        )
 
         if "ORGANIZATION" in self.entities and "ORGANIZATION" not in supported_entities:
-            recognizers = analyzer_engine.get_recognizers()
+            recognizers = self.analyzer_engine.get_recognizers()
             spacy_recognizer = [
                 rec
                 for rec in recognizers

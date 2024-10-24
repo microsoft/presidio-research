@@ -99,6 +99,14 @@ class CRFModel(BaseModel):
         features = CRFModel.sent2features(sentence)
         return model.predict([features])[0]
 
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        predictions = []
+        for sample in dataset:
+            predictions.append(self.predict(sample, **kwargs))
+
+        return predictions
+
+
     @staticmethod
     def word2features(sent, i):
         word = sent[i][0]
