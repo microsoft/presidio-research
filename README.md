@@ -18,7 +18,7 @@ In addition, it contains a fake data generator which creates fake sentences base
 The easiest way to get started is to look at the notebooks. 
 - [Notebook 1](notebooks/1_Generate_data.ipynb): Shows how to use the PII data generator.
 - [Notebook 2](notebooks/2_PII_EDA.ipynb): Shows a simple analysis of the PII dataset.
-- [Notebook 3](notebooks/Split_by_pattern_number.ipynb): Provides tools to split the dataset to train/test/validation while avoiding leakage due to the same pattern appearning in multiple folds (only applicable for synthetically generated data).
+- [Notebook 3](notebooks/3_Split_by_pattern_number.ipynb): Provides tools to split the dataset to train/test/validation while avoiding leakage due to the same pattern appearning in multiple folds (only applicable for synthetically generated data).
 - [Notebook 4](notebooks/4_Evaluate_Presidio_Analyzer.ipynb): Shows how to use the evaluation tools to evaluate how well Presidio detects PII. Note that this is using the vanilla Presidio, and the results aren't very accurate.
 - [Notebook 5](notebooks/5_Evaluate_Custom_Presidio_Analyzer.ipynb): Shows how one can configure Presidio to detect PII much more accurately, and boost the f score in ~30%.
 
