@@ -135,7 +135,9 @@ class BaseModel(ABC):
             "entities_to_keep": self.entities,
         }
 
-    def _tag_in_entities(self, tag: str):
+    def _tag_in_entities(self, tag: str) -> bool:
+        """True if the tag is in the entities to keep."""
+
         if not self.entities:
             return True
 

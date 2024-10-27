@@ -118,7 +118,6 @@ class PresidioAnalyzerWrapper(BaseModel):
         CITY="LOCATION",
         ADDRESS="LOCATION",
         STREET_ADDRESS="LOCATION",
-        NATIONALITY="LOCATION",
         ZIP="ZIP_CODE",
         ZIP_CODE="ZIP_CODE",
         # Organizations, norps
@@ -127,6 +126,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         VENDOR="ORGANIZATION",
         NORP="NRP",
         NRP="NRP",
+        NATIONALITY="NRP",
         HOSP="ORGANIZATION",
         PATORG="ORGANIZATION",
         HOSPITAL="ORGANIZATION",

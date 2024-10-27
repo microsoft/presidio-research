@@ -222,10 +222,8 @@ class Evaluator:
         print("Finished running model on dataset")
 
         for prediction, sample in zip(predictions, dataset):
-            # Align tag values to the ones expected by the model
-            self.model.align_entity_types(sample)
 
-            # Remove entities not requested
+            # Remove entities not requested (in model.entities_to_keep))
             prediction = self.model.filter_tags_in_supported_entities(prediction)
 
             # Switch to requested labeling scheme (IO/BIO/BILUO)
@@ -439,9 +437,15 @@ class Evaluator:
             self.errors = results.model_errors
             self.beta = beta
 
-        def plot_scores(self) -> None:
+        subtitle = text="Entity {} values also consider mismatches between different entity types, " \
+                         "not just misclassified PII values\n"
+
+        def plot_scores(self, save_as:Optional[str]=None) -> None:
             """
             Plots per-entity recall, precision, or F2 score for evaluated model.
+
+            :param save_as: Optional[str] = None: If not None,
+            in which format to save the plot.
             """
             scores = {}
 
@@ -467,11 +471,11 @@ class Evaluator:
 
             df = pd.DataFrame(scores)
             df["model"] = self.model_name
-            self._plot(df, plot_type=f"f{self.beta}_score")
-            self._plot(df, plot_type="recall")
-            self._plot(df, plot_type="precision")
+            self._plot(df, plot_type=f"f{self.beta}_score", save_as=save_as)
+            self._plot(df, plot_type="recall", save_as=save_as)
+            self._plot(df, plot_type="precision", save_as=save_as)
 
-        def _plot(self, df, plot_type) -> None:
+        def _plot(self, df, plot_type, save_as: Optional[str]=None) -> None:
             fig = px.bar(
                 df,
                 text_auto=".2",
@@ -483,6 +487,20 @@ class Evaluator:
                 height=30 * len(set(df["entity"])),
                 title=f"Per-entity {plot_type} for {self.model_name}",
             )
+
+            # Add a subtitle using annotations
+            fig.update_layout(
+                annotations=[
+                    dict(
+                        text=self.subtitle.format(plot_type),
+                        xref="paper", yref="paper",  # Use "paper" coordinates
+                        x=0.5, y=1.1,  # Position above the plot (centered)
+                        showarrow=False,
+                        font=dict(size=12, color="gray")
+                    )
+                ]
+            )
+
             fig.update_layout(
                 barmode="group", yaxis={"categoryorder": "total ascending"}
             )
@@ -503,15 +521,15 @@ class Evaluator:
                     showgrid=False,  # Removes X-axis grid lines
                 ),
             )
-            fig.show()
+            fig.show(save_as)
 
-        def plot_most_common_tokens(self) -> None:
+        def plot_most_common_tokens(self, save_as: Optional[str]=None) -> None:
             """Graph most common false positive and false negative tokens for each entity."""
             fps_frames = []
             fns_frames = []
             for entity in self.model.entity_mapping.values():
                 fps_df = ModelError.get_fps_dataframe(
-                    self.errors, entity=[entity], verbose=False
+                    self.errors, entity=entity, verbose=False
                 )
                 if fps_df is not None:
                     fps_path = Path(
@@ -521,7 +539,7 @@ class Evaluator:
                     fps_frames.append(fps_path)
 
                 fns_df = ModelError.get_fns_dataframe(
-                    self.errors, entity=[entity], verbose=False
+                    self.errors, entity=entity, verbose=False
                 )
                 if fns_df is not None:
                     fns_path = Path(
@@ -573,7 +591,7 @@ class Evaluator:
                     height=10 * len(tokens_df),
                 )
                 fig.update_layout(yaxis={"categoryorder": "total ascending"})
-                fig.show()
+                fig.show(save_as)
 
             fps_tokens_df = pd.concat(
                 [
@@ -596,7 +614,9 @@ class Evaluator:
             )
 
         def plot_confusion_matrix(
-            self, entities: List[str], confmatrix: List[List[int]]
+            self, entities: List[str],
+                confmatrix: List[List[int]],
+                save_as: Optional[str]=None
         ) -> None:
             # Create a DataFrame from the 2D list
             confusion_matrix_df = pd.DataFrame(
@@ -622,7 +642,7 @@ class Evaluator:
             fig.update_traces(textfont=dict(size=10))
             fig.update_layout(width=800, height=800)
 
-            fig.show()
+            fig.show(save_as)
 
     @staticmethod
     def __get_skip_words() -> List[str]:
