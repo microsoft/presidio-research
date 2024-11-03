@@ -44,6 +44,16 @@ class SpacyModel(BaseModel):
 
         return tags
 
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        texts = [sample.full_text for sample in dataset]
+
+        docs = self.model.pipe(texts=texts)
+        predictions = []
+        for doc in docs:
+            tags = self._get_tags_from_doc(doc)
+            predictions.append(tags)
+        return predictions
+
     @staticmethod
     def _get_tags_from_doc(doc):
         tags = [token.ent_type_ if token.ent_type_ != "" else "O" for token in doc]

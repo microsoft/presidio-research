@@ -82,6 +82,7 @@ def test_analyzer_with_generated_text(test_input, acceptance_threshold):
     updated_samples = Evaluator.align_entity_types(
         input_samples=input_samples,
         entities_mapping=PresidioAnalyzerWrapper.presidio_entities_map,
+        allow_missing_mappings=True
     )
 
     analyzer = PresidioAnalyzerWrapper()

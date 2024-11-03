@@ -85,10 +85,9 @@ class Span:
 
     def __repr__(self):
         return (
-            f"Type: {self.entity_type}, "
+            f"Span(type: {self.entity_type}, "
             f"value: {self.entity_value}, "
-            f"start: {self.start_position}, "
-            f"end: {self.end_position}"
+            f"char_span: [{self.start_position}: {self.end_position}])"
         )
 
     def __eq__(self, other):
@@ -129,8 +128,9 @@ class InputSample(object):
         create_tags_from_span=False,
         token_model_version="en_core_web_sm",
         scheme="IO",
-        metadata=None,
-        template_id=None,
+        metadata: Dict = None,
+        sample_id: int = None,
+        template_id: int = None,
     ):
         """
         Hold all the information needed for evaluation in the
@@ -148,6 +148,7 @@ class InputSample(object):
         :param metadata: A dictionary of additional metadata on the sample,
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
+        :param sample_id: Unique identifier for this sample (within a dataset)
         """
         if tags is None:
             tags = []
@@ -157,6 +158,7 @@ class InputSample(object):
         self.masked = masked
         self.spans = spans if spans else []
         self.metadata = metadata
+        self.sample_id = sample_id
 
         # generated samples have a template from which they were generated
         if not template_id and self.metadata:
@@ -198,19 +200,14 @@ class InputSample(object):
             create_tags_from_span=create_tags_from_span,
             scheme=scheme,
             template_id=faker_spans_result.template_id,
+            sample_id=faker_spans_result.sample_id,
             **kwargs,
         )
 
     def __repr__(self):
-        return (
-            f"Full text: {self.full_text}\n"
-            f"Spans: {self.spans}\n"
-            f"Tokens: {self.tokens}\n"
-            f"Tags: {self.tags}\n"
-        )
+        return f"Full text: {self.full_text}\n" f"Spans: {self.spans}\n"
 
     def to_dict(self):
-
         return {
             "full_text": self.full_text,
             "masked": self.masked,
@@ -279,16 +276,18 @@ class InputSample(object):
         dataset: Union[List["InputSample"], List[FakerSpansResult]],
         translate_tags=False,
         to_bio=True,
-        token_model_version="en_core_web_sm"
+        token_model_version="en_core_web_sm",
     ) -> pd.DataFrame:
-
         if len(dataset) <= 1:
             raise ValueError("Dataset should contain multiple records")
 
         if isinstance(dataset[0], FakerSpansResult):
             dataset = [
                 InputSample.from_faker_spans_result(
-                    record, create_tags_from_span=True, scheme="BILUO", token_model_version=token_model_version
+                    record,
+                    create_tags_from_span=True,
+                    scheme="BILUO",
+                    token_model_version=token_model_version,
                 )
                 for record in tqdm(dataset, desc="Translating spans into tokens")
             ]
@@ -567,7 +566,8 @@ class InputSample(object):
             dataset = dataset[:length]
 
         input_samples = [
-            InputSample.from_json(row, **kwargs) for row in tqdm(dataset, desc="tokenizing input")
+            InputSample.from_json(row, **kwargs)
+            for row in tqdm(dataset, desc="tokenizing input")
         ]
 
         return input_samples
@@ -582,7 +582,9 @@ class InputSample(object):
         return count_per_entity_new.most_common()
 
     @classmethod
-    def remove_unsupported_entities(cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]) -> None:
+    def remove_unsupported_entities(
+        cls, dataset: List["InputSample"], entity_mapping: Dict[str, str]
+    ) -> None:
         """Remove records with unsupported entities using passed in entity mapping translator."""
         filtered_records = []
         excluded_entities = set()
@@ -599,11 +601,21 @@ class InputSample(object):
         return filtered_records
 
     @classmethod
-    def convert_faker_spans(cls, fake_records: List[FakerSpansResult], create_tags_from_span=True, scheme="BILUO", token_model_version="en_core_web_sm") -> List["InputSample"]:
+    def convert_faker_spans(
+        cls,
+        fake_records: List[FakerSpansResult],
+        create_tags_from_span=True,
+        scheme="BILUO",
+        token_model_version="en_core_web_sm",
+    ) -> List["InputSample"]:
         """Tokenize and transform FakerSpansResult records to list of InputSample objects"""
         input_samples = [
             InputSample.from_faker_spans_result(
-                faker_spans_result=fake_record, create_tags_from_span=create_tags_from_span, scheme=scheme, token_model_version=token_model_version)
+                faker_spans_result=fake_record,
+                create_tags_from_span=create_tags_from_span,
+                scheme=scheme,
+                token_model_version=token_model_version,
+            )
             for fake_record in tqdm(fake_records)
         ]
         return input_samples

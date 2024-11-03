@@ -2,6 +2,8 @@ import json
 from collections import Counter
 from typing import List, Optional, Dict, Tuple
 
+import pandas as pd
+
 from presidio_evaluator.evaluation import ModelError
 
 
@@ -42,9 +44,11 @@ class EvaluationResult:
         self.pii_precision = pii_precision
         self.pii_f = pii_f
         self.n = n
-        self.entity_recall_dict = entity_recall_dict
-        self.entity_precision_dict = entity_precision_dict
-        self.n_dict = n_dict
+        self.entity_recall_dict = entity_recall_dict if entity_recall_dict else {}
+        self.entity_precision_dict = (
+            entity_precision_dict if entity_precision_dict else {}
+        )
+        self.n_dict = n_dict if n_dict else {}
 
     def __str__(self):
         return_str = ""
@@ -82,9 +86,12 @@ class EvaluationResult:
     def __repr__(self):
         return f"stats={self.results}"
 
-    def to_log(self):
+    def to_log(self) -> Dict:
         metrics_dict = {
             "pii_f": self.pii_f,
+            "pii_recall": self.pii_recall,
+            "pii_precision": self.pii_precision,
+            "n": self.n,
         }
         if self.entity_precision_dict:
             metrics_dict.update(
@@ -102,10 +109,30 @@ class EvaluationResult:
         return metrics_dict
 
     def to_confusion_matrix(self) -> Tuple[List[str], List[List[int]]]:
-        entities = sorted(list(set(self.n_dict.keys()).union("O")))
+        entities = list(self.n_dict.keys())
+        if "O" in entities:
+            entities = [ent for ent in entities if ent != "O"]
+        entities = sorted(entities)
+        entities.append("O")
         confusion_matrix = [[0] * len(entities) for _ in range(len(entities))]
         for i, actual in enumerate(entities):
             for j, predicted in enumerate(entities):
                 confusion_matrix[i][j] = self.results[(actual, predicted)]
 
         return entities, confusion_matrix
+
+    def to_confusion_df(self) -> pd.DataFrame:
+        entities, confmatrix = self.to_confusion_matrix()
+
+        conf_df = pd.DataFrame(confmatrix, columns=entities).set_axis(entities)
+
+        precision_df = pd.DataFrame(self.entity_precision_dict, index=["precision"])
+        recall_series = pd.Series(self.entity_recall_dict)
+
+        # add precision numbers as the last row
+        conf_df = pd.concat([conf_df, precision_df], axis=0)
+
+        # add recall numbers as the last column
+        conf_df["recall"] = recall_series
+        # conf_df.set_index(["recall"], drop=False)
+        return conf_df
