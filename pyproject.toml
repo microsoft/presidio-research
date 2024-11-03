@@ -25,6 +25,7 @@ en_core_web_sm = {url = "https://github.com/explosion/spacy-models/releases/down
 en_core_web_lg = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1.tar.gz"}
 
 # optional dependencies for the different NLP approaches
+datasets = "^3.1.0"
 [tool.poetry.group.ner]
 optional=true
 
