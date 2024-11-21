@@ -1,18 +1,11 @@
-import copy
 from collections import Counter
 from typing import List, Optional, Dict
-from pathlib import Path
-import string
 
 import numpy as np
 
-import plotly.express as px
-import pandas as pd
-
-from spacy.lang.en.stop_words import STOP_WORDS
-
 from presidio_evaluator import InputSample
-from presidio_evaluator.evaluation import EvaluationResult, ModelError
+from presidio_evaluator.evaluation import EvaluationResult, ModelError, ErrorType
+from presidio_evaluator.evaluation.skipwords import get_skip_words
 from presidio_evaluator.models import BaseModel
 
 
@@ -53,7 +46,7 @@ class Evaluator:
             generic_entities if generic_entities else GENERIC_ENTITIES
         )
 
-        self.skip_words = skip_words if skip_words else self.__get_skip_words()
+        self.skip_words = skip_words if skip_words else get_skip_words()
 
     def compare(self, input_sample: InputSample, prediction: List[str]):
         """
@@ -113,7 +106,7 @@ class Evaluator:
                 if prediction[i] == "O":
                     mistakes.append(
                         ModelError(
-                            error_type="FN",
+                            error_type=ErrorType.FN,
                             annotation=cur_annotation,
                             prediction=cur_prediction,
                             token=cur_token,
@@ -124,7 +117,7 @@ class Evaluator:
                 elif new_annotation[i] == "O":
                     mistakes.append(
                         ModelError(
-                            error_type="FP",
+                            error_type=ErrorType.FP,
                             annotation=cur_annotation,
                             prediction=cur_prediction,
                             token=cur_token,
@@ -135,7 +128,7 @@ class Evaluator:
                 else:
                     mistakes.append(
                         ModelError(
-                            error_type="Wrong entity",
+                            error_type=ErrorType.WrongEntity,
                             annotation=cur_annotation,
                             prediction=cur_prediction,
                             token=cur_token,
@@ -296,7 +289,7 @@ class Evaluator:
         self,
         evaluation_results: List[EvaluationResult],
         entities: Optional[List[str]] = None,
-        beta: float = 2.5,
+        beta: float = 2.0,
     ) -> EvaluationResult:
         """
         Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
@@ -330,13 +323,13 @@ class Evaluator:
             if annotated > 0:
                 entity_recall[entity] = tp / annotated
             else:
-                entity_recall[entity] = np.NaN
+                entity_recall[entity] = np.nan
 
             if predicted > 0:
                 per_entity_tp = all_results[(entity, entity)]
                 entity_precision[entity] = per_entity_tp / predicted
             else:
-                entity_precision[entity] = np.NaN
+                entity_precision[entity] = np.nan
 
         # compute pii_precision and pii_recall
         annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
@@ -353,7 +346,7 @@ class Evaluator:
                 / annotated_all
             )
         else:
-            pii_recall = np.NaN
+            pii_recall = np.nan
         if predicted_all > 0:
             pii_precision = (
                 sum(
@@ -366,7 +359,7 @@ class Evaluator:
                 / predicted_all
             )
         else:
-            pii_precision = np.NaN
+            pii_precision = np.nan
         # compute pii_f_beta-score
         pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
 
@@ -413,315 +406,3 @@ class Evaluator:
             return np.nan
 
         return ((1 + beta**2) * precision * recall) / (((beta**2) * precision) + recall)
-
-    class Plotter:
-        """
-        Plot scores (f2, precision, recall) and errors (false-positivies, false-negatives)
-        for a PII detection model evaluated via Evaluator
-
-        :param model: Instance of a fitted model (of base type BaseModel)
-        :param results: results given by evaluator.calculate_score(evaluation_results)
-        :param output_folder: folder to store plots and errors in
-        :param model_name: name of the model to be used in the plot title
-        :param beta: a float with the beta parameter of the F measure,
-        which gives more or less weight to precision vs. recall
-        """
-
-        def __init__(
-            self, model, results, output_folder: Path, model_name: str, beta: float
-        ):
-            self.model = model
-            self.results = results
-            self.output_folder = output_folder
-            self.model_name = model_name.replace("/", "-")
-            self.errors = results.model_errors
-            self.beta = beta
-
-        subtitle = text="Entity {} values also consider mismatches between different entity types, " \
-                         "not just misclassified PII values\n"
-
-        def plot_scores(self, save_as:Optional[str]=None) -> None:
-            """
-            Plots per-entity recall, precision, or F2 score for evaluated model.
-
-            :param save_as: Optional[str] = None: If not None,
-            in which format to save the plot.
-            """
-            scores = {}
-
-            entity_recall_dict = copy.deepcopy(self.results.entity_recall_dict)
-            entity_precision_dict = copy.deepcopy(self.results.entity_precision_dict)
-
-            scores["entity"] = list(entity_recall_dict.keys())
-            scores["recall"] = list(entity_recall_dict.values())
-            scores["precision"] = list(entity_precision_dict.values())
-            scores["count"] = list(self.results.n_dict.values())
-
-            scores[f"f{self.beta}_score"] = [
-                Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
-                for recall, precision in zip(scores["recall"], scores["precision"])
-            ]
-
-            # Add PII detection rates
-            scores["entity"].append("PII")
-            scores["recall"].append(self.results.pii_recall)
-            scores["precision"].append(self.results.pii_precision)
-            scores["count"].append(self.results.n)
-            scores[f"f{self.beta}_score"].append(self.results.pii_f)
-
-            df = pd.DataFrame(scores)
-            df["model"] = self.model_name
-            self._plot(df, plot_type=f"f{self.beta}_score", save_as=save_as)
-            self._plot(df, plot_type="recall", save_as=save_as)
-            self._plot(df, plot_type="precision", save_as=save_as)
-
-        def _plot(self, df, plot_type, save_as: Optional[str]=None) -> None:
-            fig = px.bar(
-                df,
-                text_auto=".2",
-                y="entity",
-                orientation="h",
-                x=plot_type,
-                color="count",
-                barmode="group",
-                height=30 * len(set(df["entity"])),
-                title=f"Per-entity {plot_type} for {self.model_name}",
-            )
-
-            # Add a subtitle using annotations
-            fig.update_layout(
-                annotations=[
-                    dict(
-                        text=self.subtitle.format(plot_type),
-                        xref="paper", yref="paper",  # Use "paper" coordinates
-                        x=0.5, y=1.1,  # Position above the plot (centered)
-                        showarrow=False,
-                        font=dict(size=12, color="gray")
-                    )
-                ]
-            )
-
-            fig.update_layout(
-                barmode="group", yaxis={"categoryorder": "total ascending"}
-            )
-            fig.update_layout(yaxis_title=f"{plot_type}", xaxis_title="PII Entity")
-            fig.update_traces(
-                textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
-            )
-            fig.update_layout(
-                plot_bgcolor="#FFF",
-                xaxis=dict(
-                    title="PII entity",
-                    linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False,  # Removes X-axis grid lines
-                ),
-                yaxis=dict(
-                    title=f"{plot_type}",
-                    linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False,  # Removes X-axis grid lines
-                ),
-            )
-            fig.show(save_as)
-
-        def plot_most_common_tokens(self, save_as: Optional[str]=None) -> None:
-            """Graph most common false positive and false negative tokens for each entity."""
-            fps_frames = []
-            fns_frames = []
-            for entity in self.model.entity_mapping.values():
-                fps_df = ModelError.get_fps_dataframe(
-                    self.errors, entity=entity, verbose=False
-                )
-                if fps_df is not None:
-                    fps_path = Path(
-                        self.output_folder, f"{self.model_name}-{entity}-fps.csv"
-                    )
-                    fps_df.to_csv(fps_path)
-                    fps_frames.append(fps_path)
-
-                fns_df = ModelError.get_fns_dataframe(
-                    self.errors, entity=entity, verbose=False
-                )
-                if fns_df is not None:
-                    fns_path = Path(
-                        self.output_folder, f"{self.model_name}-{entity}-fns.csv"
-                    )
-                    fns_df.to_csv(fns_path)
-                    fns_frames.append(fns_path)
-
-            def group_tokens(df, key: str = "annotation"):
-                return (
-                    df.groupby(["token", key])
-                    .size()
-                    .to_frame()
-                    .sort_values([0], ascending=False)
-                    .head(5)
-                    .reset_index()
-                )
-
-            def generate_graph(title, tokens_df, key="annotation"):
-                fig = px.histogram(
-                    tokens_df,
-                    x=0,
-                    y="token",
-                    orientation="h",
-                    color=key,
-                    text_auto=True,
-                    title=f"Most common {title} tokens",
-                )
-
-                fig.update_layout(yaxis_title="count", xaxis_title="PII Entity")
-                fig.update_traces(
-                    textfont_size=8,
-                    textangle=0,
-                    textposition="outside",
-                    cliponaxis=True,
-                )
-                fig.update_layout(
-                    plot_bgcolor="#FFF",
-                    xaxis=dict(
-                        title="Count",
-                        linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False,  # Removes X-axis grid lines
-                    ),
-                    yaxis=dict(
-                        title="Tokens",
-                        linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False,  # Removes X-axis grid lines
-                    ),
-                    height=10 * len(tokens_df),
-                )
-                fig.update_layout(yaxis={"categoryorder": "total ascending"})
-                fig.show(save_as)
-
-            fps_tokens_df = pd.concat(
-                [
-                    group_tokens(pd.read_csv(df_path), key="prediction")
-                    for df_path in fps_frames
-                ]
-            )
-            fns_tokens_df = pd.concat(
-                [
-                    group_tokens(pd.read_csv(df_path), key="annotation")
-                    for df_path in fns_frames
-                ]
-            )
-
-            generate_graph(
-                title="false-negatives", tokens_df=fns_tokens_df, key="annotation"
-            )
-            generate_graph(
-                title="false-positives", tokens_df=fps_tokens_df, key="prediction"
-            )
-
-        def plot_confusion_matrix(
-            self, entities: List[str],
-                confmatrix: List[List[int]],
-                save_as: Optional[str]=None
-        ) -> None:
-            # Create a DataFrame from the 2D list
-            confusion_matrix_df = pd.DataFrame(
-                confmatrix, index=entities, columns=entities
-            )
-
-            confusion_matrix_df.loc["Total"] = confusion_matrix_df.sum()
-
-            # Add a column for the totals
-            confusion_matrix_df["Total"] = confusion_matrix_df.sum(axis=1)
-
-            # Create the heatmap
-            fig = px.imshow(
-                confusion_matrix_df,
-                labels=dict(x="Predicted", y="Actual", color="Count"),
-                x=confusion_matrix_df.columns,
-                y=confusion_matrix_df.index,
-                color_continuous_scale="Blues",
-                title="Confusion Matrix",
-                text_auto=True,
-            )
-            fig.update_xaxes(tickangle=90, side="top", title_standoff=10)
-            fig.update_traces(textfont=dict(size=10))
-            fig.update_layout(width=800, height=800)
-
-            fig.show(save_as)
-
-    @staticmethod
-    def __get_skip_words() -> List[str]:
-        """Return a list of tokens to ignore during evaluation."""
-        skip_words = [x for x in string.punctuation]
-        skip_words.extend(
-            [
-                " ",
-                "",
-                "\n",
-                "\n\n",
-                "\n\n\n",
-                "\n\n\n\n",
-                "\t",
-                "\t\t",
-                "\t\t\t",
-                "\t\t\t\t",
-                ">>",
-                ">>>",
-                ">>>>",
-                ">>>>>",
-                ">>>>>>",
-                "'s",
-                "street",
-                "st.",
-                "st",
-                "de",
-                "rue",
-                "via",
-                "and",
-                "a",
-                "the",
-                "or",
-                "do",
-                "as",
-                "of",
-                "day",
-                "address",
-                "country",
-                "state",
-                "city",
-                "zip",
-                "po",
-                "apt",
-                "unit",
-                "corner",
-                "p.o.",
-                "box",
-                "suite",
-                "mr.",
-                "mrs.",
-                "miss",
-                "year",
-                "years",
-                "y/o",
-                "month",
-                "months",
-                "old",
-                "morning",
-                "noon",
-                "afternoon",
-                "night",
-                "evening",
-                "this",
-                "first",
-                "last",
-                "week",
-                "weeks",
-                "weekend",
-                "day",
-                "days",
-                "age",
-                "ago",
-                "inc",
-                "inc.",
-                "ltd",
-            ]
-        )
-
-        skip_words.extend(STOP_WORDS)
-
-        return skip_words

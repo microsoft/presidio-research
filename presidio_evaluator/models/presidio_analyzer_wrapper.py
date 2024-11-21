@@ -1,7 +1,11 @@
 from typing import List, Optional, Dict
 
-from presidio_analyzer import AnalyzerEngine, EntityRecognizer, BatchAnalyzerEngine
-from presidio_anonymizer import RecognizerResult
+from presidio_analyzer import (
+    AnalyzerEngine,
+    EntityRecognizer,
+    BatchAnalyzerEngine,
+    RecognizerResult,
+)
 
 from presidio_evaluator import InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
