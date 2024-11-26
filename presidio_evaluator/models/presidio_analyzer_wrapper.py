@@ -35,6 +35,7 @@ class PresidioAnalyzerWrapper(BaseModel):
             labeling_scheme=labeling_scheme,
             entity_mapping=entity_mapping,
         )
+        self.name = "Presidio Analyzer"
         self.score_threshold = score_threshold
         self.language = language
         self.ad_hoc_recognizers = ad_hoc_recognizers

@@ -1,13 +1,13 @@
 from collections import Counter
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 import numpy as np
+from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import EvaluationResult, ModelError, ErrorType
 from presidio_evaluator.evaluation.skipwords import get_skip_words
-from presidio_evaluator.models import BaseModel
-
+from presidio_evaluator.models import BaseModel, PresidioAnalyzerWrapper
 
 GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENERIC_PII")
 
@@ -15,7 +15,7 @@ GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENER
 class Evaluator:
     def __init__(
         self,
-        model: BaseModel,
+        model: Union[BaseModel, AnalyzerEngine],
         verbose: bool = False,
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
@@ -25,7 +25,8 @@ class Evaluator:
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
 
-        :param model: Instance of a fitted model (of base type BaseModel)
+        :param model: Instance of a fitted model (of base type BaseModel),
+        or an instance of Presidio Analyzer
         :param compare_by_io: True if comparison should be done on the entity
         level and not the sub-entity level
         :param entities_to_keep: List of entity names to focus the evaluator on (and ignore the rest).
@@ -35,7 +36,15 @@ class Evaluator:
         detected instead of something other entity. For example: PII, ID, number
         :param skip_words: List of words to skip. If None, the default list would be used.
         """
-        self.model = model
+        if isinstance(model, AnalyzerEngine):
+            self.model = PresidioAnalyzerWrapper(analyzer_engine=model)
+        elif isinstance(model, BaseModel):
+            self.model = model
+        else:
+            raise ValueError(
+                "Model should be an instance of BaseModel or Presidio Analyzer"
+            )
+
         self.verbose = verbose
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
