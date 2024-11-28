@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 import dataclasses
 import json
-from typing import Optional, List
+from pathlib import Path
+from typing import Optional, List, Union
 from collections import Counter
 from typing import Dict
 
@@ -28,6 +29,7 @@ class FakerSpansResult:
     spans: List[FakerSpan]
     template: Optional[str] = None
     template_id: Optional[int] = None
+    sample_id: Optional[int] = None
 
     def __str__(self):
         return self.fake
@@ -43,6 +45,7 @@ class FakerSpansResult:
                 "spans": spans_dict,
                 "template": self.template,
                 "template_id": self.template_id,
+                "sample_id": self.sample_id,
             }
         )
 
@@ -51,9 +54,9 @@ class FakerSpansResult:
         """Load a single FakerSpansResult from a JSON string."""
         json_dict = json.loads(json_string)
         converted_spans = []
-        for span_dict in json.loads(json_dict['spans']):
+        for span_dict in json.loads(json_dict["spans"]):
             converted_spans.append(FakerSpan(**span_dict))
-        json_dict['spans'] = converted_spans
+        json_dict["spans"] = converted_spans
         return cls(**json_dict)
 
     @classmethod
@@ -66,13 +69,17 @@ class FakerSpansResult:
         return count_per_entity_new.most_common()
 
     @classmethod
-    def load_dataset_from_file(cls, filename: str) -> List["FakerSpansResult"]:
+    def load_dataset_from_file(
+        cls, filename: Union[Path, str]
+    ) -> List["FakerSpansResult"]:
         """Load a dataset of FakerSpansResult from a JSON file."""
         with open(filename, "r", encoding="utf-8") as f:
             return [cls.fromJSON(line) for line in f.readlines()]
 
     @classmethod
-    def update_entity_types(cls, dataset: List["FakerSpansResult"], entity_mapping: Dict[str, str]):
+    def update_entity_types(
+        cls, dataset: List["FakerSpansResult"], entity_mapping: Dict[str, str]
+    ):
         """Replace entity types using a translator dictionary."""
         for sample in dataset:
             # update entity types on spans
@@ -81,4 +88,5 @@ class FakerSpansResult:
             # update entity types on the template string
             for key, value in entity_mapping.items():
                 sample.template = sample.template.replace(
-                    "{{" + key + "}}", "{{" + value + "}}")
+                    "{{" + key + "}}", "{{" + value + "}}"
+                )

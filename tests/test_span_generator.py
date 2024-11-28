@@ -83,7 +83,8 @@ def test_spans_result_repr():
         '{"fake": "momo", '
         '"spans": [{"value": "momo", "start": 0, "end": 4, "type": "name"}],'
         ' "template": null, '
-        '"template_id": null}'
+        '"template_id": null, '
+        '"sample_id": null}'
     )
 
     assert sr.__repr__() == expected

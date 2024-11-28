@@ -82,7 +82,11 @@ class PresidioDataGenerator:
         self.lower_case_ratio = lower_case_ratio
 
     def parse(
-        self, template: str, template_id: Optional[int] = None, add_spans: bool = True
+        self,
+        template: str,
+        template_id: Optional[int] = None,
+        sample_id: Optional[int] = None,
+        add_spans: bool = True,
     ) -> Union[FakerSpansResult, str]:
         """
         This function replaces known PII {{tokens}} in a template sentence
@@ -104,7 +108,10 @@ class PresidioDataGenerator:
         try:
             if isinstance(self.faker.factories[0], SpanGenerator):
                 fake_pattern = self.faker.parse(
-                    template, add_spans=add_spans, template_id=template_id
+                    template,
+                    add_spans=add_spans,
+                    template_id=template_id,
+                    sample_id=sample_id,
                 )
             else:
                 fake_pattern = self.faker.parse(template)
@@ -136,10 +143,10 @@ class PresidioDataGenerator:
         if not templates:
             templates = None
 
-        for _ in tqdm(range(n_samples), desc="Sampling"):
+        for i in tqdm(range(n_samples), desc="Sampling"):
             template_id = random.choice(range(len(templates)))
             template = templates[template_id]
-            yield self.parse(template, template_id)
+            yield self.parse(template=template, template_id=template_id, sample_id=i)
 
     @staticmethod
     def _lower_pattern(pattern: Union[str, FakerSpansResult]):
