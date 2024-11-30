@@ -1,46 +1,51 @@
 # Presidio-research
 
-This package features data-science related tasks for developing new recognizers for 
-[Presidio](https://github.com/microsoft/presidio).
-It is used for the evaluation of the entire system, 
-as well as for evaluating specific PII recognizers or PII detection models. 
-In addition, it contains a fake data generator which creates fake sentences based on templates and fake PII.
+This package provides evaluation and data-science capabilities for 
+[Presidio](https://github.com/microsoft/presidio) and PII detection models in general.
+
+It also includes a fake data generator that creates synthetic sentences based on templates and fake PII.
 
 ## Who should use it?
 
 - Anyone interested in **developing or evaluating PII detection models**, an existing Presidio instance or a Presidio PII recognizer.
-- Anyone interested in **generating new data based on previous datasets or sentence templates** (e.g. to increase the coverage of entity values) for Named Entity Recognition models.
+- Anyone interested in **generating new data based on previous datasets or sentence templates** (e.g., to increase the coverage of entity values) for Named Entity Recognition models.
 
 ## Getting started
 
-### From PyPI
+
+### Using notebooks
+The easiest way to get started is by reviewing the notebooks. 
+- [Notebook 1](notebooks/1_Generate_data.ipynb): Shows how to use the PII data generator.
+- [Notebook 2](notebooks/2_PII_EDA.ipynb): Shows a simple analysis of the PII dataset.
+- [Notebook 3](notebooks/3_Split_by_pattern_number.ipynb): Provides tools to split the dataset into train/test/validation sets while avoiding leakage due to the same pattern appearing in multiple folds (only applicable for synthetically generated data).
+- [Notebook 4](notebooks/4_Evaluate_Presidio_Analyzer.ipynb): Shows how to use the evaluation tools to evaluate how well Presidio detects PII. Note that this is using the vanilla Presidio, and the results aren't very accurate.
+- [Notebook 5](notebooks/5_Evaluate_Custom_Presidio_Analyzer.ipynb): Shows how one can configure Presidio to detect PII much more accurately, and boost the f score in ~30%.
+
+### Installation
+
+>Note: Presidio evaluator requires Python version 3.9 or higher.
+
+#### From PyPI
 
 ``` sh
 conda create --name presidio python=3.9
 conda activate presidio
 pip install presidio-evaluator
-
-# Download a spaCy model used by presidio-analyzer
-python -m spacy download en_core_web_lg
 ```
 
-### From source
+#### From source
 
 To install the package:
 1. Clone the repo
-2. Install all dependencies, preferably in a virtual environment:
+2. Install all dependencies:
 
 ``` sh
-# Create conda env (optional)
-conda create --name presidio python=3.9
-conda activate presidio
-
 # Install package+dependencies
-pip install -r requirements.txt
-python setup.py install
+pip install poetry
+poetry install --with=dev
 
-# Download a spaCy model used by presidio-analyzer
-python -m spacy download en_core_web_lg
+# To install with all additional NER dependencies (e.g. Flair, Stanza), run:
+# poetry install --with='ner,dev'
 
 # Verify installation
 pytest
@@ -52,7 +57,7 @@ Note that some dependencies (such as Flair and Stanza) are not automatically ins
 
 1. **Fake data generator** for PII recognizers and NER models
 2. **Data representation layer** for data generation, modeling and analysis
-3. Multiple **Model/Recognizer evaluation** files (e.g. for Spacy, Flair, CRF, Presidio API, Presidio Analyzer python package, specific Presidio recognizers)
+3. Multiple **Model/Recognizer evaluation** files (e.g. for Presidio, Spacy, Flair, Azure AI Language)
 4. **Training and modeling code** for multiple models
 5. Helper functions for **results analysis**
 
@@ -60,7 +65,7 @@ Note that some dependencies (such as Flair and Stanza) are not automatically ins
 
 See [Data Generator README](presidio_evaluator/data_generator/README.md) for more details.
 
-The data generation process receives a file with templates, e.g. `My name is {{name}}`. 
+The data generation process takes a file with templates, e.g. `My name is {{name}}`. 
 Then, it creates new synthetic sentences by sampling templates and PII values. 
 Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans for the newly created samples.
 
@@ -70,7 +75,7 @@ Furthermore, it tokenizes the data, creates tags (either IO/BIO/BILUO) and spans
 
 Once data is generated, it could be split into train/test/validation sets 
 while ensuring that each template only exists in one set. 
-See [this notebook for more details](notebooks/3_Split_by_pattern_%23.ipynb).
+See [this notebook for more details](notebooks/3_Split_by_pattern_number.ipynb).
 
 ## 2. Data representation
 
@@ -79,88 +84,52 @@ we use specific data objects that hold all the information needed for generating
 analyzing, modeling and evaluating data and models. Specifically, 
 see [data_objects.py](presidio_evaluator/data_objects.py).
 
-The standardized structure, `List[InputSample]` could be translated into different formats:
-- CONLL
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-conll = InputSample.create_conll_dataset(dataset)
-conll.to_csv("dataset.csv", sep="\t")
+The standardized structure, `List[InputSample]`, can be translated into different formats:
+- CoNLL
+  - To CoNLL:
+    ```python
+    from presidio_evaluator import InputSample
+    dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+    conll = InputSample.create_conll_dataset(dataset)
+    conll.to_csv("dataset.csv", sep="\t")
+    ```
 
-```
+  - From CoNLL
+    ```python
+    from pathlib import Path
+    from presidio_evaluator.dataset_formatters import CONLL2003Formatter
+    # Read from a folder containing ConLL2003 files
+    conll_formatter = CONLL2003Formatter(files_path=Path("data/conll2003").resolve())
+    train_samples = conll_formatter.to_input_samples(fold="train")
+    ```  
+
 
 - spaCy v3
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-InputSample.create_spacy_dataset(dataset, output_path="dataset.spacy")
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  InputSample.create_spacy_dataset(dataset, output_path="dataset.spacy")
+  ```
 
 - Flair
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-flair = InputSample.create_flair_dataset(dataset)
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  flair = InputSample.create_flair_dataset(dataset)
+  ```
 
 - json
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-InputSample.to_json(dataset, output_file="dataset_json")
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  InputSample.to_json(dataset, output_file="dataset_json")
+  ```
 
 ## 3. PII models evaluation
 
-The presidio-evaluator framework allows you to evaluate Presidio as a system, a NER model, 
-or a specific PII recognizer for precision and recall and error-analysis.
-
-
-### Examples:
-- [Evaluate Presidio](notebooks/4_Evaluate_Presidio_Analyzer.ipynb)
-- [Evaluate spaCy models](notebooks/models/Evaluate%20spacy%20models.ipynb)
-- [Evaluate Stanza models](notebooks/models/Evaluate%20stanza%20models.ipynb)
-- [Evaluate CRF models](notebooks/models/Evaluate%20CRF%20models.ipynb)
-- [Evaluate Flair models](notebooks/models/Evaluate%20flair%20models.ipynb)
-- [Evaluate Azure Text Analytics](notebooks/models/Evaluate%azure%text%analytics.ipynb)
-
-
-## 4. Training PII detection models
-
-### CRF
-
-To train a vanilla CRF on a new dataset, see [this notebook](notebooks/models/Train%20CRF.ipynb). To evaluate, see [this notebook](notebooks/models/Evaluate%20CRF%20models.ipynb).
-
-### spaCy
-
-To train a new spaCy model, first save the dataset in a spaCy format:
-```python
-# dataset is a List[InputSample]
-InputSample.create_spacy_dataset(dataset ,output_path="dataset.spacy")
-```
-
-To evaluate, see [this notebook](notebooks/models/Evaluate%20spacy%20models.ipynb)
-
-### Flair
-
-- To train Flair models, see this [helper class](presidio_evaluator/models/flair_train.py) or this snippet:
-```python
-from presidio_evaluator.models import FlairTrainer
-train_samples = "data/generated_train.json"
-test_samples = "data/generated_test.json"
-val_samples = "data/generated_validation.json"
-
-trainer = FlairTrainer()
-trainer.create_flair_corpus(train_samples, test_samples, val_samples)
-
-corpus = trainer.read_corpus("")
-trainer.train(corpus)
-```
-
-> Note that the three json files are created using `InputSample.to_json`.
+The presidio-evaluator framework allows you to evaluate Presidio as a system, a NER model, or a specific PII recognizer for precision, recall, and error analysis. See [Notebook 5](notebooks/5_Evaluate_Custom_Presidio_Analyzer.ipynb) for an example.
 
 ## For more information
-
 
 - [Blog post on NLP approaches to data anonymization](https://towardsdatascience.com/nlp-approaches-to-data-anonymization-1fb5bde6b929)
 - [Conference talk about leveraging Presidio and utilizing NLP approaches for data anonymization](https://youtu.be/Tl773LANRwY)

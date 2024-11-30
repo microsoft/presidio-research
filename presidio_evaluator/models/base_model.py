@@ -13,7 +13,6 @@ class BaseModel(ABC):
         entity_mapping: Optional[Dict[str, str]] = None,
         verbose: bool = False,
     ):
-
         """
         Abstract class for evaluating NER models and others
         :param entities_to_keep: Which entities should be evaluated? All other
@@ -31,15 +30,20 @@ class BaseModel(ABC):
         self.labeling_scheme = labeling_scheme
         self.entity_mapping = entity_mapping
         self.verbose = verbose
+        self.name = self.__class__.__name__
 
     @abstractmethod
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         """
         Abstract. Returns the predicted tokens/spans from the evaluated model
         :param sample: Sample to be evaluated
         :return: List of tags in self.labeling_scheme format
         """
         pass
+
+    @abstractmethod
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        """Perform batch prediction if the model supports it."""
 
     def align_entity_types(self, sample: InputSample) -> None:
         """
@@ -131,7 +135,9 @@ class BaseModel(ABC):
             "entities_to_keep": self.entities,
         }
 
-    def _tag_in_entities(self, tag: str):
+    def _tag_in_entities(self, tag: str) -> bool:
+        """True if the tag is in the entities to keep."""
+
         if not self.entities:
             return True
 

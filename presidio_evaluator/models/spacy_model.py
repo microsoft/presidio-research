@@ -31,7 +31,7 @@ class SpacyModel(BaseModel):
         else:
             self.model = model
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         """
         Predict a list of tags for an inpuit sample.
         :param sample: InputSample
@@ -43,6 +43,16 @@ class SpacyModel(BaseModel):
             print("mismatch between input tokens and new tokens")
 
         return tags
+
+    def batch_predict(self, dataset: List[InputSample], **kwargs) -> List[List[str]]:
+        texts = [sample.full_text for sample in dataset]
+
+        docs = self.model.pipe(texts=texts)
+        predictions = []
+        for doc in docs:
+            tags = self._get_tags_from_doc(doc)
+            predictions.append(tags)
+        return predictions
 
     @staticmethod
     def _get_tags_from_doc(doc):

@@ -27,7 +27,7 @@ def faker_providers():
     ],
     # fmt: on
 )
-def test_presidio_psudonymize_two_entities(
+def test_presidio_pseudonymize_two_entities(
     text, entity1, entity2, start1, end1, start2, end2, value1, value2, faker_providers
 ):
 

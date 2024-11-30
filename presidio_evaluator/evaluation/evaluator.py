@@ -1,45 +1,63 @@
 from collections import Counter
-from typing import List, Optional, Dict
-from pathlib import Path
+from typing import List, Optional, Dict, Union
 
 import numpy as np
-from tqdm import tqdm
-
-import plotly.express as px
-import pandas as pd
+from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator import InputSample
-from presidio_evaluator.evaluation import EvaluationResult, ModelError
-from presidio_evaluator.models import BaseModel
+from presidio_evaluator.evaluation import EvaluationResult, ModelError, ErrorType
+from presidio_evaluator.evaluation.skipwords import get_skip_words
+from presidio_evaluator.models import BaseModel, PresidioAnalyzerWrapper
+
+GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENERIC_PII")
 
 
 class Evaluator:
     def __init__(
         self,
-        model: BaseModel,
+        model: Union[BaseModel, AnalyzerEngine],
         verbose: bool = False,
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
+        generic_entities: Optional[List[str]] = None,
+        skip_words: Optional[List] = None,
     ):
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
 
-        :param model: Instance of a fitted model (of base type BaseModel)
+        :param model: Instance of a fitted model (of base type BaseModel),
+        or an instance of Presidio Analyzer
         :param compare_by_io: True if comparison should be done on the entity
         level and not the sub-entity level
         :param entities_to_keep: List of entity names to focus the evaluator on (and ignore the rest).
         Default is None = all entities. If the provided model has a list of entities to keep,
         this list would be used for evaluation.
+        :param generic_entities: List of entities that are not considered an error if
+        detected instead of something other entity. For example: PII, ID, number
+        :param skip_words: List of words to skip. If None, the default list would be used.
         """
-        self.model = model
+        if isinstance(model, AnalyzerEngine):
+            self.model = PresidioAnalyzerWrapper(analyzer_engine=model)
+        elif isinstance(model, BaseModel):
+            self.model = model
+        else:
+            raise ValueError(
+                "Model should be an instance of BaseModel or Presidio Analyzer"
+            )
+
         self.verbose = verbose
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
         if self.entities_to_keep is None and self.model.entities:
             self.entities_to_keep = self.model.entities
 
-    def compare(self, input_sample: InputSample, prediction: List[str]):
+        self.generic_entities = (
+            generic_entities if generic_entities else GENERIC_ENTITIES
+        )
 
+        self.skip_words = skip_words if skip_words else get_skip_words()
+
+    def compare(self, input_sample: InputSample, prediction: List[str]):
         """
         Compares ground truth tags (annotation) and predicted (prediction)
         :param input_sample: input sample containing list of tags with scheme
@@ -71,24 +89,36 @@ class Evaluator:
         if self.entities_to_keep:
             prediction = self._adjust_per_entities(prediction)
             new_annotation = self._adjust_per_entities(new_annotation)
+
         for i in range(0, len(new_annotation)):
-            results[(new_annotation[i], prediction[i])] += 1
+            cur_token = tokens[i]
+            cur_prediction = prediction[i]
+            cur_annotation = new_annotation[i]
+            results[(cur_annotation, cur_prediction)] += 1
 
             if self.verbose:
-                print("Annotation:", new_annotation[i])
-                print("Prediction:", prediction[i])
+                print("Annotation:", cur_annotation)
+                print("Prediction:", cur_prediction)
                 print(results)
 
             # check if there was an error
-            is_error = new_annotation[i] != prediction[i]
+            is_error = cur_annotation != cur_prediction
+
             if is_error:
+                reverted = self.__revert_known_errors(
+                    cur_annotation, cur_prediction, cur_token, results
+                )
+                if reverted:
+                    # This isn't really an error, continue.
+                    continue
+
                 if prediction[i] == "O":
                     mistakes.append(
                         ModelError(
-                            error_type="FN",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            error_type=ErrorType.FN,
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
@@ -96,10 +126,10 @@ class Evaluator:
                 elif new_annotation[i] == "O":
                     mistakes.append(
                         ModelError(
-                            error_type="FP",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            error_type=ErrorType.FP,
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
@@ -107,16 +137,46 @@ class Evaluator:
                 else:
                     mistakes.append(
                         ModelError(
-                            error_type="Wrong entity",
-                            annotation=new_annotation[i],
-                            prediction=prediction[i],
-                            token=tokens[i],
+                            error_type=ErrorType.WrongEntity,
+                            annotation=cur_annotation,
+                            prediction=cur_prediction,
+                            token=cur_token,
                             full_text=input_sample.full_text,
                             metadata=input_sample.metadata,
                         )
                     )
 
         return results, mistakes
+
+    def __revert_known_errors(
+        self, current_annotation, current_prediction, current_token, results
+    ) -> bool:
+        reverted = False
+
+        if str(current_token).lower().strip() in self.skip_words:
+            # Ignore cases where the token is a skip word
+            results[(current_annotation, current_prediction)] -= 1
+            reverted = True
+
+        if current_prediction in self.generic_entities and current_annotation != "O":
+            # Ignore cases where the prediction is generic
+            results[(current_annotation, current_prediction)] -= 1
+            # Add a result which assumes the generic equals the specific
+            results[(current_annotation, current_annotation)] += 1
+            reverted = True
+
+        elif current_annotation in self.generic_entities and current_prediction != "O":
+            # Ignore cases where the prediction is generic
+            results[(current_annotation, current_prediction)] -= 1
+            # Add a result which assumes the generic equals the specific
+            results[(current_prediction, current_prediction)] += 1
+            reverted = True
+
+        # Remove temporary keys which should not be counted
+        if results[(current_annotation, current_prediction)] == 0:
+            del results[(current_annotation, current_prediction)]
+
+        return reverted
 
     def _adjust_per_entities(self, tags):
         if self.entities_to_keep:
@@ -144,21 +204,28 @@ class Evaluator:
         results, mistakes = self.compare(input_sample=sample, prediction=prediction)
         return EvaluationResult(results, mistakes, sample.full_text)
 
-    def evaluate_all(self, dataset: List[InputSample]) -> List[EvaluationResult]:
+    def evaluate_all(
+        self, dataset: List[InputSample], **kwargs
+    ) -> List[EvaluationResult]:
+        """Evaluate a dataset given a model and labels.
+
+        :param dataset: A list of InputSample samples, containing the ground truth tags
+        :param kwargs: Additional arguments for the model's predict method
+        """
+
         evaluation_results = []
         if self.model.entity_mapping:
             print(
                 f"Mapping entity values using this dictionary: {self.model.entity_mapping}"
             )
-        for sample in tqdm(dataset, desc=f"Evaluating {self.model.__class__}"):
 
-            # Align tag values to the ones expected by the model
-            self.model.align_entity_types(sample)
+        print(f"Running model {self.model.__class__.__name__} on dataset...")
+        predictions = self.model.batch_predict(dataset, **kwargs)
+        print("Finished running model on dataset")
 
-            # Predict
-            prediction = self.model.predict(sample)
+        for prediction, sample in zip(predictions, dataset):
 
-            # Remove entities not requested
+            # Remove entities not requested (in model.entities_to_keep))
             prediction = self.model.filter_tags_in_supported_entities(prediction)
 
             # Switch to requested labeling scheme (IO/BIO/BILUO)
@@ -187,19 +254,13 @@ class Evaluator:
         # A list that will contain updated input samples,
         new_list = []
 
-        entities_mapping_case_insensitive = {
-            k.upper(): v for k, v in entities_mapping.items()
-        }
-        entities_mapping_case_insensitive.update(
-            {k.lower(): v for k, v in entities_mapping.items()}
-        )
         for input_sample in new_input_samples:
             contains_field_in_mapping = False
             new_spans = []
             # Update spans to match the entity types in the values of entities_mapping
             for span in input_sample.spans:
-                if span.entity_type in entities_mapping_case_insensitive.keys():
-                    new_name = entities_mapping_case_insensitive.get(span.entity_type)
+                if span.entity_type in entities_mapping.keys():
+                    new_name = entities_mapping.get(span.entity_type)
                     span.entity_type = new_name
                     contains_field_in_mapping = True
 
@@ -222,8 +283,8 @@ class Evaluator:
                         prefix = ""
                         clean = tag
 
-                    if clean in entities_mapping_case_insensitive.keys():
-                        new_name = entities_mapping_case_insensitive.get(clean)
+                    if clean in entities_mapping.keys():
+                        new_name = entities_mapping.get(clean)
                         input_sample.tags[i] = "{}{}".format(prefix, new_name)
                     else:
                         input_sample.tags[i] = "O"
@@ -231,12 +292,13 @@ class Evaluator:
             new_list.append(input_sample)
 
         return new_list
+        # Iterate on all samples
 
     def calculate_score(
         self,
         evaluation_results: List[EvaluationResult],
         entities: Optional[List[str]] = None,
-        beta: float = 2.5,
+        beta: float = 2.0,
     ) -> EvaluationResult:
         """
         Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
@@ -256,7 +318,9 @@ class Evaluator:
         entity_precision = {}
         n = {}
         if not entities:
-            entities = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
+            entities1 = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
+            entities2 = list(set([x[1] for x in all_results.keys() if x[1] != "O"]))
+            entities = list(set(entities1).union(set(entities2)))
 
         for entity in entities:
             # all annotation of given type
@@ -268,13 +332,13 @@ class Evaluator:
             if annotated > 0:
                 entity_recall[entity] = tp / annotated
             else:
-                entity_recall[entity] = np.NaN
+                entity_recall[entity] = np.nan
 
             if predicted > 0:
                 per_entity_tp = all_results[(entity, entity)]
                 entity_precision[entity] = per_entity_tp / predicted
             else:
-                entity_precision[entity] = np.NaN
+                entity_precision[entity] = np.nan
 
         # compute pii_precision and pii_recall
         annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
@@ -291,7 +355,7 @@ class Evaluator:
                 / annotated_all
             )
         else:
-            pii_recall = np.NaN
+            pii_recall = np.nan
         if predicted_all > 0:
             pii_precision = (
                 sum(
@@ -304,7 +368,7 @@ class Evaluator:
                 / predicted_all
             )
         else:
-            pii_precision = np.NaN
+            pii_precision = np.nan
         # compute pii_f_beta-score
         pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
 
@@ -350,156 +414,4 @@ class Evaluator:
         if np.isnan(precision) or np.isnan(recall) or (precision == 0 and recall == 0):
             return np.nan
 
-        return ((1 + beta**2) * precision * recall) / (
-            ((beta**2) * precision) + recall
-        )
-
-    class Plotter:
-        """
-        Plot scores (f2, precision, recall) and errors (false-positivies, false-negatives)
-        for a PII detection model evaluated via Evaluator
-
-        :param model: Instance of a fitted model (of base type BaseModel)
-        :param results: results given by evaluator.calculate_score(evaluation_results)
-        :param output_folder: folder to store plots and errors in
-        :param model_name: name of the model to be used in the plot title
-        :param beta: a float with the beta parameter of the F measure,
-        which gives more or less weight to precision vs. recall
-        """
-
-        def __init__(
-            self, model, results, output_folder: Path, model_name: str, beta: float
-        ):
-            self.model = model
-            self.results = results
-            self.output_folder = output_folder
-            self.model_name = model_name.replace("/", "-")
-            self.errors = results.model_errors
-            self.beta = beta
-
-        def plot_scores(self) -> None:
-            """
-            Plots per-entity recall, precision, or F2 score for evaluated model.
-            :param plot_type: which metric to graph (default is F2 score)
-            """
-            scores = {}
-            scores["entity"] = list(self.results.entity_recall_dict.keys())
-            scores["recall"] = list(self.results.entity_recall_dict.values())
-            scores["precision"] = list(self.results.entity_precision_dict.values())
-            scores["count"] = list(self.results.n_dict.values())
-            scores[f"f{self.beta}_score"] = [
-                Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
-                for recall, precision in zip(scores["recall"], scores["precision"])
-            ]
-            df = pd.DataFrame(scores)
-            df["model"] = self.model_name
-            self._plot(df, plot_type="f2_score")
-            self._plot(df, plot_type="precision")
-            self._plot(df, plot_type="recall")
-
-        def _plot(self, df, plot_type) -> None:
-            fig = px.bar(
-                df,
-                text_auto=".2",
-                y="entity",
-                orientation="h",
-                x=plot_type,
-                color="count",
-                barmode="group",
-                title=f"Per-entity {plot_type} for {self.model_name}",
-            )
-            fig.update_layout(
-                barmode="group", yaxis={"categoryorder": "total ascending"}
-            )
-            fig.update_layout(yaxis_title=f"{plot_type}", xaxis_title="PII Entity")
-            fig.update_traces(
-                textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
-            )
-            fig.update_layout(
-                plot_bgcolor="#FFF",
-                xaxis=dict(
-                    title="PII entity",
-                    linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False,  # Removes X-axis grid lines
-                ),
-                yaxis=dict(
-                    title=f"{plot_type}",
-                    linecolor="#BCCCDC",  # Sets color of X-axis line
-                    showgrid=False,  # Removes X-axis grid lines
-                ),
-            )
-            fig.show()
-
-        def plot_most_common_tokens(self) -> None:
-            """Graph most common false positive and false negative tokens for each entity."""
-            ModelError.most_common_fp_tokens(self.errors)
-            fps_frames = []
-            fns_frames = []
-            for entity in self.model.entity_mapping.values():
-                fps_df = ModelError.get_fps_dataframe(self.errors, entity=[entity])
-                if fps_df is not None:
-                    fps_path = (
-                        self.output_folder / f"{self.model_name}-{entity}-fps.csv"
-                    )
-                    fps_df.to_csv(fps_path)
-                    fps_frames.append(fps_path)
-                fns_df = ModelError.get_fns_dataframe(self.errors, entity=[entity])
-                if fns_df is not None:
-                    fns_path = (
-                        self.output_folder / f"{self.model_name}-{entity}-fns.csv"
-                    )
-                    fns_df.to_csv(fns_path)
-                    fns_frames.append(fns_path)
-
-            def group_tokens(df):
-                return (
-                    df.groupby(["token", "annotation"])
-                    .size()
-                    .to_frame()
-                    .sort_values([0], ascending=False)
-                    .head(3)
-                    .reset_index()
-                )
-
-            fps_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fps_frames]
-            )
-            fns_tokens_df = pd.concat(
-                [group_tokens(pd.read_csv(df_path)) for df_path in fns_frames]
-            )
-
-            def generate_graph(title, tokens_df):
-                fig = px.histogram(
-                    tokens_df,
-                    x=0,
-                    y="token",
-                    orientation="h",
-                    color="annotation",
-                    title=f"Most common {title} for {self.model_name}",
-                )
-
-                fig.update_layout(yaxis_title=f"count", xaxis_title="PII Entity")
-                fig.update_traces(
-                    textfont_size=12,
-                    textangle=0,
-                    textposition="outside",
-                    cliponaxis=False,
-                )
-                fig.update_layout(
-                    plot_bgcolor="#FFF",
-                    xaxis=dict(
-                        title="Count",
-                        linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False,  # Removes X-axis grid lines
-                    ),
-                    yaxis=dict(
-                        title=f"Tokens",
-                        linecolor="#BCCCDC",  # Sets color of X-axis line
-                        showgrid=False,  # Removes X-axis grid lines
-                    ),
-                )
-                fig.update_layout(yaxis={"categoryorder": "total ascending"})
-                fig.show()
-
-            generate_graph(title="false-negatives", tokens_df=fns_tokens_df)
-            generate_graph(title="false-positives", tokens_df=fps_tokens_df)
+        return ((1 + beta**2) * precision * recall) / (((beta**2) * precision) + recall)

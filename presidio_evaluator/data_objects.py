@@ -72,10 +72,9 @@ class Span:
 
     def __repr__(self):
         return (
-            f"Type: {self.entity_type}, "
+            f"Span(type: {self.entity_type}, "
             f"value: {self.entity_value}, "
-            f"start: {self.start_position}, "
-            f"end: {self.end_position}"
+            f"char_span: [{self.start_position}: {self.end_position}])"
         )
 
     def __eq__(self, other):
@@ -116,8 +115,9 @@ class InputSample(object):
         create_tags_from_span=False,
         token_model_version="en_core_web_sm",
         scheme="IO",
-        metadata=None,
-        template_id=None,
+        metadata: Dict = None,
+        sample_id: int = None,
+        template_id: int = None,
     ):
         """
         Hold all the information needed for evaluation in the
@@ -135,6 +135,7 @@ class InputSample(object):
         :param metadata: A dictionary of additional metadata on the sample,
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
+        :param sample_id: Unique identifier for this sample (within a dataset)
         """
         if tags is None:
             tags = []
@@ -144,6 +145,7 @@ class InputSample(object):
         self.masked = masked
         self.spans = spans if spans else []
         self.metadata = metadata
+        self.sample_id = sample_id
 
         # generated samples have a template from which they were generated
         if not template_id and self.metadata:
@@ -160,15 +162,9 @@ class InputSample(object):
             self.tags = tags
 
     def __repr__(self):
-        return (
-            f"Full text: {self.full_text}\n"
-            f"Spans: {self.spans}\n"
-            f"Tokens: {self.tokens}\n"
-            f"Tags: {self.tags}\n"
-        )
+        return f"Full text: {self.full_text}\n" f"Spans: {self.spans}\n"
 
     def to_dict(self):
-
         return {
             "full_text": self.full_text,
             "masked": self.masked,
@@ -239,7 +235,6 @@ class InputSample(object):
         to_bio=True,
         token_model_version="en_core_web_sm",
     ) -> pd.DataFrame:
-
         if len(dataset) <= 1:
             raise ValueError("Dataset should contain multiple records")
 
@@ -487,7 +482,7 @@ class InputSample(object):
             if span.entity_type in dictionary:
                 span.entity_type = dictionary[span.entity_type]
             elif ignore_unknown:
-                span.entity_value = "O"
+                span.entity_type = "O"
 
         # Remove spans if they were changed to "O"
         self.spans = [span for span in self.spans if span.entity_type != "O"]

@@ -51,7 +51,7 @@ class StanzaModel(SpacyModel):
             entity_mapping=entity_mapping,
         )
 
-    def predict(self, sample: InputSample) -> List[str]:
+    def predict(self, sample: InputSample, **kwargs) -> List[str]:
         """
         Predict the tags using a stanza model.
 
