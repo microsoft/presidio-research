@@ -4,7 +4,9 @@ version = "0.1.1"
 description = ""
 authors = ["Microsoft"]
 readme = "README.md"
+license = "MIT"
 include = [{ path= "presidio_evaluator/data_generator/raw_data/*"}]
+
 
 [tool.poetry.dependencies]
 python = "^3.9"
