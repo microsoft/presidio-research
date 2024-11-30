@@ -52,7 +52,7 @@ The process in high level is the following:
 templates: `My name is John` -> `My name is [PERSON]`
 2. Construct a `PresidioSentenceFaker` instance by:
    - Choosing your appropriate locale e.g. `en_US`
-   - Choosing the lower case ration
+   - Choosing the lower case ratio
    - Pass in your list of templates (or default to those provided)
      - Optionally extend with provided templates accessible via `from presidio_evaluator.data_generator import presidio_templates_file_path`
    - Pass in any custom entity providers (or default to those provided)
