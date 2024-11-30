@@ -85,72 +85,51 @@ analyzing, modeling and evaluating data and models. Specifically,
 see [data_objects.py](presidio_evaluator/data_objects.py).
 
 The standardized structure, `List[InputSample]`, can be translated into different formats:
-- CONLL
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-conll = InputSample.create_conll_dataset(dataset)
-conll.to_csv("dataset.csv", sep="\t")
-```
+- CoNLL
+  - To CoNLL:
+    ```python
+    from presidio_evaluator import InputSample
+    dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+    conll = InputSample.create_conll_dataset(dataset)
+    conll.to_csv("dataset.csv", sep="\t")
+    ```
+
+  - From CoNLL
+    ```python
+    from pathlib import Path
+    from presidio_evaluator.dataset_formatters import CONLL2003Formatter
+    # Read from a folder containing ConLL2003 files
+    conll_formatter = CONLL2003Formatter(files_path=Path("data/conll2003").resolve())
+    train_samples = conll_formatter.to_input_samples(fold="train")
+    ```  
+
 
 - spaCy v3
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-InputSample.create_spacy_dataset(dataset, output_path="dataset.spacy")
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  InputSample.create_spacy_dataset(dataset, output_path="dataset.spacy")
+  ```
 
 - Flair
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-flair = InputSample.create_flair_dataset(dataset)
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  flair = InputSample.create_flair_dataset(dataset)
+  ```
 
 - json
-```python
-from presidio_evaluator import InputSample
-dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
-InputSample.to_json(dataset, output_file="dataset_json")
-```
+  ```python
+  from presidio_evaluator import InputSample
+  dataset = InputSample.read_dataset_json("data/synth_dataset_v2.json")
+  InputSample.to_json(dataset, output_file="dataset_json")
+  ```
 
 ## 3. PII models evaluation
 
 The presidio-evaluator framework allows you to evaluate Presidio as a system, a NER model, or a specific PII recognizer for precision, recall, and error analysis. See [Notebook 5](notebooks/5_Evaluate_Custom_Presidio_Analyzer.ipynb) for an example.
 
-
-## 4. Training PII detection models
-
-### spaCy
-
-To train a new spaCy model, first save the dataset in a spaCy format:
-```python
-# dataset is a List[InputSample]
-InputSample.create_spacy_dataset(dataset ,output_path="dataset.spacy")
-```
-
-To evaluate, see [this notebook](notebooks/models/Evaluate%20spacy%20models.ipynb)
-
-### Flair
-
-- To train Flair models, see this [helper class](presidio_evaluator/models/flair_train.py) or this snippet:
-```python
-from presidio_evaluator.models import FlairTrainer
-train_samples = "data/generated_train.json"
-test_samples = "data/generated_test.json"
-val_samples = "data/generated_validation.json"
-
-trainer = FlairTrainer()
-trainer.create_flair_corpus(train_samples, test_samples, val_samples)
-
-corpus = trainer.read_corpus("")
-trainer.train(corpus)
-```
-
-> Note that the three json files are created using `InputSample.to_json`.
-
 ## For more information
-
 
 - [Blog post on NLP approaches to data anonymization](https://towardsdatascience.com/nlp-approaches-to-data-anonymization-1fb5bde6b929)
 - [Conference talk about leveraging Presidio and utilizing NLP approaches for data anonymization](https://youtu.be/Tl773LANRwY)
