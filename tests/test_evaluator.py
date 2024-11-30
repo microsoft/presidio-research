@@ -371,8 +371,8 @@ def test_align_entity_types_wrong_mapping_exception():
             1,
             1,
         ),
-        (["!"], ["O"], ["U-PERSON"], np.NaN, np.NaN),
-        ([], [], [], np.NaN, np.NaN),
+        (["!"], ["O"], ["U-PERSON"], np.nan, np.nan),
+        ([], [], [], np.nan, np.nan),
     ],
 )
 def test_skip_words_are_not_counted_as_errors(
