@@ -251,7 +251,7 @@ class Evaluator:
 
         new_input_samples = input_samples.copy()
 
-        def is_key_in_dict(key_dict:Dict[str, str], search_key:str):
+        def is_key_in_dict(key_dict: Dict[str, str], search_key: str):
             """Check if a key is in a dictionary, ignoring case and underscores."""
             # Normalize the search key by converting to uppercase and removing underscores
             normalized_search_key = search_key.upper().replace("_", "")

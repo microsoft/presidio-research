@@ -46,9 +46,9 @@ class NationalityProvider(BaseProvider):
 
 class OrganizationProvider(BaseProvider):
     def __init__(
-            self,
-            generator,
-            organizations_file: Union[str, Path] = None,
+        self,
+        generator,
+        organizations_file: Union[str, Path] = None,
     ):
         super().__init__(generator=generator)
         if not organizations_file:

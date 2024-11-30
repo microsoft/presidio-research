@@ -2,8 +2,6 @@ import copy
 from pathlib import Path
 from typing import Optional, List
 
-from collections import Counter
-
 import pandas as pd
 import plotly.express as px
 from plotly.graph_objs import Figure

@@ -7,7 +7,7 @@ from presidio_evaluator.data_objects import PRESIDIO_SPACY_ENTITIES
 
 try:
     import spacy_stanza
-    import stanza
+    import stanza  # noqa: F401
 except ImportError:
     print("stanza and spacy_stanza are not installed")
 from presidio_evaluator.models import SpacyModel
@@ -34,7 +34,6 @@ class StanzaModel(SpacyModel):
         labeling_scheme: str = "BIO",
         entity_mapping: Optional[Dict[str, str]] = PRESIDIO_SPACY_ENTITIES,
     ):
-
         if not model and not model_name:
             raise ValueError("Either model_name or model object must be supplied")
         if not model:

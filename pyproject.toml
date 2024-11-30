@@ -37,7 +37,7 @@ spacy_huggingface_pipelines = "^0.0.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.*"
-flake8 = ">=3.*"
+ruff = "^0.8"
 pytest-azurepipelines = "^1.0.5"
 jupyter = "^1.0.0"
 matplotlib = "^3.4.3"
@@ -45,3 +45,24 @@ matplotlib = "^3.4.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+exclude = [".git", "__pycache__", "build", "dist", "tests"]
+ignore = ["E203", "D100", "D202"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "inconclusive: marks tests as those that may sometimes fail due to threshold",
+    "none: regular tests",
+    "serial"
+]
+# Uncomment the following lines to enable logging during test debugging.
+# log_cli = true
+# log_level = "DEBUG"
+
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]

@@ -62,8 +62,6 @@ def _handle_overlaps(start, end, tag, score):
     start, end, tag, score = _sort_spans(start, end, tag, score)
     if len(start) == 0:
         return start, end, tag, score
-    max_end = max(end)
-    index = min(start)
     number_of_spans = len(start)
     i = 0
     while i < number_of_spans - 1:
@@ -100,14 +98,14 @@ def _handle_overlaps(start, end, tag, score):
 
 
 def span_to_tag(
-        scheme: str,
-        text: str,
-        starts: List[int],
-        ends: List[int],
-        tags: List[str],
-        scores: Optional[List[float]] = None,
-        tokens: Optional[Doc] = None,
-        token_model_version: str = "en_core_web_sm"
+    scheme: str,
+    text: str,
+    starts: List[int],
+    ends: List[int],
+    tags: List[str],
+    scores: Optional[List[float]] = None,
+    tokens: Optional[Doc] = None,
+    token_model_version: str = "en_core_web_sm",
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
@@ -137,18 +135,18 @@ def span_to_tag(
         found = False
         for span_index in range(0, len(starts)):
             span_start_in_token = (
-                    token.idx <= starts[span_index] <= token.idx + len(token.text)
+                token.idx <= starts[span_index] <= token.idx + len(token.text)
             )
             span_end_in_token = (
-                    token.idx <= ends[span_index] <= token.idx + len(token.text)
+                token.idx <= ends[span_index] <= token.idx + len(token.text)
             )
             if (
-                    starts[span_index] <= token.idx < ends[span_index]
+                starts[span_index] <= token.idx < ends[span_index]
             ):  # token start is between start and end
                 io_tags.append(tags[span_index])
                 found = True
             elif (
-                    span_start_in_token and span_end_in_token
+                span_start_in_token and span_end_in_token
             ):  # span is within token boundaries (special case)
                 io_tags.append(tags[span_index])
                 found = True
@@ -189,7 +187,7 @@ def io_to_scheme(io_tags: List[str], scheme: str) -> List[str]:
     for i in range(len(changes) - 1):
         new_return_tags.extend(
             _get_detailed_tags_for_span(
-                scheme=scheme, cur_tags=io_tags[changes[i]: changes[i + 1]]
+                scheme=scheme, cur_tags=io_tags[changes[i] : changes[i + 1]]
             )
         )
     return new_return_tags

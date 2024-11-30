@@ -1,7 +1,6 @@
 import random
 from typing import Optional, List, Union, Dict, Any
 
-import faker
 import pandas as pd
 from faker import Faker
 from faker.generator import _re_token

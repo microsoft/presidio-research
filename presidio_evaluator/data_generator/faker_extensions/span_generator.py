@@ -28,10 +28,11 @@ class SpanGenerator(Generator):
     """
 
     def parse(
-        self, text: str,
-            add_spans: bool = False,
-            template_id: Optional[int] = None,
-            sample_id: Optional[int] = None,
+        self,
+        text: str,
+        add_spans: bool = False,
+        template_id: Optional[int] = None,
+        sample_id: Optional[int] = None,
     ) -> Union[str, InputSample]:
         """Parses a Faker template.
 
@@ -82,7 +83,7 @@ class SpanGenerator(Generator):
                 spans=spans,
                 masked=text,
                 template_id=template_id,
-                sample_id=sample_id
+                sample_id=sample_id,
             )
             if add_spans
             else fake_text
