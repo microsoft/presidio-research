@@ -102,9 +102,7 @@ def test_spans_result_repr():
         ],
     )
     expected = """Full text: momo
-Spans: [Type: name, value: momo, start: 0, end: 4]
-Tokens: []
-Tags: []
+Spans: [Span(type: name, value: momo, char_span: [0: 4])]
 """
 
     assert sr.__repr__() == expected

@@ -112,6 +112,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         PERSON="PERSON",
         FIRST_NAME="PERSON",
         LAST_NAME="PERSON",
+        NAME="PERSON",
         PATIENT="PERSON",
         STAFF="PERSON",
         HCW="PERSON",
@@ -142,6 +143,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         PREFIX="TITLE",
         # Financial
         CREDIT_CARD="CREDIT_CARD",
+        CREDIT_CARD_NUMBER="CREDIT_CARD",
         IBAN_CODE="IBAN_CODE",
         IBAN="IBAN_CODE",
         # Dates, times, birthdays
