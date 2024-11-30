@@ -18,9 +18,9 @@ and then scenario 1 is applied.
 
 This generator heavily relies on the [Faker package](https://www.github.com/joke2k/faker) with a few differences:
 
-1. `PresidioSentenceFaker` returns not only fake text, but also the spans in which fake entities appear in the text
+1. `PresidioSentenceFaker` returns not only fake text, but also the spans in which fake entities appear in the text.
 2. `Faker` samples each value independently.
-In many cases we would want to keep the semantic dependency between two values. 
+In many cases, we would want to keep the semantic dependency between two values. 
 For example, for the template `My name is {{name}} and my email is {{email}}`, 
 we would prefer a result which has the name within the email address, 
 such as `My name is Mike and my email is mike1243@gmail.com`. 
@@ -31,7 +31,7 @@ It accepts a dictionary / pandas DataFrame, and favors returning objects from th
 
 For a full example, see the [Generate Data Notebook](../../notebooks/1_Generate_data.ipynb).
 
-`PresidioSentenceFaker` provides a high level interface for using the full power of the `presidio_evaluator`
+`PresidioSentenceFaker` provides a high-level interface for using the full power of the `presidio_evaluator`
 package. Its results use the presidio PII entities, not the `Faker` entities.
 It is loaded by default with template strings, and the additional Presidio Entity Providers.
 
@@ -46,26 +46,26 @@ print(fake_records[0].fake)
 print(fake_records[0].spans)
 ```
 
-The process in high level is the following:
+The process at a high level is the following:
 
 1. Translate a NER dataset (e.g. CONLL or OntoNotes) into a list of
 templates: `My name is John` -> `My name is [PERSON]`
 2. Construct a `PresidioSentenceFaker` instance by:
-   - Choosing your appropriate locale e.g. `en_US`
+   - Choosing your appropriate locale, e.g. `en_US`
    - Choosing the lower case ratio
-   - Pass in your list of templates (or default to those provided)
+   - Passing in your list of templates (or default to those provided)
      - Optionally extend with provided templates accessible via `from presidio_evaluator.data_generator import presidio_templates_file_path`
-   - Pass in any custom entity providers (or default to those provided)
+   - Passing in any custom entity providers (or default to those provided)
      - Optionally extend with inbuilt presidio entity providers accessible via `from presidio_evaluator.data_generator import presidio_additional_entity_providers`
-     - Add a mapping from the output provider entity type to a Presidio recognised entity type where appropriate
+     - Adding a mapping from the output provider entity type to a Presidio recognised entity type where appropriate
        - e.g. For a `TownProvider` which outputs entity type of `town`, execute `PresidioSentenceFaker.ENTITY_TYPE_MAPPING['town'] = 'GPE'`)
-   - Pass in a DataFrame representing your underlying PII records (or default to those provided)
+   - Passing in a DataFrame representing your underlying PII records (or default to those provided)
      - Optionally extend with inbuilt presidio entity providers accessible via `from presidio_evaluator.data_generator.faker_extensions.datasets import load_fake_person_df`
-   - Add any additional aliases required by your dataset by adding to `PresidioSentenceFaker.PROVIDER_ALIASES`
+   - Adding any additional aliases required by your dataset by adding to `PresidioSentenceFaker.PROVIDER_ALIASES`
      - e.g. if the entity providers support "name" but your dataset templates contain "person", you can add this alias
      with `PresidioSentenceFaker.PROVIDER_ALIASES['name'] = 'person'`)
 3. Generate sentences
-4. Split the generated dataset to train/test/validation while making sure
+4. Split the generated dataset into train/test/validation while making sure
 that samples from the same template would only appear in one set
 5. Adapt datasets for the various models (Spacy, Flair, CRF, sklearn)
 6. Train models
