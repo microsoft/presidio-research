@@ -44,8 +44,14 @@ To install the package:
 pip install poetry
 poetry install --with=dev
 
+# Download tge spaCy pipeline used for tokenization
+poetry run python -m spacy download en_core_web_sm
+
 # To install with all additional NER dependencies (e.g. Flair, Stanza), run:
 # poetry install --with='ner,dev'
+
+# To use the default Presidio configuration, a spaCy model is required:
+poetry run python -m spacy download en_core_web_lg
 
 # Verify installation
 pytest
