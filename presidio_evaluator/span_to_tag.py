@@ -62,8 +62,6 @@ def _handle_overlaps(start, end, tag, score):
     start, end, tag, score = _sort_spans(start, end, tag, score)
     if len(start) == 0:
         return start, end, tag, score
-    max_end = max(end)
-    index = min(start)
     number_of_spans = len(start)
     i = 0
     while i < number_of_spans - 1:
@@ -107,7 +105,7 @@ def span_to_tag(
     tags: List[str],
     scores: Optional[List[float]] = None,
     tokens: Optional[Doc] = None,
-    token_model_version: str = "en_core_web_sm"
+    token_model_version: str = "en_core_web_sm",
 ) -> List[str]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
@@ -119,7 +117,7 @@ def span_to_tag(
     :param ends: list of indices where entities in the text end
     :param tags: list of entity names
     :param scores: score of tag (confidence)
-    :param token_model_version: version of the model used for tokenization if no tokens provided
+    :param token_model_version: model used for tokenization if no tokens provided
     :return: list of strings, representing either BILUO or BIO for the input
     """
 
@@ -175,7 +173,6 @@ def io_to_scheme(io_tags: List[str], scheme: str) -> List[str]:
 
     if scheme == "BILOU":
         scheme = "BILUO"
-
 
     current_tag = ""
     span_index = 0

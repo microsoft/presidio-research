@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from copy import deepcopy
 
@@ -6,11 +7,6 @@ import spacy
 from spacy.tokens import DocBin
 
 from presidio_evaluator import InputSample, Span
-
-from presidio_evaluator.data_generator.faker_extensions import (
-    FakerSpansResult,
-    FakerSpan,
-)
 
 
 @pytest.fixture(scope="session")
@@ -23,59 +19,71 @@ def small_dataset():
 
 
 @pytest.fixture(scope="session")
-def faker_span_result():
-    return FakerSpansResult(
-        fake="Dan is my name.",
-        spans=[FakerSpan("Dan", 0, 3, "name")],
-        template="{{name}} is my name.",
+def input_sample_result():
+    return InputSample(
+        full_text="Dan is my name.",
+        spans=[
+            Span(
+                entity_type="name", entity_value="Dan", start_position=0, end_position=3
+            )
+        ],
+        masked="{{name}} is my name.",
         template_id=3,
+        create_tags_from_span=True
     )
+
 
 @pytest.fixture(scope="session")
-def faker_span_result_2():
-    return FakerSpansResult(
-        fake="Dan is my name. Tel Aviv is my home.",
-        spans=[FakerSpan("Dan", 0, 3, "name"), FakerSpan("Tel Aviv", 16, 24, "city")],
-        template="{{name}} is my name. {{city}} is my home",
+def input_sample_result_2():
+    return InputSample(
+        full_text="Dan is my name. Tel Aviv is my home.",
+        spans=[
+            Span(
+                entity_type="name", entity_value="Dan", start_position=0, end_position=3
+            ),
+            Span(
+                entity_type="city",
+                entity_value="Tel Aviv",
+                start_position=16,
+                end_position=24,
+            ),
+        ],
+        masked="{{name}} is my name. {{city}} is my home.",
         template_id=4,
+        create_tags_from_span=True
     )
 
-def test_update_entity_types(faker_span_result):
-    records = [deepcopy(faker_span_result)]
-    FakerSpansResult.update_entity_types(records, {"name":"PERSON"})
-    assert records[0].spans[0].type == "PERSON"
 
-def test_load_fakerspan_dataset_from_file(faker_span_result_2):
+def test_update_entity_types(input_sample_result):
+    records = [deepcopy(input_sample_result)]
+    [record.translate_input_sample_tags({"name": "PERSON"}) for record in records]
+    assert records[0].spans[0].entity_type == "PERSON"
+
+
+def test_load_dataset_from_file(input_sample_result_2):
     dir_path = Path(__file__).parent
-    records = FakerSpansResult.load_dataset_from_file(Path(dir_path, "data", "faker_spans.json"))
+
+    records = InputSample.read_dataset_json(Path(dir_path, "data", "mock_input_samples.json"))
     assert len(records) == 2
-    assert records[0] == faker_span_result_2
+    assert records[0].masked == input_sample_result_2.masked
+    assert records[0].full_text == input_sample_result_2.full_text
+    assert records[0].spans == input_sample_result_2.spans
 
-def test_count_entities(faker_span_result, faker_span_result_2):
-    counts = FakerSpansResult.count_entities([faker_span_result, faker_span_result_2])
+
+def test_count_entities(input_sample_result, input_sample_result_2):
+    counts = InputSample.count_entities([input_sample_result, input_sample_result_2])
     assert len(counts) == 2
     assert all([ent[0] == "name" or ent[0] == "city" for ent in counts])
 
-    input_sample_1 = InputSample.from_faker_spans_result(
-        faker_span_result, create_tags_from_span=False
-    )
-    input_sample_2 = InputSample.from_faker_spans_result(
-        faker_span_result_2, create_tags_from_span=False
-    )
-    counts = InputSample.count_entities([input_sample_1, input_sample_2])
-    assert len(counts) == 2
-    assert all([ent[0] == "name" or ent[0] == "city" for ent in counts])
 
-def test_remove_unsupported_entities(faker_span_result, faker_span_result_2):
-    input_sample_1 = InputSample.from_faker_spans_result(
-        faker_span_result, create_tags_from_span=False
-    ) 
-    input_sample_2 = InputSample.from_faker_spans_result(
-        faker_span_result_2, create_tags_from_span=False
-    ) 
-    filtered = InputSample.remove_unsupported_entities([input_sample_1, input_sample_2], {"name":"PERSON"})
+def test_remove_unsupported_entities(input_sample_result, input_sample_result_2):
+
+    filtered = InputSample.remove_unsupported_entities(
+        [input_sample_result, input_sample_result_2], {"name": "PERSON"}
+    )
     assert len(filtered) == 1
     assert filtered[0].spans[0].entity_type == "name"
+
 
 def test_to_conll():
     import os
@@ -127,27 +135,6 @@ def test_to_spacy_file_and_back(small_dataset):
         for spacy_ent, input_span in zip(spacy_ents, input_ents):
             assert spacy_ent.start_char == input_span.start_position
             assert spacy_ent.end_char == input_span.end_position
-
-
-def test_faker_spans_result_to_input_sample(faker_span_result):
-
-    input_sample = InputSample.from_faker_spans_result(
-        faker_span_result, create_tags_from_span=False
-    )
-
-    assert input_sample.full_text == "Dan is my name."
-    assert input_sample.masked == "{{name}} is my name."
-    assert input_sample.spans[0] == Span("name", "Dan", 0, 3)
-    assert input_sample.spans[0] == Span("name", "Dan", 0, 3)
-
-
-def test_faker_spans_to_input_sample_with_tags(faker_span_result):
-    input_sample = InputSample.from_faker_spans_result(
-        faker_span_result, create_tags_from_span=True, scheme="BILUO"
-    )
-    assert input_sample.tags
-    assert input_sample.tokens
-    assert any(["U-name" in tag for tag in input_sample.tags])
 
 
 def test_from_spacy_doc():

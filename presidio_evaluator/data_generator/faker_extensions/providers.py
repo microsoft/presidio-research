@@ -13,14 +13,14 @@ from faker.providers import BaseProvider
 from faker.providers.address.en_US import Provider as AddressProvider
 from faker.providers.phone_number.en_US import Provider as PhoneNumberProvider
 
+from presidio_evaluator.data_generator import raw_data_dir
+
 
 class NationalityProvider(BaseProvider):
     def __init__(self, generator, nationality_file: Union[str, Path] = None):
         super().__init__(generator=generator)
         if not nationality_file:
-            nationality_file = Path(
-                Path(__file__).parent.parent, "raw_data", "nationalities.csv"
-            ).resolve()
+            nationality_file = (raw_data_dir / "nationalities.csv").resolve()
 
         self.nationality_file = nationality_file
         self.nationalities = self.load_nationalities()

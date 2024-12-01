@@ -2,9 +2,7 @@ import pytest
 from faker import Faker
 from faker.providers import BaseProvider
 
-from presidio_evaluator.data_generator.faker_extensions import (
-    RecordGenerator,
-)
+from presidio_evaluator.data_generator.faker_extensions import RecordGenerator
 
 
 @pytest.fixture(scope="session")
@@ -38,7 +36,7 @@ def test_record_generator(foo_provider, template, expected):
     faker.add_provider(foo_provider)
 
     res = faker.parse(template, add_spans=True)
-    assert res.fake == expected
+    assert res.full_text == expected
 
 
 @pytest.mark.parametrize("add_spans", [(True, False)])
@@ -63,7 +61,7 @@ def test_multiple_generations(foo_provider, add_spans):
     res2 = faker.parse(template2, add_spans=add_spans)  # my name is bar
     res3 = faker.parse(template3, add_spans=add_spans)
     if add_spans:
-        responses = [res1.fake, res2.fake, res3.fake]
+        responses = [res1.full_text, res2.full_text, res3.full_text]
     else:
         responses = [res1, res2, res3]
 
@@ -87,6 +85,6 @@ def test_template_contains_multiple_of_same_entity(add_spans):
 
     res = faker.parse(template, add_spans=add_spans)
     if add_spans:
-        assert res.fake.count("a_name") == 1
+        assert res.full_text.count("a_name") == 1
     else:
         assert res.count("a_name") == 1

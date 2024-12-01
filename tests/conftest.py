@@ -34,10 +34,12 @@ def pytest_collection_modifyitems(items, config):
                 item.add_marker(skip_slow)
 
     if not config.getoption("--runinconclusive"):
-        skip_slow = pytest.mark.skip(reason="need --runinconclusive option to run")
+        skip_inconclusive = pytest.mark.skip(
+            reason="need --runinconclusive option to run"
+        )
         for item in items:
             if "inconclusive" in item.keywords:
-                item.add_marker(skip_slow)
+                item.add_marker(skip_inconclusive)
 
 
 @pytest.fixture(scope="session")

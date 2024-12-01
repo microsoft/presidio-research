@@ -87,7 +87,9 @@ def score_presidio_recognizer(
 
     if not input_samples:
         print("Reading dataset")
-        input_samples = InputSample.read_dataset_json("../../data/synth_dataset_v2.json")
+        input_samples = InputSample.read_dataset_json(
+            "../../data/synth_dataset_v2.json"
+        )
     else:
         input_samples = list(input_samples)
 
@@ -110,4 +112,3 @@ def score_presidio_recognizer(
         input_samples=updated_samples,
         verbose=verbose,
     )
-

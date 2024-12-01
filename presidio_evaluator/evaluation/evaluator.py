@@ -251,6 +251,17 @@ class Evaluator:
 
         new_input_samples = input_samples.copy()
 
+        def is_key_in_dict(key_dict: Dict[str, str], search_key: str):
+            """Check if a key is in a dictionary, ignoring case and underscores."""
+            # Normalize the search key by converting to uppercase and removing underscores
+            normalized_search_key = search_key.upper().replace("_", "")
+
+            # Check if any normalized key in the dictionary matches the search key
+            return any(
+                normalized_search_key == key.upper().replace("_", "")
+                for key in key_dict.keys()
+            )
+
         # A list that will contain updated input samples,
         new_list = []
 
@@ -259,7 +270,7 @@ class Evaluator:
             new_spans = []
             # Update spans to match the entity types in the values of entities_mapping
             for span in input_sample.spans:
-                if span.entity_type in entities_mapping.keys():
+                if is_key_in_dict(entities_mapping, span.entity_type):
                     new_name = entities_mapping.get(span.entity_type)
                     span.entity_type = new_name
                     contains_field_in_mapping = True
