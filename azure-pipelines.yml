@@ -26,6 +26,8 @@ steps:
     python -m pip install --upgrade pip
     pip install poetry
     poetry install --with dev,ner
+    poetry run python -m spacy download en_core_web_sm
+    poetry run python -m spacy download en_core_web_lg
 
   displayName: 'Install dependencies'
 
