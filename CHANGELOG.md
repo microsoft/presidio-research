@@ -8,7 +8,8 @@ Version 0.2.0
 - Removed functions `from_faker_span`, `from_faker_spans_result` `convert_faker_spans` from `InputSample`, as faker spans are now `Span`s so there no need for translation.
 - Removed `PresidioDataGenerator` to use `PresidioSentenceFaker` instead 
 - Removed support for CRF models
-- Removed the `FlairTrainer` class
+- Removed the `FlairTrainer` class, please refer to the official Flair documentation for training Flair models
+- Removed CRF as the package used is no longer maintained
 
 ## Improvements
 - Improved evaluation notebooks: Notebook 4 shows a vanilla Presidio evaluation, notebook 5 shows a more customized Presidio with improved accuracy (#103)
