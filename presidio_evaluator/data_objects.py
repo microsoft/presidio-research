@@ -179,9 +179,7 @@ class InputSample(object):
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
         return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self,
-                 scheme:str="IOB",
-                 model_version:str="en_core_web_sm"):
+    def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm"):
         """Extract the tokens and tags from the spans.
 
         :param scheme: IO, BIO or BILUO
@@ -200,14 +198,14 @@ class InputSample(object):
             starts=start_indices,
             ends=end_indices,
             tokens=tokens,
-            token_model_version=model_version
+            token_model_version=model_version,
         )
 
         return tokens, labels
 
-    def to_conll(self,
-                 translate_tags: bool,
-                 tokenizer: str="en_core_web_sm") -> List[Dict[str, Any]]:
+    def to_conll(
+        self, translate_tags: bool, tokenizer: str = "en_core_web_sm"
+    ) -> List[Dict[str, Any]]:
         """
         Turns a list of InputSample objects to a dictionary
         containing text, pos, tag, template_id and label.
@@ -249,7 +247,7 @@ class InputSample(object):
         dataset: List["InputSample"],
         translate_tags=False,
         to_bio=True,
-        tokenizer:str="en_core_web_sm",
+        tokenizer: str = "en_core_web_sm",
     ) -> pd.DataFrame:
         if len(dataset) <= 1:
             raise ValueError("Dataset should contain multiple records")
@@ -259,8 +257,7 @@ class InputSample(object):
         for sample in tqdm(dataset):
             if to_bio:
                 sample.biluo_to_bio()
-            conll = sample.to_conll(translate_tags=translate_tags,
-                                    tokenizer=tokenizer)
+            conll = sample.to_conll(translate_tags=translate_tags, tokenizer=tokenizer)
             for token in conll:
                 token["sentence"] = i
                 conlls.append(token)

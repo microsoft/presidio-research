@@ -196,7 +196,7 @@ class PresidioSentenceFaker:
         random.seed(seed_value)
         np.random.seed(seed_value)
 
-    def add_provider(self, provider:BaseProvider) ->None:
+    def add_provider(self, provider: BaseProvider) -> None:
         """
         Add a provider to the sentence faker
         :param provider: A faker provider inheriting from BaseProvider
