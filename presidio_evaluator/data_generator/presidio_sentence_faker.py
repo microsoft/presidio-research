@@ -1,7 +1,8 @@
 import json
 import random
 from pathlib import Path
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Tuple, Union, Dict
+import re
 
 import numpy as np
 import pandas as pd
@@ -52,12 +53,17 @@ class PresidioSentenceFaker:
     :param: entity_providers: Defaults to presidio_additional_entity_providers, a provided argument overrides this
     :param: base_records: A DataFrame with entity types as columns and each row corresponding to a fake individual.
     Defaults to presidio_evaluator.data_generator.faker_extensions.datasets.load_fake_person_df()
+    :param: entity_type_mapping: A dictionary mapping entity types to Presidio entity types
+    :param: provider_aliases: A dictionary mapping provider names to the given entity types.
+    Useful if the templates contain a different name for the entity type than the one supported by Faker or PresidioSentenceFaker.
     :param: random_seed: A seed to make results reproducible between runs
     """
 
-    PROVIDER_ALIASES = dict(
-        name="person", credit_card_number="credit_card", date_of_birth="birthday"
-    )
+    PROVIDER_ALIASES = [
+        ("name", "person"),
+        ("credit_card_number", "credit_card"),
+        ("date_of_birth", "birthday"),
+    ]
     ENTITY_TYPE_MAPPING = dict(
         person="PERSON",
         ip_address="IP_ADDRESS",
@@ -111,6 +117,8 @@ class PresidioSentenceFaker:
         sentence_templates: Optional[List[str]] = None,
         entity_providers: Optional[List[BaseProvider]] = None,
         base_records: Optional[Union[pd.DataFrame, List[Dict]]] = None,
+        entity_type_mapping: Optional[Dict[str, str]] = None,
+        provider_aliases: Optional[List[Tuple[str, str]]] = None,
         random_seed: Optional[SeedType] = None,
     ):
         self._sentence_templates = sentence_templates
@@ -120,6 +128,7 @@ class PresidioSentenceFaker:
                 for line in presidio_templates_file_path.read_text().splitlines()
             ]
         if entity_providers is None:
+            print("Using default entity providers")
             entity_providers = presidio_additional_entity_providers
         if base_records is None:
             base_records = load_fake_person_df()
@@ -131,32 +140,93 @@ class PresidioSentenceFaker:
             self._sentence_faker.add_provider(entity_provider)
 
         self.seed(random_seed)
-        for provider, alias in self.PROVIDER_ALIASES.items():
+
+        if not entity_type_mapping:
+            print(
+                "Using default entity mapping between the entities \
+                  in the templates and the ones in the output dataset"
+            )
+            entity_type_mapping = self.ENTITY_TYPE_MAPPING
+
+        self._entity_type_mapping = entity_type_mapping
+
+        if not provider_aliases:
+            print("Using default provider aliases")
+            provider_aliases = self.PROVIDER_ALIASES
+
+        for provider, alias in provider_aliases:
             self._sentence_faker.add_provider_alias(
                 provider_name=provider, new_name=alias
             )
         self.fake_sentence_results = None
 
     def generate_new_fake_sentences(self, num_samples: int) -> List[InputSample]:
+        """Generate fake sentences based on the templates, input data and entity providers."""
         self.fake_sentence_results = []
         # Map faker generated entity types to Presidio entity types
         for _ in tqdm(range(num_samples), desc="Sampling"):
             template_id = random.choice(range(len(self._sentence_templates)))
             template = self._sentence_templates[template_id]
+            template = self._preprocess_template(template)
             fake_sentence_result = self._sentence_faker.parse(template, template_id)
             for span in fake_sentence_result.spans:
-                span.type = self.ENTITY_TYPE_MAPPING[span.type]
-            for key, value in self.ENTITY_TYPE_MAPPING.items():
+                if span.type in self._entity_type_mapping.keys():
+                    # Use the mapped entity type if exists
+                    span.type = self._entity_type_mapping[span.type]
+                else:
+                    # Otherwise, capitalize the entity type and add to the mapping
+                    print(
+                        f"Warning: Non-mapped entity type found: {span.type} "
+                        f"Non-mapped entities will be mapped to {span.type.upper()} "
+                        f"in the output dataset. If you prefer a different mapping, "
+                        f"pass the `entity_type_mapping` argument with a mapping for this entity type."
+                    )
+                    self._entity_type_mapping[span.type] = span.type.upper()
+            for key, value in self._entity_type_mapping.items():
                 fake_sentence_result.masked = fake_sentence_result.masked.replace(
                     "{{%s}}" % key, "{{%s}}" % value
                 )
             self.fake_sentence_results.append(fake_sentence_result)
         return self.fake_sentence_results
 
-    def seed(self, seed_value=42):
+    @staticmethod
+    def seed(self, seed_value=42) -> None:
+        """Seed the faker and random modules for reproducibility."""
         Faker.seed(seed_value)
         random.seed(seed_value)
         np.random.seed(seed_value)
+
+    def add_provider_alias(self, provider_name: str, new_name: str) -> None:
+        """
+        Adds a copy of a provider, with a different name
+        :param provider_name: Name of original provider
+        :param new_name: New name
+        :example:
+        >>>self.add_provider_alias(provider_name="name", new_name="person")
+        >>>self.person()
+        """
+        self._sentence_faker.add_provider_alias(
+            provider_name=provider_name, new_name=new_name
+        )
+
+    def add_entity_type_mapping(
+        self, input_entity_type: str, output_entity_type: str
+    ) -> None:
+        self._entity_type_mapping[input_entity_type] = output_entity_type
+
+    @staticmethod
+    def _preprocess_template(template: str):
+        """Lowercase the entity names within double curly braces in the template, and replace < and > with {{ and }}."""  # noqa: E501
+
+        def lowercase_within_braces(s):
+            return re.sub(
+                r"{{(.*?)}}", lambda match: f"{{{{{match.group(1).lower()}}}}}", s
+            )
+
+        template = template.replace("<", "{{").replace(">", "}}")
+        template = lowercase_within_braces(template)
+
+        return template
 
 
 if __name__ == "__main__":

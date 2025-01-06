@@ -24,13 +24,13 @@ def test_generate_new_fake_sentences(num_sentences: int):
 
     expected_providers = deepcopy(default_faker_providers)
     expected_providers.extend(presidio_providers)
-    expected_providers.extend([standard_faker.__getattr__(key)
-                               for key in PresidioSentenceFaker.PROVIDER_ALIASES.keys()])
+    expected_providers.extend([standard_faker.__getattr__(alias[0])
+                               for alias in PresidioSentenceFaker.PROVIDER_ALIASES])
     actual_providers = sentence_faker._sentence_faker.providers
     num_aliases = len(PresidioSentenceFaker.PROVIDER_ALIASES)
     actual_num_providers = len(actual_providers)
-    expected_aliases = set(getattr(standard_faker, provider_name)
-                           for provider_name in PresidioSentenceFaker.PROVIDER_ALIASES.keys())
+    expected_aliases = set(getattr(standard_faker, provider_name[0])
+                           for provider_name in PresidioSentenceFaker.PROVIDER_ALIASES)
     assert actual_num_providers == len(expected_providers), \
         f'Expected {len(presidio_providers)} presidio providers to be used and {num_aliases} aliases. ' \
         f'Faker has been extended with {actual_num_providers - len(default_faker_providers)} providers/aliases. ' \
