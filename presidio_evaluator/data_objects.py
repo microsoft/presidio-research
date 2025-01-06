@@ -179,7 +179,13 @@ class InputSample(object):
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
         return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self, scheme="IOB", model_version="en_core_web_sm"):
+    def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm"):
+        """Extract the tokens and tags from the spans.
+
+        :param scheme: IO, BIO or BILUO
+        :param model_version: The name of the spaCy model to use for tokenization
+        """
+
         start_indices = [span.start_position for span in self.spans]
         end_indices = [span.end_position for span in self.spans]
         tags = [span.entity_type for span in self.spans]
@@ -192,19 +198,27 @@ class InputSample(object):
             starts=start_indices,
             ends=end_indices,
             tokens=tokens,
+            token_model_version=model_version,
         )
 
         return tokens, labels
 
-    def to_conll(self, translate_tags: bool) -> List[Dict[str, Any]]:
+    def to_conll(
+        self, translate_tags: bool, tokenizer: str = "en_core_web_sm"
+    ) -> List[Dict[str, Any]]:
         """
         Turns a list of InputSample objects to a dictionary
         containing text, pos, tag, template_id and label.
         :param translate_tags: Whether to translate tags using the PRESIDIO_SPACY_ENTITIES dictionary
+        :param tokenizer: The name of the spaCy model to use for tokenization
         :return: Dict
         """
 
         conll = []
+
+        if len(self.tokens) == 0:
+            self.tokens, self.tags = self.get_tags(model_version=tokenizer)
+
         for i, token in enumerate(self.tokens):
             if translate_tags:
                 label = self.translate_tag(
@@ -233,7 +247,7 @@ class InputSample(object):
         dataset: List["InputSample"],
         translate_tags=False,
         to_bio=True,
-        token_model_version="en_core_web_sm",
+        tokenizer: str = "en_core_web_sm",
     ) -> pd.DataFrame:
         if len(dataset) <= 1:
             raise ValueError("Dataset should contain multiple records")
@@ -243,7 +257,7 @@ class InputSample(object):
         for sample in tqdm(dataset):
             if to_bio:
                 sample.biluo_to_bio()
-            conll = sample.to_conll(translate_tags=translate_tags)
+            conll = sample.to_conll(translate_tags=translate_tags, tokenizer=tokenizer)
             for token in conll:
                 token["sentence"] = i
                 conlls.append(token)
