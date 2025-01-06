@@ -190,7 +190,7 @@ class PresidioSentenceFaker:
         return self.fake_sentence_results
 
     @staticmethod
-    def seed(self, seed_value=42) -> None:
+    def seed(seed_value=42) -> None:
         """Seed the faker and random modules for reproducibility."""
         Faker.seed(seed_value)
         random.seed(seed_value)

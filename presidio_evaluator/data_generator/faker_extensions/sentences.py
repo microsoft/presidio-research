@@ -195,11 +195,9 @@ class SentenceFaker(Faker):
             return fake_pattern
         except Exception as err:
             raise AttributeError(
-                f'Failed to generate fake data based on template "{template}".'
-                f"You might need to add a new Faker provider "
-                f"or create an alias (map the entity name to one " 
-                f"of the existing providers)."
-                f"{err}"
+                f'Failed to generate fake data based on template "{template}". '
+                f'Add a new Faker provider or create an alias '
+                f'for the entity name. {err}'
             )
 
     @staticmethod

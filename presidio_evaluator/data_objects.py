@@ -179,7 +179,9 @@ class InputSample(object):
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
         return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self, scheme="IOB", model_version="en_core_web_sm"):
+    def get_tags(self,
+                 scheme:str="IOB",
+                 model_version:str="en_core_web_sm"):
         """Extract the tokens and tags from the spans.
 
         :param scheme: IO, BIO or BILUO
@@ -203,7 +205,9 @@ class InputSample(object):
 
         return tokens, labels
 
-    def to_conll(self, translate_tags: bool, tokenizer: str) -> List[Dict[str, Any]]:
+    def to_conll(self,
+                 translate_tags: bool,
+                 tokenizer: str="en_core_web_sm") -> List[Dict[str, Any]]:
         """
         Turns a list of InputSample objects to a dictionary
         containing text, pos, tag, template_id and label.
