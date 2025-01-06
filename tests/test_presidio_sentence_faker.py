@@ -43,3 +43,14 @@ def test_generate_new_fake_sentences(num_sentences: int):
         assert fake_sentence_result.full_text
         assert fake_sentence_result.masked
         assert fake_sentence_result.template_id >= 0
+
+
+@pytest.mark.parametrize("template_before, template_after", [
+    ("I just moved to {{CiTY}} from {{Country}}",
+    "I just moved to {{city}} from {{country}}"),
+    ("I just moved to <city> from <country>.",
+    "I just moved to {{city}} from {{country}}.")
+])
+def test_preprocess_template(template_before: str, template_after: str):
+    sentence_faker = PresidioSentenceFaker(locale='en', lower_case_ratio=0)
+    assert sentence_faker._preprocess_template(template_before) == template_after
