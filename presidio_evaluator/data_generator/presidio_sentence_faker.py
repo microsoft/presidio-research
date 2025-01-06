@@ -143,8 +143,8 @@ class PresidioSentenceFaker:
 
         if not entity_type_mapping:
             print(
-                "Using default entity mapping between the entities \
-                  in the templates and the ones in the output dataset"
+                "Using default entity mapping between the entities "
+                "in the templates and the ones in the output dataset"
             )
             entity_type_mapping = self.ENTITY_TYPE_MAPPING
 
@@ -176,7 +176,7 @@ class PresidioSentenceFaker:
                 else:
                     # Otherwise, capitalize the entity type and add to the mapping
                     print(
-                        f"Warning: Non-mapped entity type found: {span.type} "
+                        f"Warning: Non-mapped entity type found: {span.type}. "
                         f"Non-mapped entities will be mapped to {span.type.upper()} "
                         f"in the output dataset. If you prefer a different mapping, "
                         f"pass the `entity_type_mapping` argument with a mapping for this entity type."
@@ -195,6 +195,13 @@ class PresidioSentenceFaker:
         Faker.seed(seed_value)
         random.seed(seed_value)
         np.random.seed(seed_value)
+
+    def add_provider(self, provider:BaseProvider) ->None:
+        """
+        Add a provider to the sentence faker
+        :param provider: A faker provider inheriting from BaseProvider
+        """
+        self._sentence_faker.add_provider(provider)
 
     def add_provider_alias(self, provider_name: str, new_name: str) -> None:
         """
