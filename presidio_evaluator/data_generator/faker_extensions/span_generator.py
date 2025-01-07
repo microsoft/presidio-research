@@ -67,7 +67,7 @@ class SpanGenerator(Generator):
                 # Update span indices
                 delta = new_len - old_len
                 span.end_position = span.end_position + delta
-                span.type = formatter.strip()
+                span.entity_type = formatter.strip()
 
                 # Update previously inserted spans since indices shifted
                 for j in range(0, i):

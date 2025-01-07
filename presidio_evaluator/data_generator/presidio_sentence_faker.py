@@ -170,18 +170,20 @@ class PresidioSentenceFaker:
             template = self._preprocess_template(template)
             fake_sentence_result = self._sentence_faker.parse(template, template_id)
             for span in fake_sentence_result.spans:
-                if span.type in self._entity_type_mapping.keys():
+                if span.entity_type in self._entity_type_mapping.keys():
                     # Use the mapped entity type if exists
-                    span.type = self._entity_type_mapping[span.type]
+                    span.entity_type = self._entity_type_mapping[span.entity_type]
                 else:
                     # Otherwise, capitalize the entity type and add to the mapping
                     print(
-                        f"Warning: Non-mapped entity type found: {span.type}. "
-                        f"Non-mapped entities will be mapped to {span.type.upper()} "
+                        f"Warning: Non-mapped entity type found: {span.entity_type}. "
+                        f"Non-mapped entities will be mapped to {span.entity_type.upper()} "
                         f"in the output dataset. If you prefer a different mapping, "
                         f"pass the `entity_type_mapping` argument with a mapping for this entity type."
                     )
-                    self._entity_type_mapping[span.type] = span.type.upper()
+                    self._entity_type_mapping[span.entity_type] = (
+                        span.entity_type.upper()
+                    )
             for key, value in self._entity_type_mapping.items():
                 fake_sentence_result.masked = fake_sentence_result.masked.replace(
                     "{{%s}}" % key, "{{%s}}" % value

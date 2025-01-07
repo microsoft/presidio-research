@@ -2,6 +2,7 @@ import dataclasses
 import json
 import random
 import re
+import warnings
 from pathlib import Path
 from typing import List, Optional, Union, Generator
 
@@ -67,6 +68,15 @@ class PresidioDataGenerator:
         [{"value": "Ukraine", "start": 31, "end": 38, "type": "country"}, {"value": "North Kim", "start": 16, "end": 25, "type": "city"}]
 
         """
+
+        def __post_init__(self):
+            warnings.warn(
+                "PresidioDataGenerator is deprecated and will be removed in future versions."
+                "Use PresidioSentenceFaker instead",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+
         if custom_faker and locale:
             raise ValueError(
                 "If a custom faker is passed, it's expected to have its locales loaded"

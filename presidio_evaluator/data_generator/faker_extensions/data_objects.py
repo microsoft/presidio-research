@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 import dataclasses
 import json
@@ -16,6 +17,14 @@ class FakerSpan:
     end: int
     type: str
 
+    def __post_init__(self):
+        warnings.warn(
+            "FakerSpan is deprecated and will be removed in future versions."
+            "Use Span instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+
     def __repr__(self):
         return json.dumps(dataclasses.asdict(self))
 
@@ -30,6 +39,14 @@ class FakerSpansResult:
     template: Optional[str] = None
     template_id: Optional[int] = None
     sample_id: Optional[int] = None
+
+    def __post_init__(self):
+        warnings.warn(
+            "FakerSpansResult is deprecated and will be removed in future versions."
+            "Use InputSample instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
 
     def __str__(self):
         return self.fake
