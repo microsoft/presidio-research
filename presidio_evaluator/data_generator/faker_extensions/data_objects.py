@@ -17,13 +17,15 @@ class FakerSpan:
     end: int
     type: str
 
-    def __post_init__(self):
+    def __new__(cls, *args, **kwargs):
         warnings.warn(
             "FakerSpan is deprecated and will be removed in future versions."
             "Use Span instead",
             category=DeprecationWarning,
             stacklevel=2,
         )
+
+        return super().__new__(cls)
 
     def __repr__(self):
         return json.dumps(dataclasses.asdict(self))
@@ -40,13 +42,15 @@ class FakerSpansResult:
     template_id: Optional[int] = None
     sample_id: Optional[int] = None
 
-    def __post_init__(self):
+    def __new__(cls, *args, **kwargs):
         warnings.warn(
             "FakerSpansResult is deprecated and will be removed in future versions."
             "Use InputSample instead",
             category=DeprecationWarning,
             stacklevel=2,
         )
+
+        return super().__new__(cls)
 
     def __str__(self):
         return self.fake
