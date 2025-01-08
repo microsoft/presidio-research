@@ -1,9 +1,6 @@
-import dataclasses
-import json
 import random
 import re
 import warnings
-from pathlib import Path
 from typing import List, Optional, Union, Generator
 
 import numpy as np
@@ -14,16 +11,11 @@ from pandas import DataFrame
 from tqdm import tqdm
 
 from presidio_evaluator.data_generator.faker_extensions import (
-    FakerSpansResult,
-    NationalityProvider,
-    OrganizationProvider,
-    UsDriverLicenseProvider,
-    IpAddressProvider,
-    AddressProviderNew,
     SpanGenerator,
-    RecordsFaker,
-    PhoneNumberProviderNew,
-    AgeProvider,
+)
+
+from presidio_evaluator.data_generator.faker_extensions.data_objects import (
+    FakerSpansResult,
 )
 
 
@@ -43,8 +35,6 @@ class PresidioDataGenerator:
         :param lower_case_ratio: Percentage of names that should start with lower case
 
         :example:
-
-        >>>from presidio_evaluator.data_generator import PresidioDataGenerator
 
         >>>sentence_templates = [
         >>>    "My name is {{name}}",
@@ -69,13 +59,12 @@ class PresidioDataGenerator:
 
         """
 
-        def __post_init__(self):
-            warnings.warn(
-                "PresidioDataGenerator is deprecated and will be removed in future versions."
-                "Use PresidioSentenceFaker instead",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
+        warnings.warn(
+            "PresidioDataGenerator is deprecated and will be removed in future versions."
+            "Use PresidioSentenceFaker instead",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
 
         if custom_faker and locale:
             raise ValueError(
@@ -290,50 +279,3 @@ class PresidioDataGenerator:
 
         fake_data = pd.concat([fake_data, genderized], axis="columns")
         return fake_data
-
-
-if __name__ == "__main__":
-    PresidioDataGenerator.seed(42)
-
-    template_file_path = Path(Path(__file__).parent, "raw_data", "templates.txt")
-
-    # Read FakeNameGenerator data
-    fake_data_df = pd.read_csv(
-        Path(Path(__file__).parent, "raw_data", "FakeNameGenerator.com_3000.csv")
-    )
-    # Convert column names to lowercase to match patterns
-    fake_data_df = PresidioDataGenerator.update_fake_name_generator_df(fake_data_df)
-
-    # Create a RecordsFaker (Faker object which prefers samples multiple objects from one record)
-    faker = RecordsFaker(records=fake_data_df, local="en_US")
-    faker.add_provider(IpAddressProvider)
-    faker.add_provider(NationalityProvider)
-    faker.add_provider(OrganizationProvider)
-    faker.add_provider(UsDriverLicenseProvider)
-    faker.add_provider(AgeProvider)
-    faker.add_provider(AddressProviderNew)  # More address formats than Faker
-    faker.add_provider(PhoneNumberProviderNew)  # More phone number formats than Faker
-
-    # Create Presidio Data Generator
-    data_generator = PresidioDataGenerator(custom_faker=faker, lower_case_ratio=0.05)
-    data_generator.add_provider_alias(provider_name="name", new_name="person")
-    data_generator.add_provider_alias(
-        provider_name="credit_card_number", new_name="credit_card"
-    )
-    data_generator.add_provider_alias(
-        provider_name="date_of_birth", new_name="birthday"
-    )
-
-    sentence_templates = PresidioDataGenerator.read_template_file(template_file_path)
-    fake_patterns = data_generator.generate_fake_data(
-        templates=sentence_templates, n_samples=10000
-    )
-
-    # save to json
-    output_file = Path(
-        Path(__file__).parent.parent.parent, "data", "presidio_data_generator_data.json"
-    )
-
-    to_json = [dataclasses.asdict(pattern) for pattern in fake_patterns]
-    with open("{}".format(output_file), "w+", encoding="utf-8") as f:
-        json.dump(to_json, f, ensure_ascii=False, indent=2)
