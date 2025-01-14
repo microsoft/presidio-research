@@ -1,9 +1,15 @@
+import warnings
 from typing import List, Optional, Dict
 
 from presidio_evaluator import InputSample, span_to_tag
 from presidio_evaluator.models import BaseModel
-from azure.ai.textanalytics import TextAnalyticsClient
-from azure.core.credentials import AzureKeyCredential
+
+try:
+    from azure.ai.textanalytics import TextAnalyticsClient
+    from azure.core.credentials import AzureKeyCredential
+except ImportError:
+    TextAnalyticsClient = None
+    AzureKeyCredential = None
 
 
 class TextAnalyticsWrapper(BaseModel):
@@ -31,10 +37,21 @@ class TextAnalyticsWrapper(BaseModel):
             labeling_scheme=labeling_scheme,
             entity_mapping=entity_mapping,
         )
+
+        warnings.warn(
+            f"{self.__class__.__name__} is deprecated and will be removed in a future version."
+            f"Please use the TextAnalyticsRecognizer within Presidio Analyzer instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         self.score_threshold = score_threshold
         self.language = language
         self.ta_key = ta_key
         self.ta_endpoint = ta_endpoint
+
+        if not TextAnalyticsClient:
+            raise ImportError("azure.ai.textanalytics is not installed")
 
         if not ta_client:
             ta_client = self.__authenticate_client(ta_key, ta_endpoint)
