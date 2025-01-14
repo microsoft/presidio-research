@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Optional, Dict
 
 from presidio_evaluator import InputSample, span_to_tag
@@ -9,6 +10,7 @@ try:
 except ImportError:
     TextAnalyticsClient = None
     AzureKeyCredential = None
+
 
 class TextAnalyticsWrapper(BaseModel):
     def __init__(
@@ -35,6 +37,14 @@ class TextAnalyticsWrapper(BaseModel):
             labeling_scheme=labeling_scheme,
             entity_mapping=entity_mapping,
         )
+
+        warnings.warn(
+            f"{self.__class__.__name__} is deprecated and will be removed in a future version."
+            f"Please use the TextAnalyticsRecognizer within Presidio Analyzer instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         self.score_threshold = score_threshold
         self.language = language
         self.ta_key = ta_key
