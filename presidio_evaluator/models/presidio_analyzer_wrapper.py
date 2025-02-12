@@ -17,7 +17,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         analyzer_engine: Optional[AnalyzerEngine] = None,
         entities_to_keep: List[str] = None,
         verbose: bool = False,
-        labeling_scheme: str = "BIO",
+        labeling_scheme: str = "IO",
         score_threshold: float = 0.4,
         language: str = "en",
         entity_mapping: Optional[Dict[str, str]] = None,
@@ -28,6 +28,19 @@ class PresidioAnalyzerWrapper(BaseModel):
         """
         Evaluation wrapper for the Presidio Analyzer
         :param analyzer_engine: object of type AnalyzerEngine (from presidio-analyzer)
+        :param entities_to_keep: Which entities should be evaluated? if None, all are kept
+        :param verbose: Whether to print more debug info
+        :param labeling_scheme: Used to translate (if needed)
+        the prediction to a specific scheme (IO, BIO/IOB, BILUO)
+        :param score_threshold: Minimum score for an entity to be considered
+        :param language: Language of the text
+        :param entity_mapping: Dictionary for mapping this model's input and output with the expected.
+        Keys should be the input entity types (from the input dataset),
+        values should be the model's supported entity types.
+        :param ad_hoc_recognizers: List of ad-hoc recognizers to be used in the analyze method
+        :param context: List of context words to be passed to the analyze method
+        :param allow_list: List of allowed values to be passed toe the analyze method
+
         """
         super().__init__(
             entities_to_keep=entities_to_keep,

@@ -487,6 +487,33 @@ def test_error_type_classification():
                and e.prediction == "LOCATION" for e in wrong_entities)
 
 
+def test_results_to_dataframe():
+    prediction = ["O", "EMAIL", "PHONE", "LOCATION", "PERSON"]
+    tokens = ["John", "details", "john@mail.com", "123-456-7890", "today"]
+    tags = ["PERSON", "O", "EMAIL", "PHONE", "O"]
+    evaluator = Evaluator(model=MockTokensModel(prediction))
+
+    # Ground truth: [PERSON, O, EMAIL, PHONE, O]
+    # Prediction:   [PERSON, EMAIL, PHONE, LOCATION, PERSON]
+    sample = InputSample(
+        full_text="John details john@mail.com 123-456-7890 today",
+        tokens=tokens,
+        tags=tags
+    )
+
+    results = evaluator.evaluate_all([sample, sample])
+
+    df = evaluator.get_results_dataframe(results)
+    expected_columns = ["sentence_id", "token", "annotation", "prediction"]
+    for col in expected_columns:
+        assert col in df.columns
+
+    assert df["annotation"].to_list() == tags + tags
+    assert df["prediction"].to_list() == prediction + prediction
+    assert df["token"].to_list() == tokens + tokens
+    assert df["sentence_id"].to_list() == [0]*len(tokens) + [1]*len(tokens)
+
+
 def test_score_calculation():
     """
     Test that precision and recall calculations are correct:

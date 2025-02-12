@@ -2,6 +2,7 @@ from collections import Counter
 from typing import List, Optional, Dict, Union
 
 import numpy as np
+import pandas as pd
 from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator import InputSample
@@ -201,8 +202,15 @@ class Evaluator:
         if self.verbose:
             print("Input sentence: {}".format(sample.full_text))
 
-        results, mistakes = self.compare(input_sample=sample, prediction=prediction)
-        return EvaluationResult(results, mistakes, sample.full_text)
+        results, model_errors = self.compare(input_sample=sample, prediction=prediction)
+        return EvaluationResult(
+            results=results,
+            model_errors=model_errors,
+            text=sample.full_text,
+            tokens=[str(token) for token in sample.tokens],
+            actual_tags=sample.tags,
+            predicted_tags=prediction,
+        )
 
     def evaluate_all(
         self, dataset: List[InputSample], **kwargs
@@ -402,6 +410,32 @@ class Evaluator:
         )
 
         return evaluation_result
+
+    @staticmethod
+    def get_results_dataframe(results: List[EvaluationResult]) -> pd.DataFrame:
+        """Return a DataFrame with the results of the evaluation.
+
+        Columns:
+        - sentence_id
+        - token text
+        - annotation
+        - prediction
+        """
+
+        rows_list = []
+        for i, res in enumerate(results):
+            tokens = res.tokens
+            annotations = res.actual_tags
+            predictions = res.predicted_tags
+            for j in range(len(tokens)):
+                rows_list.append({"sentence_id": i,
+                                  "token": tokens[j],
+                                  "annotation": annotations[j],
+                                  "prediction": predictions[j]})
+
+        results_df = pd.DataFrame(rows_list)
+        return results_df
+
 
     @staticmethod
     def precision(tp: int, fp: int) -> float:

@@ -20,6 +20,9 @@ class EvaluationResult:
         entity_recall_dict: Optional[Dict[str, float]] = None,
         entity_precision_dict: Optional[Dict[str, float]] = None,
         n_dict: Optional[Dict[str, int]] = None,
+        tokens: Optional[List[str]] = None,
+        actual_tags: Optional[List[str]] = None,
+        predicted_tags: Optional[List[str]] = None
     ):
         """
         Holds the output of a comparison between ground truth and predicted
@@ -34,6 +37,9 @@ class EvaluationResult:
         :param entity_recall_dict: Recall per entity
         :param entity_precision_dict: Precision per entity
         :param n_dict: Number of tokens per entity
+        :param tokens: List of tokens
+        :param actual_tags: List of actual tags
+        :param predicted_tags: List of predicted tags
         """
 
         self.results = results
@@ -49,6 +55,9 @@ class EvaluationResult:
             entity_precision_dict if entity_precision_dict else {}
         )
         self.n_dict = n_dict if n_dict else {}
+        self.tokens = tokens
+        self.actual_tags = actual_tags
+        self.predicted_tags = predicted_tags
 
     def __str__(self):
         return_str = ""

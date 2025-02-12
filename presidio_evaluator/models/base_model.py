@@ -8,7 +8,7 @@ from presidio_evaluator import InputSample, io_to_scheme
 class BaseModel(ABC):
     def __init__(
         self,
-        labeling_scheme: str = "BIO",
+        labeling_scheme: str = "IO",
         entities_to_keep: List[str] = None,
         entity_mapping: Optional[Dict[str, str]] = None,
         verbose: bool = False,

@@ -1,5 +1,4 @@
 import pytest
-from faker import Faker
 from faker.providers import DynamicProvider
 from presidio_analyzer import RecognizerResult
 
