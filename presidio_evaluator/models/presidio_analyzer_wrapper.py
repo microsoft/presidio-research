@@ -39,8 +39,7 @@ class PresidioAnalyzerWrapper(BaseModel):
         values should be the model's supported entity types.
         :param ad_hoc_recognizers: List of ad-hoc recognizers to be used in the analyze method
         :param context: List of context words to be passed to the analyze method
-        :param allow_list: List of allowed values to be passed toe the analyze method
-
+        :param allow_list: List of allowed values to be passed to the analyze method
         """
         super().__init__(
             entities_to_keep=entities_to_keep,
