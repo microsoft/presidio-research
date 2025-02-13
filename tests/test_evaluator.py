@@ -493,8 +493,6 @@ def test_results_to_dataframe():
     tags = ["PERSON", "O", "EMAIL", "PHONE", "O"]
     evaluator = Evaluator(model=MockTokensModel(prediction))
 
-    # Ground truth: [PERSON, O, EMAIL, PHONE, O]
-    # Prediction:   [PERSON, EMAIL, PHONE, LOCATION, PERSON]
     sample = InputSample(
         full_text="John details john@mail.com 123-456-7890 today",
         tokens=tokens,
