@@ -412,7 +412,7 @@ class Evaluator:
         return evaluation_result
 
     @staticmethod
-    def get_results_dataframe(results: List[EvaluationResult]) -> pd.DataFrame:
+    def get_results_dataframe(evaluation_results: List[EvaluationResult]) -> pd.DataFrame:
         """Return a DataFrame with the results of the evaluation.
 
         Columns:
@@ -422,12 +422,12 @@ class Evaluator:
         - prediction
         """
 
-        if not results or not results[0].tokens:
-            raise ValueError("Results should not be empty and should contain tokens for the evaluation."
-                             "Make sure the input samples have tokens.")
+        if not evaluation_results or not evaluation_results[0].tokens:
+            raise ValueError("The evaluation results should not be empty and must contain tokens. "
+                             "Ensure that the input samples have tokens.")
 
         rows_list = []
-        for i, res in enumerate(results):
+        for i, res in enumerate(evaluation_results):
             tokens = res.tokens
             annotations = res.actual_tags
             predictions = res.predicted_tags
