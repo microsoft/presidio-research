@@ -422,6 +422,10 @@ class Evaluator:
         - prediction
         """
 
+        if not results or not results[0].tokens:
+            raise ValueError("Results should not be empty and should contain tokens for the evaluation."
+                             "Make sure the input samples have tokens.")
+
         rows_list = []
         for i, res in enumerate(results):
             tokens = res.tokens
