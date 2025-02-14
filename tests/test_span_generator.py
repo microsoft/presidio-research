@@ -122,7 +122,7 @@ def test_without_spans(span_faker):
     expected = "this is a sentence with bar"
     res = span_faker.parse(pattern)
 
-    assert type(res) == str
+    assert type(res) is str
     assert res == expected
 
 

@@ -114,7 +114,7 @@ class InputSample(object):
         tags: Optional[List[str]] = None,
         create_tags_from_span=False,
         token_model_version="en_core_web_sm",
-        scheme="IO",
+        scheme:str="IO",
         metadata: Dict = None,
         sample_id: int = None,
         template_id: int = None,

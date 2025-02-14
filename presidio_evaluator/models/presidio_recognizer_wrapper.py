@@ -69,7 +69,7 @@ class PresidioRecognizerWrapper(BaseModel):
             tags.append(res.entity_type)
             scores.append(res.score)
         response_tags = span_to_tag(
-            scheme="IO",
+            scheme=self.labeling_scheme,
             text=sample.full_text,
             starts=starts,
             ends=ends,
