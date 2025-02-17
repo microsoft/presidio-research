@@ -22,6 +22,7 @@ class Evaluator:
         entities_to_keep: Optional[List[str]] = None,
         generic_entities: Optional[List[str]] = None,
         skip_words: Optional[List] = None,
+        language: str = "en",
     ):
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
@@ -38,7 +39,7 @@ class Evaluator:
         :param skip_words: List of words to skip. If None, the default list would be used.
         """
         if isinstance(model, AnalyzerEngine):
-            self.model = PresidioAnalyzerWrapper(analyzer_engine=model)
+            self.model = PresidioAnalyzerWrapper(analyzer_engine=model, language=language)
         elif isinstance(model, BaseModel):
             self.model = model
         else:
