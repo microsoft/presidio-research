@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "presidio_evaluator"
-version = "0.2.3"
+version = "0.2.4"
 description = ""
 authors = ["Microsoft"]
 readme = "README.md"
@@ -10,7 +10,8 @@ include = [{ path= "presidio_evaluator/data_generator/raw_data/*"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-spacy = "^3.8.0"
+spacy = "<=3.8.3"
+numpy = "^2.0.0"
 pandas = "^2.1.4"
 tqdm = "^4.60.0"
 faker = "^21.0"
