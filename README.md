@@ -28,7 +28,7 @@ The easiest way to get started is by reviewing the notebooks.
 #### From PyPI
 
 ``` sh
-conda create --name presidio python=3.9
+conda create --name presidio python=3.12
 conda activate presidio
 pip install presidio-evaluator
 python -m spacy download en_core_web_sm # for tokenization
