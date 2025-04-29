@@ -11,44 +11,50 @@ from presidio_evaluator.evaluation import Evaluator, EvaluationResult, ModelErro
 
 class Plotter:
     """
-    Plot scores (f2, precision, recall) and errors
-    (false-positivies, false-negatives, wrong entity)
-    for a PII detection model evaluated via Evaluator
+    A class for visualizing evaluation results of a PII detection model.
 
-    :param results: results given by evaluator.calculate_score(evaluation_results)
-    :param output_folder: folder to store plots and errors in
-    :param model_name: name of the model to be used in the plot title
-    :param beta: a float with the beta parameter of the F measure,
-    which gives more or less weight to precision vs. recall
-    :param save_as: Optional string with the path to save the plots as images or svg
+    The `Plotter` class provides methods to generate various plots that help analyze 
+    the performance of a PII detection model evaluated using the `Evaluator` class. 
+    These visualizations include per-entity scores, most common errors, and confusion matrices.
+
+    Key Features:
+    - Plot per-entity precision, recall, and F-beta scores.
+    - Visualize the most common false positive and false negative tokens.
+    - Generate a confusion matrix for entity predictions.
+
+    Attributes:
+        results (EvaluationResult): The evaluation results from the `Evaluator`.
+        model_name (str): The name of the model, used in plot titles.
+        beta (float): The beta parameter for the F-beta score, controlling the 
+                      weight of precision vs. recall.
+        save_as (Optional[str]): The file format to save plots (e.g., "png", "svg").
+                                 If specified, plots are saved in the given format.
+                                 If not specified, plots are saved in png format
+
+    Notes:
+        - plots are always displayed interactively using the default
+          Plotly viewer, regardless of the `save_as` value.
+        - The `output_folder` is created automatically if it does not exist.
     """
+
 
     def __init__(
         self,
         results: EvaluationResult,
-        output_folder: Optional[Path] = None,
         model_name: str = "PresidioAnalyzerWrapper",
         beta: float = 2,
-        save_as: Optional[str] = None,
+        save_as: Optional[str] = "png",
     ):
         self.results = results
-        self.output_folder = output_folder
         self.save_as = save_as
         self.model_name = model_name.replace("/", "-")
-        self.beta = beta
+        self.beta = beta      
 
-        if not output_folder:
-            self.output_folder = Path("plots")
-        else:
-            self.output_folder = Path(output_folder)
-
-        if save_as:
-            self.output_folder.mkdir(parents=True, exist_ok=True)
-
-    def plot_scores(self) -> None:
+    def plot_scores(self, output_folder: Optional[Path] = None) -> None:
         """
         Plots per-entity recall, precision, or F2 score for evaluated model.
-
+        Parameters:
+            output_folder (Path): The folder where the plots will be saved. 
         """
         scores = {}
 
@@ -83,10 +89,8 @@ class Plotter:
         figs = [beta_fig, recall_fig, precision_fig]
 
         for fig in figs:
-            if self.save_as:
-                fig.write_image(
-                    Path(self.output_folder, f"{self.model_name}-scores.{self.save_as}")
-                )
+            if output_folder is not None:
+                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="scores")
                 fig.show(self.save_as)
             else:
                 fig.show()
@@ -144,7 +148,7 @@ class Plotter:
         )
         return fig
 
-    def plot_most_common_tokens(self) -> None:
+    def plot_most_common_tokens(self, output_folder: Optional[Path] = None) -> None:
         """Graph most common false positive and false negative tokens for each entity."""
         fps_frames = []
         fns_frames = []
@@ -198,14 +202,9 @@ class Plotter:
             if not fig:
                 continue
 
-            if self.save_as:
+            if output_folder is not None:
+                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="common-errors")
                 fig.show(self.save_as)
-                fig.write_image(
-                    Path(
-                        self.output_folder,
-                        f"{self.model_name}-common-errors.{self.save_as}",
-                    )
-                )
             else:
                 fig.show()
 
@@ -262,8 +261,16 @@ class Plotter:
         return fg
 
     def plot_confusion_matrix(
-        self, entities: List[str], confmatrix: List[List[int]]
+        self, entities: List[str], confmatrix: List[List[int]], output_folder: Optional[Path] = None
     ) -> None:
+        """
+        Plot the confusion matrix for the evaluated model.
+        Parameters:
+            entities (List[str]): List of entity names.
+            confmatrix (List[List[int]]): 2D list representing the confusion matrix.
+            output_folder (Path): The folder where the plot will be saved.
+
+        """
         # Create a DataFrame from the 2D list
         confusion_matrix_df = pd.DataFrame(confmatrix, index=entities, columns=entities)
 
@@ -286,13 +293,28 @@ class Plotter:
         fig.update_traces(textfont=dict(size=10))
         fig.update_layout(width=800, height=800)
 
-        if self.save_as:
-            fig.show(self.save_as)
-            fig.write_image(
-                Path(
-                    self.output_folder,
-                    f"{self.model_name}-confusion-matrix.{self.save_as}",
-                )
-            )
+        if output_folder is not None:
+            self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="confusion-matrix")
+            fig.show()
         else:
             fig.show()
+
+    def save_fig_to_file(
+        self,
+        fig: Figure,
+        output_folder: Optional[Path] = None,
+        file_name: str = "figure",
+    ) -> None:
+        """
+        Save the figure to a file.
+        Parameters:
+            fig (Figure): The figure to save.
+            output_folder (Path): The folder where the plot will be saved.
+            file_name (str): The name of the file to save the plot as.
+        """
+        if output_folder is not None:
+            if not output_folder.exists():  
+                output_folder.mkdir(parents=True, exist_ok=True)
+            fig.write_image(
+                Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
+            )

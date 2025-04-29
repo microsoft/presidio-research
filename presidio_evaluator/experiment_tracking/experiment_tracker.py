@@ -45,9 +45,9 @@ class ExperimentTracker:
     def start(self):
         pass
 
-    def end(self):
+    def end(self, output_dir: str = None):
         datetime_val = time.strftime("%Y%m%d-%H%M%S")
         filename = f"experiment_{datetime_val}.json"
-        print(f"saving experiment data to {filename}")
-        with open(filename, 'w') as json_file:
+        print(f"saving experiment data to {output_dir}{filename}")
+        with open(f"{output_dir}{filename}", 'w') as json_file:
             json.dump(self.__dict__, json_file)
