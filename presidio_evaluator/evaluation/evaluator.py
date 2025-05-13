@@ -210,6 +210,7 @@ class Evaluator:
             tokens=[str(token) for token in sample.tokens],
             actual_tags=sample.tags,
             predicted_tags=prediction,
+            start_indices=sample.start_indices,
         )
 
     def evaluate_all(
@@ -420,6 +421,7 @@ class Evaluator:
         - token text
         - annotation
         - prediction
+        - start_indices
         """
 
         if not evaluation_results or not evaluation_results[0].tokens:
@@ -431,11 +433,13 @@ class Evaluator:
             tokens = res.tokens
             annotations = res.actual_tags
             predictions = res.predicted_tags
+            start_indices = res.start_indices
             for j in range(len(tokens)):
                 rows_list.append({"sentence_id": i,
                                   "token": tokens[j],
                                   "annotation": annotations[j],
-                                  "prediction": predictions[j]})
+                                  "prediction": predictions[j],
+                                  "start_indices": start_indices[j]})
 
         results_df = pd.DataFrame(rows_list)
         return results_df

@@ -22,7 +22,8 @@ class EvaluationResult:
         n_dict: Optional[Dict[str, int]] = None,
         tokens: Optional[List[str]] = None,
         actual_tags: Optional[List[str]] = None,
-        predicted_tags: Optional[List[str]] = None
+        predicted_tags: Optional[List[str]] = None,
+        start_indices: List[bool] = None
     ):
         """
         Holds the output of a comparison between ground truth and predicted
@@ -40,6 +41,8 @@ class EvaluationResult:
         :param tokens: List of tokens
         :param actual_tags: List of actual tags
         :param predicted_tags: List of predicted tags
+        :param start_indices: List of boolean values indicating if
+        the token is a start token of an entity
         """
 
         self.results = results
@@ -58,6 +61,7 @@ class EvaluationResult:
         self.tokens = tokens
         self.actual_tags = actual_tags
         self.predicted_tags = predicted_tags
+        self.start_indices = start_indices
 
     def __str__(self):
         return_str = ""
