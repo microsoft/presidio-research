@@ -87,10 +87,11 @@ class Plotter:
         recall_fig = self._plot_one_metric(df, metric="recall")
         precision_fig = self._plot_one_metric(df, metric="precision")
         figs = [beta_fig, recall_fig, precision_fig]
-
-        for fig in figs:
+        fig_names = ["f_beta", "recall", "precision"]
+        
+        for fig, file_name in zip(figs, fig_names):
             if output_folder is not None:
-                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="scores")
+                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"scores-{file_name}")
                 fig.show(self.save_as)
             else:
                 fig.show()
@@ -198,12 +199,13 @@ class Plotter:
             fp_fig = None
             print("No false positives found")
 
-        for fig in [fn_fig, fp_fig]:
+        fig_names = ["fn", "fp"]
+        for fig, fig_name in zip([fn_fig, fp_fig], fig_names):
             if not fig:
                 continue
 
             if output_folder is not None:
-                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="common-errors")
+                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"common-errors-{fig_name}")
                 fig.show(self.save_as)
             else:
                 fig.show()
@@ -312,9 +314,7 @@ class Plotter:
             output_folder (Path): The folder where the plot will be saved.
             file_name (str): The name of the file to save the plot as.
         """
-        if output_folder is not None:
-            if not output_folder.exists():  
-                output_folder.mkdir(parents=True, exist_ok=True)
-            fig.write_image(
-                Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
-            )
+        output_folder.mkdir(parents=True, exist_ok=True)
+        fig.write_image(
+            Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
+        )
