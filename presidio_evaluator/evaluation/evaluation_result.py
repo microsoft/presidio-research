@@ -61,7 +61,7 @@ class EvaluationResult:
         self.tokens = tokens
         self.actual_tags = actual_tags
         self.predicted_tags = predicted_tags
-        self.start_indices = start_indices
+        self.start_indices = start_indices if start_indices is not None else []
 
     def __str__(self):
         return_str = ""
