@@ -118,6 +118,7 @@ class InputSample(object):
         metadata: Dict = None,
         sample_id: int = None,
         template_id: int = None,
+        start_indices: Optional[List[bool]] = None,
     ):
         """
         Hold all the information needed for evaluation in the
@@ -136,6 +137,7 @@ class InputSample(object):
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
         :param sample_id: Unique identifier for this sample (within a dataset)
+        :param start_indices: List of booleans indicating the start of each token
         """
         if tags is None:
             tags = []
@@ -153,10 +155,13 @@ class InputSample(object):
         else:
             self.template_id = template_id
 
+        self.start_indices = start_indices if start_indices else []
+
         if create_tags_from_span:
-            tokens, tags = self.get_tags(scheme, token_model_version)
+            tokens, tags, start_indices = self.get_tags(scheme, token_model_version)
             self.tokens = tokens
             self.tags = tags
+            self.start_indices = start_indices
         else:
             self.tokens = tokens
             self.tags = tags
@@ -180,14 +185,14 @@ class InputSample(object):
         return cls(**data, create_tags_from_span=True, **kwargs)
 
     def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm"):
-        """Extract the tokens and tags from the spans.
+        """Extract the tokens, tags, and start_indices from the spans.
 
         :param scheme: IO, BIO or BILUO
         :param model_version: The name of the spaCy model to use for tokenization
+        :return: tokens, tags, start_indices
         """
-
-        start_indices = [span.start_position for span in self.spans]
-        end_indices = [span.end_position for span in self.spans]
+        start_positions = [span.start_position for span in self.spans]
+        end_positions = [span.end_position for span in self.spans]
         tags = [span.entity_type for span in self.spans]
         tokens = tokenize(self.full_text, model_version)
 
@@ -195,13 +200,21 @@ class InputSample(object):
             scheme=scheme,
             text=self.full_text,
             tags=tags,
-            starts=start_indices,
-            ends=end_indices,
+            starts=start_positions,
+            ends=end_positions,
             tokens=tokens,
             token_model_version=model_version,
         )
 
-        return tokens, labels
+        # Calculate start_indices
+        start_indices = [False] * len(tokens)
+        for span_start in start_positions:
+            for i, token in enumerate(tokens):
+                if token.idx == span_start:
+                    start_indices[i] = True
+                    break
+
+        return tokens, labels, start_indices
 
     def to_conll(
         self, translate_tags: bool, tokenizer: str = "en_core_web_sm"
