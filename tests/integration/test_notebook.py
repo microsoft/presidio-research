@@ -117,7 +117,7 @@ def test_notebook():
 
     # Plot output
     plotter = Plotter(
-        results=results, output_folder="plots", model_name=evaluator.model.name, beta=2
+        results=results, model_name=evaluator.model.name, beta=2
     )
 
     # plotter.plot_scores()
