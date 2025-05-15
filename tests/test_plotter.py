@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from presidio_evaluator.evaluation import EvaluationResult, ModelError
 from presidio_evaluator.evaluation.plotter import Plotter
 
+
 @pytest.fixture
 def mock_evaluation_result():
     result = MagicMock(spec=EvaluationResult)
@@ -20,12 +21,14 @@ def mock_evaluation_result():
     result.model_errors = []  # Empty list for test cases
     return result
 
+
 @pytest.fixture
 def mock_figure():
     fig = MagicMock(spec=Figure)
     fig.show = MagicMock()
     fig.write_image = MagicMock()
     return fig
+
 
 class TestPlotter:
     def test_save_fig_to_file_creates_directory(self, mock_evaluation_result, tmp_path):
@@ -57,8 +60,10 @@ class TestPlotter:
             Path(output_dir, f"{plotter.model_name}-test-figure.svg")
         )
 
-    @patch('plotly.express.bar', return_value=MagicMock(spec=Figure))
-    def test_plot_scores_saves_multiple_figures(self, mock_px_bar, mock_evaluation_result, tmp_path):
+    @patch("plotly.express.bar", return_value=MagicMock(spec=Figure))
+    def test_plot_scores_saves_multiple_figures(
+        self, mock_px_bar, mock_evaluation_result, tmp_path
+    ):
         # Setup
         output_dir = tmp_path / "test_output"
         plotter = Plotter(mock_evaluation_result)
@@ -71,28 +76,32 @@ class TestPlotter:
         expected_paths = [
             str(Path(output_dir, f"{plotter.model_name}-scores-f_beta.png")),
             str(Path(output_dir, f"{plotter.model_name}-scores-recall.png")),
-            str(Path(output_dir, f"{plotter.model_name}-scores-precision.png"))
+            str(Path(output_dir, f"{plotter.model_name}-scores-precision.png")),
         ]
         assert mock_fig.write_image.call_count == 3
         actual_paths = [str(call[0][0]) for call in mock_fig.write_image.call_args_list]
         assert actual_paths == expected_paths
 
-    @patch('presidio_evaluator.evaluation.model_error.ModelError.get_fps_dataframe')
-    @patch('presidio_evaluator.evaluation.model_error.ModelError.get_fns_dataframe')
-    @patch('plotly.express.histogram', return_value=MagicMock(spec=Figure))
+    @patch("presidio_evaluator.evaluation.model_error.ModelError.get_fps_dataframe")
+    @patch("presidio_evaluator.evaluation.model_error.ModelError.get_fns_dataframe")
+    @patch("plotly.express.histogram", return_value=MagicMock(spec=Figure))
     def test_plot_most_common_tokens_saves_figures(
-        self, mock_px_histogram, mock_get_fns, mock_get_fps, 
-        mock_evaluation_result, tmp_path
+        self,
+        mock_px_histogram,
+        mock_get_fns,
+        mock_get_fps,
+        mock_evaluation_result,
+        tmp_path,
     ):
         # Setup
         output_dir = tmp_path / "test_output"
         plotter = Plotter(mock_evaluation_result)
-        
+
         # Mock dataframes with some test data
         test_data = {
-            'token': ['test1', 'test2'],
-            'prediction': ['PERSON', 'LOCATION'],
-            'annotation': ['PERSON', 'LOCATION']
+            "token": ["test1", "test2"],
+            "prediction": ["PERSON", "LOCATION"],
+            "annotation": ["PERSON", "LOCATION"],
         }
         mock_get_fps.return_value = pd.DataFrame(test_data)
         mock_get_fns.return_value = pd.DataFrame(test_data)
@@ -104,14 +113,16 @@ class TestPlotter:
         # Assert - should create 2 figures (false positives and false negatives)
         expected_paths = [
             str(Path(output_dir, f"{plotter.model_name}-common-errors-fn.png")),
-            str(Path(output_dir, f"{plotter.model_name}-common-errors-fp.png"))
+            str(Path(output_dir, f"{plotter.model_name}-common-errors-fp.png")),
         ]
         assert mock_fig.write_image.call_count == 2
         actual_paths = [str(call[0][0]) for call in mock_fig.write_image.call_args_list]
         assert actual_paths == expected_paths
 
-    @patch('plotly.express.imshow', return_value=MagicMock(spec=Figure))
-    def test_plot_confusion_matrix_saves_figure(self, mock_px_imshow, mock_evaluation_result, tmp_path):
+    @patch("plotly.express.imshow", return_value=MagicMock(spec=Figure))
+    def test_plot_confusion_matrix_saves_figure(
+        self, mock_px_imshow, mock_evaluation_result, tmp_path
+    ):
         # Setup
         output_dir = tmp_path / "test_output"
         plotter = Plotter(mock_evaluation_result)
@@ -123,8 +134,12 @@ class TestPlotter:
         plotter.plot_confusion_matrix(entities, conf_matrix, output_dir)
 
         # Assert
-        expected_path = str(Path(output_dir, f"{plotter.model_name}-confusion-matrix.png"))
-        mock_fig.write_image.assert_called_once_with(Path(output_dir, f"{plotter.model_name}-confusion-matrix.png"))
+        expected_path = str(
+            Path(output_dir, f"{plotter.model_name}-confusion-matrix.png")
+        )
+        mock_fig.write_image.assert_called_once_with(
+            Path(output_dir, f"{plotter.model_name}-confusion-matrix.png")
+        )
         assert str(mock_fig.write_image.call_args[0][0]) == expected_path
 
     def test_special_chars_in_model_name(self, mock_evaluation_result, tmp_path):
@@ -138,13 +153,17 @@ class TestPlotter:
 
         # Assert - slashes should be replaced with hyphens
         expected_path = str(Path(output_dir, "model-with-slashes-test-figure.png"))
-        mock_fig.write_image.assert_called_once_with(Path(output_dir, "model-with-slashes-test-figure.png"))
+        mock_fig.write_image.assert_called_once_with(
+            Path(output_dir, "model-with-slashes-test-figure.png")
+        )
         assert str(mock_fig.write_image.call_args[0][0]) == expected_path
 
     def test_plot_scores_without_output_folder(self, mock_evaluation_result):
         # Setup
         plotter = Plotter(mock_evaluation_result)
-        with patch('plotly.express.bar', return_value=MagicMock(spec=Figure)) as mock_px_bar:
+        with patch(
+            "plotly.express.bar", return_value=MagicMock(spec=Figure)
+        ) as mock_px_bar:
             mock_fig = mock_px_bar.return_value
 
             # Execute
@@ -158,9 +177,13 @@ class TestPlotter:
         # Setup
         output_dir = tmp_path / "test_output"
         plotter = Plotter(mock_evaluation_result)
-        
-        with patch('presidio_evaluator.evaluation.model_error.ModelError.get_fps_dataframe') as mock_get_fps:
-            with patch('presidio_evaluator.evaluation.model_error.ModelError.get_fns_dataframe') as mock_get_fns:
+
+        with patch(
+            "presidio_evaluator.evaluation.model_error.ModelError.get_fps_dataframe"
+        ) as mock_get_fps:
+            with patch(
+                "presidio_evaluator.evaluation.model_error.ModelError.get_fns_dataframe"
+            ) as mock_get_fns:
                 # Mock empty dataframes
                 mock_get_fps.return_value = None
                 mock_get_fns.return_value = None
