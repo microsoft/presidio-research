@@ -12,6 +12,7 @@ class ExperimentTracker:
         self.dataset_info = None
         self.confusion_matrix = None
         self.labels = None
+        self.output_dir = Path.cwd()
 
     def log_parameter(self, key: str, value: object):
         self.parameters[key] = value
@@ -30,6 +31,9 @@ class ExperimentTracker:
     def log_dataset_hash(self, data: str):
         pass
 
+    def log_output_dir(self, path: str):
+        self.output_dir = Path(path)
+
     def log_dataset_info(self, name: str):
         self.dataset_info = name
 
@@ -47,21 +51,15 @@ class ExperimentTracker:
     def start(self):
         pass
 
-    def end(self, output_dir: Union[str, Path] = None):
+    def end(self):
         datetime_val = time.strftime("%Y%m%d-%H%M%S")
         filename = f"experiment_{datetime_val}.json"
         
-        # Convert to Path object if string
-        if isinstance(output_dir, str):
-            output_dir = Path(output_dir)
-        elif output_dir is None:
-            output_dir = Path.cwd()
-            
         # Ensure output directory exists
-        output_dir.mkdir(parents=True, exist_ok=True)
-            
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         # Create full file path using proper path joining
-        output_path = output_dir / filename
+        output_path = self.output_dir / filename
         print(f"saving experiment data to {output_path}")
         
         with open(output_path, 'w') as json_file:

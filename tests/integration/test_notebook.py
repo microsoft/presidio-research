@@ -116,9 +116,9 @@ def test_notebook():
     experiment.log_parameter("entity_mappings", json.dumps(entities_mapping))
 
     # Plot output
-    plotter = Plotter(
-        results=results, model_name=evaluator.model.name, beta=2
-    )
+    # plotter = Plotter(
+    #     results=results, model_name=evaluator.model.name, beta=2
+    # )
 
     # plotter.plot_scores()
 
