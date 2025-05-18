@@ -304,7 +304,7 @@ class Plotter:
     def save_fig_to_file(
         self,
         fig: Figure,
-        output_folder: Optional[Path] = None,
+        output_folder: Path,
         file_name: str = "figure",
     ) -> None:
         """
