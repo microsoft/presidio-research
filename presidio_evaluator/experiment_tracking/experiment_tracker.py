@@ -1,6 +1,8 @@
 import json
 import time
-from typing import Dict, List
+import os
+from pathlib import Path
+from typing import Dict, List, Union
 
 
 class ExperimentTracker:
@@ -10,6 +12,7 @@ class ExperimentTracker:
         self.dataset_info = None
         self.confusion_matrix = None
         self.labels = None
+        self.output_dir = Path.cwd()
 
     def log_parameter(self, key: str, value: object):
         self.parameters[key] = value
@@ -48,6 +51,13 @@ class ExperimentTracker:
     def end(self):
         datetime_val = time.strftime("%Y%m%d-%H%M%S")
         filename = f"experiment_{datetime_val}.json"
-        print(f"saving experiment data to {filename}")
-        with open(filename, 'w') as json_file:
+        
+        # Ensure output directory exists
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create full file path using proper path joining
+        output_path = self.output_dir / filename
+        print(f"saving experiment data to {output_path}")
+        
+        with open(output_path, 'w') as json_file:
             json.dump(self.__dict__, json_file)

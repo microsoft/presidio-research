@@ -491,11 +491,13 @@ def test_results_to_dataframe():
     prediction = ["O", "EMAIL", "PHONE", "LOCATION", "PERSON"]
     tokens = ["John", "details", "john@mail.com", "123-456-7890", "today"]
     tags = ["PERSON", "O", "EMAIL", "PHONE", "O"]
+    start_indices = [True, False, True, True, False]
     evaluator = Evaluator(model=MockTokensModel(prediction))
 
     sample = InputSample(
         full_text="John details john@mail.com 123-456-7890 today",
         tokens=tokens,
+        start_indices=start_indices,
         tags=tags
     )
 
@@ -510,6 +512,7 @@ def test_results_to_dataframe():
     assert df["prediction"].to_list() == prediction + prediction
     assert df["token"].to_list() == tokens + tokens
     assert df["sentence_id"].to_list() == [0]*len(tokens) + [1]*len(tokens)
+    assert df["start_indices"].to_list() == start_indices + start_indices
 
 
 def test_score_calculation():

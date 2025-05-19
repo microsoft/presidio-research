@@ -167,3 +167,86 @@ def test_spans_intersection(
 
     intersection = span1.intersect(span2, ignore_entity_type=ignore_entity_type)
     assert intersection == intersection_length
+
+
+def test_start_indices_in_get_tags():
+    """Test that start_indices are correctly generated when using get_tags"""
+    sample = InputSample(
+        full_text="Dan Smith is my friend from Tel Aviv.",
+        spans=[
+            Span(entity_type="PERSON", entity_value="Dan Smith", start_position=0, end_position=9),
+            Span(entity_type="LOCATION", entity_value="Tel Aviv", start_position=28, end_position=36)
+        ]
+    )
+
+    tokens, tags, start_indices = sample.get_tags(scheme="IO")
+
+    # Verify tokens align with start_indices
+    assert len(tokens) == len(start_indices)
+
+    # "Dan" should be marked as start since it's the beginning of "Dan Smith"
+    assert tokens[0].text == "Dan"
+    assert start_indices[0] is True
+
+    # Other tokens in the "Dan Smith" entity should not be marked as start
+    assert tokens[1].text == "Smith"
+    assert start_indices[1] is False
+
+    # "Tel" should be marked as start since it's the beginning of "Tel Aviv"
+    assert tokens[6].text == "Tel"
+    assert start_indices[6] is True
+
+    # "Aviv" should not be marked as start
+    assert tokens[7].text == "Aviv"
+    assert start_indices[7] is False
+
+    # Non-entity tokens should be False
+    assert all(not start_indices[i] for i in [2, 3, 4, 5, 8])
+
+
+def test_start_indices_in_create_tags_from_span():
+    """Test that start_indices are correctly set when using create_tags_from_span=True"""
+    sample = InputSample(
+        full_text="John works at Microsoft.",
+        spans=[
+            Span(entity_type="PERSON", entity_value="John", start_position=0, end_position=4),
+            Span(entity_type="ORG", entity_value="Microsoft", start_position=14, end_position=23)
+        ],
+        create_tags_from_span=True
+    )
+
+    # Verify start_indices are set correctly
+    assert len(sample.tokens) == len(sample.start_indices)
+
+    # "John" should be marked as start
+    assert sample.tokens[0].text == "John"
+    assert sample.start_indices[0] is True
+
+    # "Microsoft" should be marked as start
+    assert sample.tokens[3].text == "Microsoft"
+    assert sample.start_indices[3] is True
+
+    # Non-entity tokens should be False
+    assert all(not sample.start_indices[i] for i in [1, 2, 4])
+
+
+def test_manually_set_start_indices():
+    """Test manually setting start_indices during initialization"""
+    sample = InputSample(
+        full_text="Alex and Bob are friends.",
+        spans=[
+            Span(entity_type="PERSON", entity_value="Alex", start_position=0, end_position=4),
+            Span(entity_type="PERSON", entity_value="Bob", start_position=9, end_position=12)
+        ],
+        start_indices=[True, False, True, False, False]
+    )
+
+    assert sample.start_indices == [True, False, True, False, False]
+
+    # When creating tags from spans, the start_indices should be updated
+    sample.get_tags()
+
+    # After updating, "Alex" and "Bob" should be marked as start tokens
+    assert sample.start_indices[0] is True  # Alex
+    assert sample.start_indices[2] is True  # Bob
+    assert all(not sample.start_indices[i] for i in [1, 3, 4])  # Other tokens
