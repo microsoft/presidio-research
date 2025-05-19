@@ -29,7 +29,8 @@ class Plotter:
                       weight of precision vs. recall.
         save_as (Optional[str]): The file format to save plots (e.g., "png", "svg").
                                  If specified, plots are saved in the given format.
-                                 If not specified, plots are saved in png format
+                                 It has to be specified if output_folder is passed 
+                                 as input to the plotting functions.
 
     Notes:
         - plots are always displayed interactively using the default
@@ -43,7 +44,7 @@ class Plotter:
         results: EvaluationResult,
         model_name: str = "PresidioAnalyzerWrapper",
         beta: float = 2,
-        save_as: Optional[str] = "png",
+        save_as: Optional[str] = None,
     ):
         self.results = results
         self.save_as = save_as
@@ -92,7 +93,7 @@ class Plotter:
         for fig, file_name in zip(figs, fig_names):
             if output_folder is not None:
                 self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"scores-{file_name}")
-                fig.show(self.save_as)
+                fig.show()
             else:
                 fig.show()
 
@@ -206,7 +207,7 @@ class Plotter:
 
             if output_folder is not None:
                 self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"common-errors-{fig_name}")
-                fig.show(self.save_as)
+                fig.show()
             else:
                 fig.show()
 
@@ -315,6 +316,15 @@ class Plotter:
             file_name (str): The name of the file to save the plot as.
         """
         output_folder.mkdir(parents=True, exist_ok=True)
-        fig.write_image(
-            Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
-        )
+        if self.save_as == "html":
+            fig.write_html(
+                Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
+            )
+        elif self.save_as is not None:
+            fig.write_image(
+                Path(output_folder, f"{self.model_name}-{file_name}.{self.save_as}")
+            )
+        else:
+            raise ValueError(
+                "save_as must be either 'html' or a valid image format (e.g., 'png', 'svg')."
+            )

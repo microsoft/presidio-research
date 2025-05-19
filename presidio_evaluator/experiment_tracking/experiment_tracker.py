@@ -31,9 +31,6 @@ class ExperimentTracker:
     def log_dataset_hash(self, data: str):
         pass
 
-    def log_output_dir(self, path: str):
-        self.output_dir = Path(path)
-
     def log_dataset_info(self, name: str):
         self.dataset_info = name
 
