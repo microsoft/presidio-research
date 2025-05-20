@@ -13,8 +13,8 @@ def sample_df():
         'sentence_id': [0, 0, 0, 0, 0, 0, 0],
         'token': ['John', 'Smith', 'lives', 'in', 'New', 'York', '.'],
         'start': [0, 5, 11, 17, 20, 24, 28],
-        'annotation': ['B-PERSON', 'I-PERSON', 'O', 'O', 'B-LOCATION', 'I-LOCATION', 'O'],
-        'prediction': ['B-PERSON', 'I-PERSON', 'O', 'O', 'B-LOCATION', 'I-LOCATION', 'O']
+        'annotation': ['PERSON', 'PERSON', 'O', 'O', 'LOCATION', 'LOCATION', 'O'],
+        'prediction': ['PERSON', 'PERSON', 'O', 'O', 'LOCATION', 'LOCATION', 'O']
     })
 
 @pytest.fixture
@@ -23,8 +23,8 @@ def complex_df():
         'sentence_id': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         'token': ['The', 'United', 'States', 'of', 'America', 'and', 'New', 'York', 'City', '.'],
         'start': [0, 4, 11, 18, 21, 29, 33, 37, 42, 46],
-        'annotation': ['O', 'B-LOCATION', 'I-LOCATION', 'I-LOCATION', 'I-LOCATION', 'O', 'B-LOCATION', 'I-LOCATION', 'I-LOCATION', 'O'],
-        'prediction': ['O', 'B-LOCATION', 'I-LOCATION', 'O', 'I-LOCATION', 'O', 'B-LOCATION', 'I-LOCATION', 'O', 'O']
+        'annotation': ['O', 'LOCATION', 'LOCATION', 'LOCATION', 'LOCATION', 'O', 'LOCATION', 'LOCATION', 'LOCATION', 'O'],
+        'prediction': ['O', 'LOCATION', 'LOCATION', 'O', 'LOCATION', 'O', 'LOCATION', 'LOCATION', 'O', 'O']
     })
 
 def test_normalize_tokens(span_evaluator):
@@ -75,15 +75,13 @@ def test_evaluate_partial_match(span_evaluator, complex_df):
     assert results['recall'] > 0.0
     assert results['f1'] > 0.0
     
-    # Check error analysis
-    assert 'low_iou_LOCATION' in results['error_analysis']
 
 def test_evaluate_empty_prediction(span_evaluator):
     df = pd.DataFrame({
         'sentence_id': [0, 0, 0],
         'token': ['John', 'Smith', '.'],
         'start': [0, 5, 10],
-        'annotation': ['B-PERSON', 'I-PERSON', 'O'],
+        'annotation': ['PERSON', 'PERSON', 'O'],
         'prediction': ['O', 'O', 'O']
     })
     
@@ -91,7 +89,6 @@ def test_evaluate_empty_prediction(span_evaluator):
     assert results['precision'] == 0.0
     assert results['recall'] == 0.0
     assert results['f1'] == 0.0
-    assert results['error_analysis']['missed_PERSON'] == 1
 
 def test_evaluate_no_annotation(span_evaluator):
     df = pd.DataFrame({
@@ -99,11 +96,11 @@ def test_evaluate_no_annotation(span_evaluator):
         'token': ['John', 'Smith', '.'],
         'start': [0, 5, 10],
         'annotation': ['O', 'O', 'O'],
-        'prediction': ['B-PERSON', 'I-PERSON', 'O']
+        'prediction': ['PERSON', 'PERSON', 'O']
     })
     
     results = span_evaluator.evaluate(df)
     assert results['precision'] == 0.0
     assert results['recall'] == 0.0
     assert results['f1'] == 0.0
-    assert results['error_analysis']['extra_PERSON'] == 1
+

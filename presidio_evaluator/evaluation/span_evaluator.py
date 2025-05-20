@@ -185,47 +185,47 @@ class SpanEvaluator:
             # Track matched spans to avoid double-counting
             matched_preds = set()
 
-        # For each annotation, find best matching prediction
-        for ann_span in annotation_spans:
-            best_match = None
-            best_iou = 0.0
+            # For each annotation, find best matching prediction
+            for ann_span in annotation_spans:
+                best_match = None
+                best_iou = 0.0
 
-            for pred_span in prediction_spans:
-                pred_span_key = (
-                    pred_span.entity_type,
-                    pred_span.start_position,
-                    pred_span.end_position
-                )
-                if pred_span_key in matched_preds:
-                    continue
+                for pred_span in prediction_spans:
+                    pred_span_key = (
+                        pred_span.entity_type,
+                        pred_span.start_position,
+                        pred_span.end_position
+                    )
+                    if pred_span_key in matched_preds:
+                        continue
 
-                # Only compare spans of same type
-                if pred_span.entity_type != ann_span.entity_type:
-                    continue
+                    # Only compare spans of same type
+                    if pred_span.entity_type != ann_span.entity_type:
+                        continue
 
-                iou = self.calculate_iou(ann_span, pred_span, sentence_df)
-                if iou > best_iou:
-                    best_iou = iou
-                    best_match = pred_span
+                    iou = self.calculate_iou(ann_span, pred_span, sentence_df)
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_match = pred_span
 
-            entity_type = ann_span.entity_type
+                entity_type = ann_span.entity_type
 
-            # If match found above threshold
-            if best_match and best_iou >= self.iou_threshold:
-                total_true_positives += 1
-                per_type_metrics[entity_type]["tp"] += 1
-                matched_preds.add((
-                    best_match.entity_type,
-                    best_match.start_position,
-                    best_match.end_position
-                ))
-            else:
-                total_false_negatives += 1
-                per_type_metrics[entity_type]["fn"] += 1
-                if best_match:
-                    error_analysis[f"low_iou_{entity_type}"] += 1
+                # If match found above threshold
+                if best_match and best_iou >= self.iou_threshold:
+                    total_true_positives += 1
+                    per_type_metrics[entity_type]["tp"] += 1
+                    matched_preds.add((
+                        best_match.entity_type,
+                        best_match.start_position,
+                        best_match.end_position
+                    ))
                 else:
-                    error_analysis[f"missed_{entity_type}"] += 1
+                    total_false_negatives += 1
+                    per_type_metrics[entity_type]["fn"] += 1
+                    if best_match:
+                        error_analysis[f"low_iou_{entity_type}"] += 1
+                    else:
+                        error_analysis[f"missed_{entity_type}"] += 1
 
         # Count false positives (unmatched predictions)
         for pred_span in prediction_spans:
@@ -256,7 +256,6 @@ class SpanEvaluator:
         return {
             **metrics,
             "per_type": per_type,
-            "error_analysis": dict(error_analysis)
         }
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> List[Span]:
@@ -292,9 +291,9 @@ class SpanEvaluator:
                     current_tokens = []
                 continue
                 
-            # Remove BIO prefixes if present
-            if "-" in entity_type:
-                entity_type = entity_type.split("-", 1)[1]
+            # # Remove BIO prefixes if present
+            # if "-" in entity_type:
+            #     entity_type = entity_type.split("-", 1)[1]
             
             # Start new span
             if current_type != entity_type:
@@ -360,3 +359,32 @@ class SpanEvaluator:
             "recall": recall,
             "f1": f1
         }
+    
+    def span_pairwise_iou_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        For each sentence, compute IoU for all combinations of annotated and predicted spans.
+        Returns a DataFrame with columns:
+        ['sentence_id', 'ann_entity', 'ann_start', 'ann_end', 'pred_entity', 'pred_start', 'pred_end', 'iou']
+        """
+        records = []
+        for sentence_id, sentence_df in df.groupby("sentence_id"):
+            annotation_spans = self._create_spans(sentence_df, "annotation")
+            prediction_spans = self._create_spans(sentence_df, "prediction")
+            annotation_spans = self.merge_adjacent_spans(annotation_spans, sentence_df)
+            prediction_spans = self.merge_adjacent_spans(prediction_spans, sentence_df)
+            for ann in annotation_spans:
+                for pred in prediction_spans:
+                    iou = self.calculate_iou(ann, pred, sentence_df)
+                    records.append({
+                        "sentence_id": sentence_id,
+                        "annotation_span": ann,
+                        "prediction_span": pred,
+                        "ann_entity": ann.entity_type,
+                        "ann_start": ann.start_position,
+                        "ann_end": ann.end_position,
+                        "pred_entity": pred.entity_type,
+                        "pred_start": pred.start_position,
+                        "pred_end": pred.end_position,
+                        "iou": iou
+                    })
+        return pd.DataFrame(records)
