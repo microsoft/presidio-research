@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
+from presidio_evaluator.data_objects import Span
 
 @pytest.mark.parametrize(
     "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted",
@@ -202,7 +203,6 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
             # as ORGANIZATION
     ]
 )
-
 def test_evaluate(annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted):
     # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame({
@@ -222,3 +222,99 @@ def test_evaluate(annotation, prediction, tokens, start_indices, TP, num_annotat
 
     assert result["recall"] == pytest.approx(expected_recall), f"Recall mismatch: expected {expected_recall}, got {result['recall']}"
     assert result["precision"] == pytest.approx(expected_precision), f"Precision mismatch: expected {expected_precision}, got {result['precision']}"
+
+
+@pytest.mark.parametrize(
+    "tokens, bio_labels, expected_spans",
+    [
+        # Simple single entity
+        (
+            ["John", "Smith", "is", "here"],
+            ["B-PERSON", "I-PERSON", "O", "O"],
+            [
+                Span(
+                    entity_type="PERSON",
+                    entity_value=["John", "Smith"],
+                    start_position=0,
+                    end_position=2
+                )
+            ]
+        ),
+        
+        # Multiple entities
+        (
+            ["John", "Smith", "at", "Microsoft", "Corp"],
+            ["B-PERSON", "I-PERSON", "O", "B-ORGANIZATION", "I-ORGANIZATION"],
+            [
+                Span(
+                    entity_type="PERSON",
+                    entity_value=["John", "Smith"],
+                    start_position=0,
+                    end_position=2
+                ),
+                Span(
+                    entity_type="ORGANIZATION",
+                    entity_value=["Microsoft", "Corp"],
+                    start_position=3,
+                    end_position=5
+                )
+            ]
+        ),
+        
+        # Single token entity
+        (
+            ["John", "went", "to", "Paris"],
+            ["B-PERSON", "O", "O", "B-LOCATION"],
+            [
+                Span(
+                    entity_type="PERSON",
+                    entity_value=["John"],
+                    start_position=0,
+                    end_position=1
+                ),
+                Span(
+                    entity_type="LOCATION",
+                    entity_value=["Paris"],
+                    start_position=3,
+                    end_position=4
+                )
+            ]
+        ),
+        
+        # No entities
+        (
+            ["The", "sky", "is", "blue"],
+            ["O", "O", "O", "O"],
+            []
+        ),
+        
+        # Invalid I- without B-
+        (
+            ["John", "Smith", "is", "here"],
+            ["I-PERSON", "I-PERSON", "O", "O"],
+            []
+        )
+    ]
+)
+def test_create_spans_bio(tokens, bio_labels, expected_spans):
+    df = pd.DataFrame({
+        "sentence_id": [0] * len(tokens),
+        "token": tokens,
+        "annotation": bio_labels
+    })
+    
+    evaluator = SpanEvaluator(iou_threshold=0.9, schema="BIO")
+    spans = evaluator._create_spans_bio(df, "annotation")
+    
+    assert len(spans) == len(expected_spans), \
+        f"Number of spans mismatch. Expected {len(expected_spans)}, got {len(spans)}"
+    
+    for span, expected_span in zip(spans, expected_spans):
+        assert span.entity_type == expected_span.entity_type, \
+            f"Entity type mismatch. Expected {expected_span.entity_type}, got {span.entity_type}"
+        assert span.entity_value == expected_span.entity_value, \
+            f"Entity value mismatch. Expected {expected_span.entity_value}, got {span.entity_value}"
+        assert span.start_position == expected_span.start_position, \
+            f"Start position mismatch. Expected {expected_span.start_position}, got {span.start_position}"
+        assert span.end_position == expected_span.end_position, \
+            f"End position mismatch. Expected {expected_span.end_position}, got {span.end_position}"

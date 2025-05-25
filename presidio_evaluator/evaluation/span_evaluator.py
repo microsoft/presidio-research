@@ -197,7 +197,6 @@ class SpanEvaluator:
                         continue
 
                     iou = self.calculate_iou(ann_span, pred_span, sentence_df)
-                    print(f"iou: {iou}")
                     if iou > best_iou:
                         best_iou = iou
                         best_match = pred_span
@@ -235,11 +234,6 @@ class SpanEvaluator:
                     per_type_metrics[pred_span.entity_type]["fp"] += 1
                     error_analysis[f"extra_{pred_span.entity_type}"] += 1
 
-        print(f"total_true_positives: {total_true_positives}")
-        print(f"total_false_positives: {total_false_positives}")
-        print(f"total_false_negatives: {total_false_negatives}")
-        print(f"total_num_annotated: {total_num_annotated}")
-        print(f"total_num_predicted: {total_num_predicted}")
         # Calculate global metrics using _calculate_metrics
         global_metrics = self._calculate_metrics(
             total_true_positives, total_num_predicted, total_num_annotated, self.beta
