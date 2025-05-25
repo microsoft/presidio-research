@@ -1,106 +1,224 @@
-import pandas as pd
 import pytest
+import pandas as pd
 from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
-from presidio_evaluator.data_objects import Span
 
-@pytest.fixture
-def span_evaluator():
-    return SpanEvaluator(iou_threshold=0.5)
+@pytest.mark.parametrize(
+    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted",
+    [
+        # Single Entity with a Skip Word
+        (
+                ['PERSON', 'O', 'O', 'O'],
+                ['PERSON', 'O', 'O', 'O'],
+                ["David", "is", "my", "friend"],
+                [True, False, False, False],
+                1,
+                1,
+                1
+        ),  # 'is' is a skip word
 
-@pytest.fixture
-def sample_df():
-    return pd.DataFrame({
-        'sentence_id': [0, 0, 0, 0, 0, 0, 0],
-        'token': ['John', 'Smith', 'lives', 'in', 'New', 'York', '.'],
-        'start': [0, 5, 11, 17, 20, 24, 28],
-        'annotation': ['PERSON', 'PERSON', 'O', 'O', 'LOCATION', 'LOCATION', 'O'],
-        'prediction': ['PERSON', 'PERSON', 'O', 'O', 'LOCATION', 'LOCATION', 'O']
-    })
+        # Mismatch Due to Different Tokenization
+        (
+                ['PERSON', 'PERSON','O', 'O', 'O'],
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON', 'O'],
+                ["David", "Johnson", "is", "my", "friend"],
+                [True, False, False, False, False],
+                1,
+                1,
+                1
+        ),
 
-@pytest.fixture
-def complex_df():
-    return pd.DataFrame({
-        'sentence_id': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        'token': ['The', 'United', 'States', 'of', 'America', 'and', 'New', 'York', 'City', '.'],
-        'start': [0, 4, 11, 18, 21, 29, 33, 37, 42, 46],
-        'annotation': ['O', 'LOCATION', 'LOCATION', 'LOCATION', 'LOCATION', 'O', 'LOCATION', 'LOCATION', 'LOCATION', 'O'],
-        'prediction': ['O', 'LOCATION', 'LOCATION', 'O', 'LOCATION', 'O', 'LOCATION', 'LOCATION', 'O', 'O']
-    })
+        # Prediction Misses Entire Annotated Span
+        (
+                ['PERSON', 'PERSON', 'O', 'O'],
+                ['O', 'O', 'O', 'O'],
+                ["David", "Johnson", "my", "friend"],
+                [True, False, False, False],
+                0,
+                1,
+                2
+        ),
 
-def test_normalize_tokens(span_evaluator):
-    tokens = ['The', 'United', 'States', 'of', 'America', '.']
-    normalized = span_evaluator.normalize_tokens(tokens)
-    assert normalized == ['united', 'states', 'america']
+        # Partial Overlap: Start Boundary Mismatch
+        (
+                ['LOCATION', 'LOCATION', 'LOCATION', 'O'],
+                ['O', 'LOCATION', 'LOCATION', 'O'],
+                ["New", "York", "City", "is"],
+                [True, False, False, False],
+                0,
+                1,
+                1
+        ),  # Annotated: "New York", Predicted: "York City"
 
-def test_merge_adjacent_spans(span_evaluator, sample_df):
-    spans = [
-        Span('PERSON', ['John'], 0, 5),
-        Span('PERSON', ['Smith'], 5, 10),
-        Span('LOCATION', ['New'], 20, 24),
-        Span('LOCATION', ['York'], 24, 28)
+        # Partial Overlap: End Boundary Mismatch
+        (
+                ['O', 'O', 'PERSON', 'PERSON'],
+                ['O', 'PERSON', 'O', 'PERSON'],
+                ["I", "met", "John", "Doe"],
+                [False, False, True, False],
+                0,
+                1,
+                2
+        ),  # Annotated: "John Doe", Predicted: "John" and "Doe" separately
+
+        # No Overlap: Completely Different Entities
+        (
+                ['PERSON', 'O', 'O', 'O'],
+                ['LOCATION', 'O', 'O', 'O'],
+                ["Paris", "is", "beautiful", "today"],
+                [True, False, False, False],
+                0,
+                1,
+                1
+        ),  # Annotated: "Paris" as PERSON, Predicted: "Paris" as LOCATION
+
+        # Multiple Entities: One Correct, One Incorrect
+        (
+                ['PERSON', 'O', 'O', 'LOCATION'],
+                ['PERSON', 'O', 'PERSON', 'PERSON'],
+                ["Alice", "went", "to", "Paris"],
+                [True, False, False, True],
+                1,
+                2,
+                2
+        ),  # "Alice" correctly predicted, "Paris" mispredicted as PERSON
+
+        # Overlapping Entities: Nested Span (Not Typical in NER but for Robustness)
+        (
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON', 'O'],
+                ['PERSON', 'O', 'PERSON', 'PERSON', 'O'],
+                ["Sir", "Arthur", "Conan", "Doyle", "wrote"],
+                [True, False, False, False, False],
+                0,
+                1,
+                2
+        ),  # Annotated: "Sir Arthur Conan Doyle", Predicted: "Sir" and "Conan Doyle"
+
+        # Multiple Predicted Spans for a Single Annotated Span
+        (
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON'],
+                ['PERSON', 'O', 'PERSON', 'O'],
+                ["Marie", "Claire", "de", "Roth"],
+                [True, False, False, False],
+                0,
+                1,
+                2
+        ),  # Annotated: "Marie Claire de Roth", Predicted: "Marie" and "Roth"
+
+        # No Entities in Annotation, Some in Prediction
+        (
+                ['O', 'O', 'O', 'O'],
+                ['PERSON', 'O', 'LOCATION', 'O'],
+                ["This", "is", "London", "now"],
+                [False, False, False, False],
+                0,
+                0,
+                2
+        ),  # All predictions are false positives
+
+        # No Entities in Prediction, Some in Annotation
+        (
+                ['PERSON', 'O', 'LOCATION', 'LOCATION'],
+                ['O', 'O', 'O', 'O'],
+                ["Emma", "travels", "to", "Berlin"],
+                [True, False, True, False],
+                0,
+                2,
+                0
+        ),  # All annotations are false negatives
+
+        # Exact Match with Multiple Entities
+        (
+                ['PERSON', 'PERSON', 'O', 'LOCATION', 'LOCATION'],
+                ['PERSON', 'PERSON', 'O', 'LOCATION', 'LOCATION'],
+                ["Barack", "Obama", "visited", "New", "York"],
+                [True, False, False, True, False],
+                2,
+                2,
+                2
+        ),  # Two entities correctly predicted
+
+        # Adjacent Entities Without Overlap
+        (
+                ['PERSON', 'PERSON', 'LOCATION', 'LOCATION'],
+                ['PERSON', 'PERSON', 'LOCATION', 'LOCATION'],
+                ["John", "Doe", "Paris", "France"],
+                [True, False, True, False],
+                2,
+                2,
+                2
+        ),  # Two adjacent entities correctly predicted
+
+        # Prediction Extends Beyond Annotated Span
+        (
+                ['PERSON', 'PERSON', 'PERSON', 'O'],
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON'],
+                ["Anna", "Marie", "Smith", "Loves"],
+                [True, False, False, False],
+                0,
+                1,
+                1
+        ),  # Prediction merges into a single span, but is longer than the annotated span
+
+        # Prediction Extends Beyond Annotated Span
+        (
+                ['PERSON', 'PERSON', 'PERSON', 'O'],
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON'],
+                ["John", "Doe", "Smith", "son"],
+                [True, False, False, False],
+                0,
+                1,
+                1
+        ),  # Prediction is longer than annotation
+
+        # Prediction is Subset of Annotated Span
+        (
+                ['PERSON', 'PERSON', 'PERSON'],
+                ['PERSON', 'PERSON', 'O'],
+                ["John", "Doe", "Smith"],
+                [True, False, False],
+                0,
+                1,
+                1
+        ),  # Prediction is shorter than annotation
+        (
+                ['PERSON', 'PERSON', 'O', 'PERSON', 'PERSON'],
+                ['PERSON', 'PERSON', 'PERSON', 'PERSON', 'PERSON'],
+                ["John", "Doe", "and", "Jane", "Smith"],
+                [True, False, False, True, False],
+                0,
+                2,
+                1
+        ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted: 
+            # "John Doe and Jane Smith" as one merged entity
+        (
+                ['PERSON', 'PERSON', 'O', 'ORGANIZATION', 'ORGANIZATION', 'ORGANIZATION'],
+                ['PERSON', 'PERSON', 'O', 'ORGANIZATION', 'ORGANIZATION', 'ORGANIZATION'],
+                ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
+                [True, False, False, True, False, False],
+                2,
+                2,
+                2
+        ),  # Special characters test: "O'Brien Jr." as PERSON and "McDonald's Corp. Inc." 
+            # as ORGANIZATION
     ]
-    
-    merged = span_evaluator.merge_adjacent_spans(spans, sample_df)
-    assert len(merged) == 2
-    assert merged[0].start_position == 0
-    assert merged[0].end_position == 10  # End of "Smith"
-    assert merged[1].start_position == 20  # Start of "New"
-    assert merged[1].end_position == 28  # End of "York"
+)
 
-def test_calculate_iou(span_evaluator, sample_df):
-    span1 = Span('PERSON', ['John', 'Smith'], 0, 10)
-    span2 = Span('PERSON', ['John', 'Smith'], 0, 10)
-    iou = span_evaluator.calculate_iou(span1, span2, sample_df)
-    assert iou == 1.0
-
-    span3 = Span('PERSON', ['John'], 0, 5)
-    iou = span_evaluator.calculate_iou(span1, span3, sample_df)
-    assert iou == 0.5
-
-def test_evaluate_perfect_match(span_evaluator, sample_df):
-    results = span_evaluator.evaluate(sample_df)
-    assert results['precision'] == 1.0
-    assert results['recall'] == 1.0
-    assert results['f1'] == 1.0
-    
-    # Check per-type metrics
-    assert results['per_type']['PERSON']['precision'] == 1.0
-    assert results['per_type']['LOCATION']['precision'] == 1.0
-
-def test_evaluate_partial_match(span_evaluator, complex_df):
-    results = span_evaluator.evaluate(complex_df)
-    
-    # Should find partial matches for both locations
-    assert results['precision'] > 0.0
-    assert results['recall'] > 0.0
-    assert results['f1'] > 0.0
-    
-
-def test_evaluate_empty_prediction(span_evaluator):
+def test_evaluate(annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted):
+    # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame({
-        'sentence_id': [0, 0, 0],
-        'token': ['John', 'Smith', '.'],
-        'start': [0, 5, 10],
-        'annotation': ['PERSON', 'PERSON', 'O'],
-        'prediction': ['O', 'O', 'O']
+        "sentence_id": [0] * len(tokens),
+        "token": tokens,
+        "annotation": annotation,
+        "prediction": prediction,
+        "is_entity_start": start_indices,
     })
-    
-    results = span_evaluator.evaluate(df)
-    assert results['precision'] == 0.0
-    assert results['recall'] == 0.0
-    assert results['f1'] == 0.0
+    print(f"df: {df}")
+    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None)
+    result = evaluator.evaluate(df)
 
-def test_evaluate_no_annotation(span_evaluator):
-    df = pd.DataFrame({
-        'sentence_id': [0, 0, 0],
-        'token': ['John', 'Smith', '.'],
-        'start': [0, 5, 10],
-        'annotation': ['O', 'O', 'O'],
-        'prediction': ['PERSON', 'PERSON', 'O']
-    })
-    
-    results = span_evaluator.evaluate(df)
-    assert results['precision'] == 0.0
-    assert results['recall'] == 0.0
-    assert results['f1'] == 0.0
+    # Calculate expected metrics
+    expected_recall = TP / num_annotated if num_annotated > 0 else 0
+    expected_precision = TP / num_predicted if num_predicted > 0 else 0
 
+    assert result["recall"] == pytest.approx(expected_recall), f"Recall mismatch: expected {expected_recall}, got {result['recall']}"
+    assert result["precision"] == pytest.approx(expected_precision), f"Precision mismatch: expected {expected_precision}, got {result['precision']}"

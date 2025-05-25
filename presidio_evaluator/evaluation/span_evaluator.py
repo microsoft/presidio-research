@@ -141,21 +141,6 @@ class SpanEvaluator:
         return intersection / union if union > 0 else 0.0
 
     def evaluate(self, results_df: pd.DataFrame) -> Dict:
-        """
-        Evaluate model predictions using span-based fuzzy matching.
-
-        :param results_df: DataFrame from Evaluator.get_results_dataframe() containing:
-            - sentence_id
-            - token
-            - annotation (ground truth entity)
-            - prediction (predicted entity)
-        :return: Dictionary containing evaluation metrics:
-            - precision
-            - recall
-            - f-beta
-            - per_type: dict of precision, recall, f-beta per entity type
-            - error_analysis: dict containing common error patterns
-        """
         # Group by sentence
         sentences = results_df.groupby("sentence_id")
 
@@ -163,8 +148,11 @@ class SpanEvaluator:
         total_false_positives = 0
         total_false_negatives = 0
 
+        total_num_annotated = 0
+        total_num_predicted = 0
+
         # Track metrics per entity type
-        per_type_metrics = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
+        per_type_metrics = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "num_annotated": 0, "num_predicted": 0})
 
         # Error analysis tracking
         error_analysis = defaultdict(int)
@@ -177,6 +165,15 @@ class SpanEvaluator:
             # Merge adjacent spans
             annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
+
+            total_num_annotated += len(annotation_spans)
+            total_num_predicted += len(prediction_spans)
+
+            # Count per-entity annotated and predicted
+            for ann_span in annotation_spans:
+                per_type_metrics[ann_span.entity_type]["num_annotated"] += 1
+            for pred_span in prediction_spans:
+                per_type_metrics[pred_span.entity_type]["num_predicted"] += 1
 
             # Track matched spans to avoid double-counting
             matched_preds = set()
@@ -200,6 +197,7 @@ class SpanEvaluator:
                         continue
 
                     iou = self.calculate_iou(ann_span, pred_span, sentence_df)
+                    print(f"iou: {iou}")
                     if iou > best_iou:
                         best_iou = iou
                         best_match = pred_span
@@ -225,34 +223,45 @@ class SpanEvaluator:
                     else:
                         error_analysis[f"missed_{entity_type}"] += 1
 
-        # Count false positives (unmatched predictions)
-        for pred_span in prediction_spans:
-            pred_span_key = (
-                pred_span.entity_type,
-                pred_span.start_position,
-                pred_span.end_position,
-            )
-            if pred_span_key not in matched_preds:
-                total_false_positives += 1
-                per_type_metrics[pred_span.entity_type]["fp"] += 1
-                error_analysis[f"extra_{pred_span.entity_type}"] += 1
+            # Count false positives (unmatched predictions)
+            for pred_span in prediction_spans:
+                pred_span_key = (
+                    pred_span.entity_type,
+                    pred_span.start_position,
+                    pred_span.end_position,
+                )
+                if pred_span_key not in matched_preds:
+                    total_false_positives += 1
+                    per_type_metrics[pred_span.entity_type]["fp"] += 1
+                    error_analysis[f"extra_{pred_span.entity_type}"] += 1
 
-        # Calculate overall metrics
-        metrics = self._calculate_metrics(
-            total_true_positives, total_false_positives, total_false_negatives
+        print(f"total_true_positives: {total_true_positives}")
+        print(f"total_false_positives: {total_false_positives}")
+        print(f"total_false_negatives: {total_false_negatives}")
+        print(f"total_num_annotated: {total_num_annotated}")
+        print(f"total_num_predicted: {total_num_predicted}")
+        # Calculate global metrics using _calculate_metrics
+        global_metrics = self._calculate_metrics(
+            total_true_positives, total_num_predicted, total_num_annotated, self.beta
         )
+        precision = global_metrics["precision"]
+        recall = global_metrics["recall"]
+        f_beta = global_metrics["f_beta"]
 
-        # Calculate per-type metrics
+        # Calculate per-type metrics using the same logic as global
         per_type = {}
         for entity_type, counts in per_type_metrics.items():
             per_type[entity_type] = self._calculate_metrics(
-                counts["tp"], counts["fp"], counts["fn"]
+                counts["tp"], counts["num_predicted"], counts["num_annotated"], self.beta
             )
 
         return {
-            **metrics,
+            "precision": precision,
+            "recall": recall,
+            "f_beta": f_beta,
             "per_type": per_type,
         }
+        
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> List[Span]:
         """
@@ -319,29 +328,25 @@ class SpanEvaluator:
         return spans
 
     def _calculate_metrics(
-        self, true_positives: int, false_positives: int, false_negatives: int
+        self, true_positives: int, num_predicted: int, num_annotated: int, beta: int = 2
     ) -> Dict[str, float]:
         """
-        Calculate precision, recall, and F-beta score.
+        Calculate precision, recall, and F-beta score using the new logic.
 
         :param true_positives: Number of true positives
-        :param false_positives: Number of false positives
-        :param false_negatives: Number of false negatives
+        :param num_predicted: Number of predicted spans
+        :param num_annotated: Number of annotated (gold) spans
         :param beta: The beta parameter for F-beta score calculation. Default is 2.
         :return: Dictionary containing precision, recall, and f-beta metrics
         """
         precision = (
-            true_positives / (true_positives + false_positives)
-            if (true_positives + false_positives) > 0
-            else 0.0
+            true_positives / num_predicted if num_predicted > 0 else 0.0
         )
         recall = (
-            true_positives / (true_positives + false_negatives)
-            if (true_positives + false_negatives) > 0
-            else 0.0
+            true_positives / num_annotated if num_annotated > 0 else 0.0
         )
         f_beta = (
-            (1 + self.beta**2) * (precision * recall) / ((self.beta**2 * precision) + recall)
+            (1 + beta**2) * (precision * recall) / ((beta**2 * precision) + recall)
             if (precision + recall) > 0
             else 0.0
         )
@@ -369,8 +374,6 @@ class SpanEvaluator:
                     records.append(
                         {
                             "sentence_id": sentence_id,
-                            "annotation_span": ann,
-                            "prediction_span": pred,
                             "ann_entity": ann.entity_type,
                             "ann_start": ann.start_position,
                             "ann_end": ann.end_position,
