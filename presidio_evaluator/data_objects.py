@@ -40,11 +40,14 @@ class Span:
     of an entity in a text
     """
 
-    def __init__(self, entity_type, entity_value, start_position, end_position):
+    def __init__(
+        self, entity_type, entity_value, start_position, end_position, normalized_value: Optional[List[str]] = None
+    ):
         self.entity_type = entity_type
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
+        self.normalized_value = normalized_value
 
     def intersect(self, other, ignore_entity_type: bool):
         """
@@ -114,7 +117,7 @@ class InputSample(object):
         tags: Optional[List[str]] = None,
         create_tags_from_span=False,
         token_model_version="en_core_web_sm",
-        scheme:str="IO",
+        scheme: str = "IO",
         metadata: Dict = None,
         sample_id: int = None,
         template_id: int = None,

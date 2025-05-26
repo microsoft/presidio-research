@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 import string
 from spacy.lang.en.stop_words import STOP_WORDS
+from presidio_evaluator.evaluation.skipwords import get_skip_words
 from presidio_evaluator.data_objects import Span
 
 
@@ -14,18 +15,18 @@ class SpanEvaluator:
     def __init__(
         self,
         iou_threshold: float = 0.9,
-        stopwords: Optional[List[str]] = None,
         schema: str = None,
         beta: int = 2,
+        skip_words: Optional[List] = None,
     ):
         """
         Initialize the SpanEvaluator for evaluating pii entities detection results.
 
         :param iou_threshold: Minimum Intersection over Union (IoU) threshold for considering spans as matching.
                             Value between 0 and 1, where higher values require more overlap (default: 0.5)
-        :param stopwords: Optional list of custom stop words to ignore during token normalization.
-                         If None, uses spaCy's default English stop words (default: None).
-                         Pass an empty list ([]) to disable stop word removal entirely.
+        :param skip_words: Optional list of custom skip words to ignore during token normalization.
+                         If None, uses skip words from skipwords.py (default: None).
+                         Pass an empty list ([]) to disable skip word removal entirely.
         :param schema: The labeling schema to use for span creation. Valid values:
                       - 'BIO': Use Begin/Inside/Outside labeling scheme
                       - None: Use default scheme with entity start indicators (default: None)
@@ -33,29 +34,29 @@ class SpanEvaluator:
         """
         self.iou_threshold = iou_threshold
         self.schema = schema
-        # Common stop words to ignore during token normalization
-        self.stopwords = stopwords
         self.punctuation = set(string.punctuation)
         self.beta = beta
-
+        self.skip_words = skip_words if skip_words else get_skip_words()
+        
     def _normalize_tokens(self, tokens: List[str]) -> List[str]:
         """
-        Normalize tokens by converting to lowercase, removing stop words, and removing standalone punctuation.
+        Normalize tokens by:
+        1. Converting to lowercase
+        2. Removing stop words
+        3. Removing standalone punctuation
+        4. Removing skip words (common words that shouldn't affect entity matching)
 
         :param tokens: List of token strings to normalize
         :return: List of normalized tokens
         """
-        if self.stopwords is None:
-            self.stopwords = set(STOP_WORDS)
-
         normalized = []
         for token in tokens:
             token = token.lower()
             # Skip if token is just punctuation
             if all(c in self.punctuation for c in token):
                 continue
-            # Skip if token is a stop word
-            if token in self.stopwords:
+            # Skip if token is in skip words list
+            if token in self.skip_words:
                 continue
             normalized.append(token)
         return normalized
@@ -113,32 +114,44 @@ class SpanEvaluator:
             for token in between_tokens
         )
 
-    def calculate_iou(self, span1: Span, span2: Span, df: pd.DataFrame) -> float:
+    @staticmethod
+    def calculate_iou(span1: Span, span2: Span) -> float:
         """
-        Calculate the Intersection over Union (IoU) between two spans based on their normalized tokens.
+        Calculate the Intersection over Union (IoU) between two spans using normalized tokens.
 
         :param span1: First Span object
         :param span2: Second Span object
         :param df: DataFrame containing the tokens
         :return: IoU score (float between 0 and 1)
         """
-        tokens1 = df.loc[
-            span1.start_position : span1.end_position - 1, "token"
-        ].tolist()
-        tokens2 = df.loc[
-            span2.start_position : span2.end_position - 1, "token"
-        ].tolist()
-
-        tokens1 = self._normalize_tokens(tokens1)
-        tokens2 = self._normalize_tokens(tokens2)
-
-        set1 = set(tokens1)
-        set2 = set(tokens2)
+        set1 = set(span1.normalized_value)
+        set2 = set(span2.normalized_value)
 
         intersection = len(set1.intersection(set2))
         union = len(set1.union(set2))
 
         return intersection / union if union > 0 else 0.0
+    
+    def _normalize_spans(self, spans: List[Span]) -> List[Span]:
+        """
+        Create normalized versions of spans.
+        
+        :param spans: List of Span objects
+        :return: List of Span objects with normalized values
+        """
+        normalized_spans = []
+        for span in spans:
+            normalized_tokens = self._normalize_tokens(span.entity_value)
+            normalized_spans.append(
+                Span(
+                    entity_type=span.entity_type,
+                    entity_value=span.entity_value,  # preserve original
+                    start_position=span.start_position,
+                    end_position=span.end_position,
+                    normalized_value=normalized_tokens  # add normalized version
+                )
+            )
+        return normalized_spans
 
     def evaluate(self, results_df: pd.DataFrame) -> Dict:
         # Group by sentence
@@ -165,6 +178,10 @@ class SpanEvaluator:
             # Merge adjacent spans
             annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
+
+            # Normalize spans after creation and merging
+            annotation_spans = self._normalize_spans(annotation_spans)
+            prediction_spans = self._normalize_spans(prediction_spans)
 
             total_num_annotated += len(annotation_spans)
             total_num_predicted += len(prediction_spans)
@@ -196,7 +213,7 @@ class SpanEvaluator:
                     if pred_span.entity_type != ann_span.entity_type:
                         continue
 
-                    iou = self.calculate_iou(ann_span, pred_span, sentence_df)
+                    iou = self.calculate_iou(ann_span, pred_span)
                     if iou > best_iou:
                         best_iou = iou
                         best_match = pred_span
@@ -321,8 +338,9 @@ class SpanEvaluator:
 
         return spans
 
+    @staticmethod
     def _calculate_metrics(
-        self, true_positives: int, num_predicted: int, num_annotated: int, beta: int = 2
+        true_positives: int, num_predicted: int, num_annotated: int, beta: int = 2
     ) -> Dict[str, float]:
         """
         Calculate precision, recall, and F-beta score using the new logic.
@@ -362,9 +380,12 @@ class SpanEvaluator:
             prediction_spans = self._create_spans(sentence_df, "prediction")
             annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
+            # Normalize after merging
+            annotation_spans = self._normalize_spans(annotation_spans)
+            prediction_spans = self._normalize_spans(prediction_spans)
             for ann in annotation_spans:
                 for pred in prediction_spans:
-                    iou = self.calculate_iou(ann, pred, sentence_df)
+                    iou = self.calculate_iou(ann, pred)
                     records.append(
                         {
                             "sentence_id": sentence_id,
@@ -379,7 +400,8 @@ class SpanEvaluator:
                     )
         return pd.DataFrame(records)
 
-    def _create_spans_bio(self, df: pd.DataFrame, column: str) -> List[Span]:
+    @staticmethod
+    def _create_spans_bio(df: pd.DataFrame, column: str) -> List[Span]:
         """
         Create Span objects from a DataFrame using BIO labeling scheme.
 
@@ -446,6 +468,7 @@ class SpanEvaluator:
 
         return spans
 
+    @staticmethod
     def convert_to_bio_scheme(df: pd.DataFrame, entity_column: str) -> pd.Series:
         """
         Convert entity annotations to BIO scheme.
