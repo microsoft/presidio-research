@@ -2,7 +2,7 @@ from typing import List, Dict, Optional
 import pandas as pd
 from collections import defaultdict
 import string
-from spacy.lang.en.stop_words import STOP_WORDS
+from presidio_evaluator.evaluation.skipwords import get_skip_words
 from presidio_evaluator.data_objects import Span
 
 
@@ -14,18 +14,18 @@ class SpanEvaluator:
     def __init__(
         self,
         iou_threshold: float = 0.9,
-        stopwords: Optional[List[str]] = None,
         schema: str = None,
         beta: int = 2,
+        skip_words: Optional[List] = None,
     ):
         """
         Initialize the SpanEvaluator for evaluating pii entities detection results.
 
         :param iou_threshold: Minimum Intersection over Union (IoU) threshold for considering spans as matching.
                             Value between 0 and 1, where higher values require more overlap (default: 0.5)
-        :param stopwords: Optional list of custom stop words to ignore during token normalization.
-                         If None, uses spaCy's default English stop words (default: None).
-                         Pass an empty list ([]) to disable stop word removal entirely.
+        :param skip_words: Optional list of custom skip words to ignore during token normalization.
+                         If None, uses skip words from skipwords.py (default: None).
+                         Pass an empty list ([]) to disable skip word removal entirely.
         :param schema: The labeling schema to use for span creation. Valid values:
                       - 'BIO': Use Begin/Inside/Outside labeling scheme
                       - None: Use default scheme with entity start indicators (default: None)
@@ -33,29 +33,29 @@ class SpanEvaluator:
         """
         self.iou_threshold = iou_threshold
         self.schema = schema
-        # Common stop words to ignore during token normalization
-        self.stopwords = stopwords
         self.punctuation = set(string.punctuation)
         self.beta = beta
-
+        self.skip_words = skip_words if skip_words else get_skip_words()
+        
     def _normalize_tokens(self, tokens: List[str]) -> List[str]:
         """
-        Normalize tokens by converting to lowercase, removing stop words, and removing standalone punctuation.
+        Normalize tokens by:
+        1. Converting to lowercase
+        2. Removing stop words
+        3. Removing standalone punctuation
+        4. Removing skip words (common words that shouldn't affect entity matching)
 
         :param tokens: List of token strings to normalize
         :return: List of normalized tokens
         """
-        if self.stopwords is None:
-            self.stopwords = set(STOP_WORDS)
-
         normalized = []
         for token in tokens:
             token = token.lower()
             # Skip if token is just punctuation
             if all(c in self.punctuation for c in token):
                 continue
-            # Skip if token is a stop word
-            if token in self.stopwords:
+            # Skip if token is in skip words list
+            if token in self.skip_words:
                 continue
             normalized.append(token)
         return normalized
@@ -93,6 +93,7 @@ class SpanEvaluator:
                 merged.append(current)
                 current = next_span
         merged.append(current)
+        print(f"from _merge_adjacent_spans: merged spans: {merged}")
         return merged
 
     def _are_spans_adjacent(self, span1: Span, span2: Span, df: pd.DataFrame) -> bool:
@@ -113,33 +114,25 @@ class SpanEvaluator:
             for token in between_tokens
         )
 
-    def calculate_iou(self, span1: Span, span2: Span, df: pd.DataFrame) -> float:
+    @staticmethod
+    def calculate_iou(span1: Span, span2: Span) -> float:
         """
-        Calculate the Intersection over Union (IoU) between two spans based on their normalized tokens.
+        Calculate the Intersection over Union (IoU) between two spans using normalized tokens.
 
         :param span1: First Span object
         :param span2: Second Span object
         :param df: DataFrame containing the tokens
         :return: IoU score (float between 0 and 1)
         """
-        tokens1 = df.loc[
-            span1.start_position : span1.end_position - 1, "token"
-        ].tolist()
-        tokens2 = df.loc[
-            span2.start_position : span2.end_position - 1, "token"
-        ].tolist()
-
-        tokens1 = self._normalize_tokens(tokens1)
-        tokens2 = self._normalize_tokens(tokens2)
-
-        set1 = set(tokens1)
-        set2 = set(tokens2)
+        print(f"span1: {span1.normalized_value}, span2: {span2.normalized_value}")
+        set1 = set(span1.normalized_value)
+        set2 = set(span2.normalized_value)
 
         intersection = len(set1.intersection(set2))
         union = len(set1.union(set2))
 
         return intersection / union if union > 0 else 0.0
-
+    
     def evaluate(self, results_df: pd.DataFrame) -> Dict:
         # Group by sentence
         sentences = results_df.groupby("sentence_id")
@@ -161,14 +154,14 @@ class SpanEvaluator:
             # Create annotation spans
             annotation_spans = self._create_spans(sentence_df, "annotation")
             prediction_spans = self._create_spans(sentence_df, "prediction")
-
+            print(f"from evaluate after_create_spans: annotation_spans: {annotation_spans}, prediction_spans: {prediction_spans}")
             # Merge adjacent spans
             annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
-
+            print(f"from evaluate after_merge_spans: annotation_spans: {annotation_spans}, prediction_spans: {prediction_spans}")
             total_num_annotated += len(annotation_spans)
             total_num_predicted += len(prediction_spans)
-
+            
             # Count per-entity annotated and predicted
             for ann_span in annotation_spans:
                 per_type_metrics[ann_span.entity_type]["num_annotated"] += 1
@@ -180,10 +173,12 @@ class SpanEvaluator:
 
             # For each annotation, find best matching prediction
             for ann_span in annotation_spans:
+                print(f"from evaluate: ann_span: {ann_span}")
                 best_match = None
                 best_iou = 0.0
 
                 for pred_span in prediction_spans:
+                    print(f"from evaluate: pred_span: {pred_span}")
                     pred_span_key = (
                         pred_span.entity_type,
                         pred_span.start_position,
@@ -195,8 +190,8 @@ class SpanEvaluator:
                     # Only compare spans of same type
                     if pred_span.entity_type != ann_span.entity_type:
                         continue
-
-                    iou = self.calculate_iou(ann_span, pred_span, sentence_df)
+                    print(f"from evaluate before iou: ann_span: {ann_span}, pred_span: {pred_span}")
+                    iou = self.calculate_iou(ann_span, pred_span)
                     if iou > best_iou:
                         best_iou = iou
                         best_match = pred_span
@@ -259,70 +254,87 @@ class SpanEvaluator:
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> List[Span]:
         """
-        Create Span objects from a DataFrame using either BIO labeling scheme or default scheme with boolean entity start indicators.
-
-        :param df: DataFrame containing tokens and entity labels. For default scheme, requires 'is_entity_start' boolean column.
-                  For BIO scheme, expects labels in format 'B-TYPE'/'I-TYPE'/'O'.
-        :param column: Column name containing entity labels ('annotation' or 'prediction')
-        :return: List of Span objects
+        Create spans from a DataFrame column.
+        
+        Args:
+            df (pd.DataFrame): DataFrame containing the spans.
+            column (str): Name of the column to extract spans from.
+            
+        Returns:
+            List[Span]: List of Span objects created from the DataFrame.
         """
         if self.schema == "BIO":
             return self._create_spans_bio(df, column)
 
         spans = []
-        current_type = None
+        current_entity_type = None
         current_tokens = []
         current_start = None
 
         for idx, row in df.iterrows():
             entity_type = row[column]
+            token = row["token"]
             is_entity_start = row["is_entity_start"]
 
             if entity_type == "O":
-                if current_type:
-                    spans.append(
-                        Span(
-                            entity_type=current_type,
-                            entity_value=current_tokens,
-                            start_position=current_start,
-                            end_position=idx,
+                if current_entity_type and current_tokens:
+                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    print(f"from _create_spans in O: normalized_tokens: {normalized_tokens}")
+                    if normalized_tokens:
+                        spans.append(
+                            Span(
+                                entity_type=current_entity_type,
+                                entity_value=current_tokens,
+                                start_position=current_start,
+                                end_position=idx,
+                                normalized_value=normalized_tokens
+                            )
                         )
-                    )
-                    current_type = None
+                    current_entity_type = None
                     current_tokens = []
                     current_start = None
                 continue
 
-            if is_entity_start or current_type != entity_type:
-                if current_type:
-                    spans.append(
-                        Span(
-                            entity_type=current_type,
-                            entity_value=current_tokens,
-                            start_position=current_start,
-                            end_position=idx,
+            if (entity_type != current_entity_type) or (is_entity_start and column == "annotation"):
+                if current_entity_type and current_tokens:
+                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    print(f"from _create_spans in entity: normalized_tokens: {normalized_tokens}")
+                    if normalized_tokens:
+                        spans.append(
+                            Span(
+                                entity_type=current_entity_type,
+                                entity_value=current_tokens,
+                                start_position=current_start,
+                                end_position=idx,
+                                normalized_value=normalized_tokens
+                            )
                         )
-                    )
-                current_type = entity_type
-                current_tokens = [row["token"]]
+                current_entity_type = entity_type
+                current_tokens = [token]
                 current_start = idx
             else:
                 current_tokens.append(row["token"])
 
-        if current_type:
-            spans.append(
-                Span(
-                    entity_type=current_type,
-                    entity_value=current_tokens,
-                    start_position=current_start,
-                    end_position=df.index[-1] + 1,
+        # Handle final span
+        if current_entity_type and current_tokens:
+            normalized_tokens = self._normalize_tokens(current_tokens)
+            if normalized_tokens:
+                spans.append(
+                    Span(
+                        entity_type=current_entity_type,
+                        entity_value=current_tokens,
+                        start_position=current_start,
+                        end_position=df.index[-1] + 1,
+                        normalized_value=normalized_tokens
+                    )
                 )
-            )
-
+        print(f"from _create_spans: final spans: {spans}")
         return spans
+       
 
+    @staticmethod
     def _calculate_metrics(
-        self, true_positives: int, num_predicted: int, num_annotated: int, beta: int = 2
+        true_positives: int, num_predicted: int, num_annotated: int, beta: int = 2
     ) -> Dict[str, float]:
         """
         Calculate precision, recall, and F-beta score using the new logic.
@@ -364,7 +376,7 @@ class SpanEvaluator:
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
             for ann in annotation_spans:
                 for pred in prediction_spans:
-                    iou = self.calculate_iou(ann, pred, sentence_df)
+                    iou = self.calculate_iou(ann, pred)
                     records.append(
                         {
                             "sentence_id": sentence_id,
@@ -381,7 +393,7 @@ class SpanEvaluator:
 
     def _create_spans_bio(self, df: pd.DataFrame, column: str) -> List[Span]:
         """
-        Create Span objects from a DataFrame using BIO labeling scheme.
+        Create Span objects from a DataFrame using BIO labeling scheme with normalization.
 
         :param df: DataFrame containing tokens and BIO labels
         :param column: Column name containing entity labels ('annotation' or 'prediction')
@@ -398,14 +410,17 @@ class SpanEvaluator:
             # Handle non-entity tokens
             if tag == "O":
                 if current_type:
-                    spans.append(
-                        Span(
-                            entity_type=current_type,
-                            entity_value=current_tokens,
-                            start_position=current_start,
-                            end_position=idx,
+                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    if normalized_tokens:  # Only create span if we have tokens after normalization
+                        spans.append(
+                            Span(
+                                entity_type=current_type,
+                                entity_value=current_tokens,  # Keep original tokens
+                                start_position=current_start,
+                                end_position=idx,
+                                normalized_value=normalized_tokens  # Add normalized tokens
+                            )
                         )
-                    )
                     current_type = None
                     current_tokens = []
                     current_start = None
@@ -417,14 +432,17 @@ class SpanEvaluator:
             # Start of new entity
             if bio_prefix == "B":
                 if current_type:
-                    spans.append(
-                        Span(
-                            entity_type=current_type,
-                            entity_value=current_tokens,
-                            start_position=current_start,
-                            end_position=idx,
+                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    if normalized_tokens:
+                        spans.append(
+                            Span(
+                                entity_type=current_type,
+                                entity_value=current_tokens,
+                                start_position=current_start,
+                                end_position=idx,
+                                normalized_value=normalized_tokens
+                            )
                         )
-                    )
                 current_type = entity_type
                 current_tokens = [row["token"]]
                 current_start = idx
@@ -435,17 +453,21 @@ class SpanEvaluator:
 
         # Add final span if exists
         if current_type:
-            spans.append(
-                Span(
-                    entity_type=current_type,
-                    entity_value=current_tokens,
-                    start_position=current_start,
-                    end_position=df.index[-1] + 1,
+            normalized_tokens = self._normalize_tokens(current_tokens)
+            if normalized_tokens:
+                spans.append(
+                    Span(
+                        entity_type=current_type,
+                        entity_value=current_tokens,
+                        start_position=current_start,
+                        end_position=df.index[-1] + 1,
+                        normalized_value=normalized_tokens
+                    )
                 )
-            )
 
         return spans
 
+    @staticmethod
     def convert_to_bio_scheme(df: pd.DataFrame, entity_column: str) -> pd.Series:
         """
         Convert entity annotations to BIO scheme.
