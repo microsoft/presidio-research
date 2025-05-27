@@ -241,7 +241,7 @@ from presidio_evaluator.data_objects import Span
             ["O"] * 1000,
             ["O"] * 1000,
             ["word"] * 1000,
-            [False, False, False, False, False, False],
+            [False] * 1000,
             0,
             0,
             0,
@@ -277,7 +277,7 @@ def test_evaluate(
     ), f"Precision mismatch: expected {expected_precision}, got {result['precision']}"
 
 
-def test_evaluate_with_custom_stopwords():
+def test_evaluate_with_custom_skipwords():
     df = pd.DataFrame(
         {
             "sentence_id": [0] * 5,
@@ -288,7 +288,7 @@ def test_evaluate_with_custom_stopwords():
         }
     )
 
-    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, stopwords=["bill"])
+    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, skip_words=["bill"])
     result = evaluator.evaluate(df)
 
     # Calculate expected metrics
