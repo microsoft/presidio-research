@@ -1,7 +1,6 @@
 from typing import List, Dict, Optional
 import pandas as pd
 from collections import defaultdict
-import string
 from presidio_evaluator.evaluation.skipwords import get_skip_words
 from presidio_evaluator.data_objects import Span
 
@@ -23,7 +22,8 @@ class SpanEvaluator:
 
         :param iou_threshold: Minimum Intersection over Union (IoU) threshold for considering spans as matching.
                             Value between 0 and 1, where higher values require more overlap (default: 0.5)
-        :param skip_words: Optional list of custom skip words to ignore during token normalization.
+        :param skip_words: Optional list of custom skip words to ignore during token normalization,
+                            should also include punctuation marks.
                          If None, uses skip words from skipwords.py (default: None).
                          Pass an empty list ([]) to disable skip word removal entirely.
         :param schema: The labeling schema to use for span creation. Valid values:
@@ -33,7 +33,6 @@ class SpanEvaluator:
         """
         self.iou_threshold = iou_threshold
         self.schema = schema
-        self.punctuation = set(string.punctuation)
         self.beta = beta
         self.skip_words = skip_words if skip_words else get_skip_words()
         
@@ -51,9 +50,6 @@ class SpanEvaluator:
         normalized = []
         for token in tokens:
             token = token.lower()
-            # Skip if token is just punctuation
-            if all(c in self.punctuation for c in token):
-                continue
             # Skip if token is in skip words list
             if token in self.skip_words:
                 continue
@@ -62,7 +58,7 @@ class SpanEvaluator:
 
     def _merge_adjacent_spans(self, spans: List[Span], df: pd.DataFrame) -> List[Span]:
         """
-        Merge adjacent spans of the same entity type if separated only by punctuation or whitespace.
+        Merge adjacent spans of the same entity type if separated only by skip words / punctuation.
 
         :param spans: List of Span objects to potentially merge
         :param df: DataFrame containing the tokens and their positions
@@ -88,6 +84,7 @@ class SpanEvaluator:
                     entity_value=tokens,
                     start_position=current.start_position,
                     end_position=next_span.end_position,
+                    normalized_value=self._normalize_tokens(tokens),
                 )
             else:
                 merged.append(current)
@@ -97,7 +94,7 @@ class SpanEvaluator:
 
     def _are_spans_adjacent(self, span1: Span, span2: Span, df: pd.DataFrame) -> bool:
         """
-        Check if two spans are adjacent, i.e., separated only by punctuation or whitespace tokens.
+        Check if two spans are adjacent, i.e., separated only by skipwords / punctuation or whitespace tokens.
 
         :param span1: First Span object
         :param span2: Second Span object
@@ -108,10 +105,7 @@ class SpanEvaluator:
         between_tokens = df.loc[
             span1.end_position : span2.start_position - 1, "token"
         ].tolist()
-        return all(
-            all(c in self.punctuation or c.isspace() for c in token)
-            for token in between_tokens
-        )
+        return all([tok for tok in between_tokens if tok not in self.skip_words])
 
     @staticmethod
     def calculate_iou(span1: Span, span2: Span) -> float:
