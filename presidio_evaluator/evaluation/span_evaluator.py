@@ -2,7 +2,6 @@ from typing import List, Dict, Optional
 import pandas as pd
 from collections import defaultdict
 import string
-from spacy.lang.en.stop_words import STOP_WORDS
 from presidio_evaluator.evaluation.skipwords import get_skip_words
 from presidio_evaluator.data_objects import Span
 
