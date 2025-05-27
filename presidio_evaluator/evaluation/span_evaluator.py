@@ -75,20 +75,19 @@ class SpanEvaluator:
                 current.entity_type == next_span.entity_type
                 and self._are_spans_adjacent(current, next_span, df)
             ):
-                # Use row slicing instead of filtering on df["start"]
-                tokens = df.loc[
-                    current.start_position : next_span.end_position - 1, "token"
-                ].tolist()
+                # Concatenate the entity values directly instead of taking all tokens
+                merged_tokens = current.entity_value + next_span.entity_value
                 current = Span(
                     entity_type=current.entity_type,
-                    entity_value=tokens,
+                    entity_value=merged_tokens,
                     start_position=current.start_position,
                     end_position=next_span.end_position,
-                    normalized_value=self._normalize_tokens(tokens),
+                    normalized_value=self._normalize_tokens(merged_tokens)
                 )
             else:
                 merged.append(current)
                 current = next_span
+        
         merged.append(current)
         return merged
 
@@ -105,7 +104,8 @@ class SpanEvaluator:
         between_tokens = df.loc[
             span1.end_position : span2.start_position - 1, "token"
         ].tolist()
-        return all([tok for tok in between_tokens if tok not in self.skip_words])
+        non_skip_tokens = [tok for tok in between_tokens if tok not in self.skip_words]
+        return len(non_skip_tokens) == 0
 
     @staticmethod
     def calculate_iou(span1: Span, span2: Span) -> float:
@@ -117,7 +117,6 @@ class SpanEvaluator:
         :param df: DataFrame containing the tokens
         :return: IoU score (float between 0 and 1)
         """
-        print(f"span1: {span1.normalized_value}, span2: {span2.normalized_value}")
         set1 = set(span1.normalized_value)
         set2 = set(span2.normalized_value)
 
@@ -147,11 +146,11 @@ class SpanEvaluator:
             # Create annotation spans
             annotation_spans = self._create_spans(sentence_df, "annotation")
             prediction_spans = self._create_spans(sentence_df, "prediction")
-
+            print(f"annotation_spans before merge: {annotation_spans}, prediction_spans: {prediction_spans}")
             # Merge adjacent spans
             annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
             prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
-
+            print(f"annotation_spans after merge: {annotation_spans}, prediction_spans: {prediction_spans}")
             total_num_annotated += len(annotation_spans)
             total_num_predicted += len(prediction_spans)
 
@@ -266,7 +265,8 @@ class SpanEvaluator:
             entity_type = row[column]
             token = row["token"]
             is_entity_start = row["is_entity_start"]
-
+            if token in self.skip_words:
+                entity_type = "O"  # Treat skip words as non-entities
             if entity_type == "O":
                 if current_entity_type and current_tokens:
                     normalized_tokens = self._normalize_tokens(current_tokens)
