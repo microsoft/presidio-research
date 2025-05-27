@@ -212,7 +212,6 @@ def test_evaluate(annotation, prediction, tokens, start_indices, TP, num_annotat
         "prediction": prediction,
         "is_entity_start": start_indices,
     })
-    print(f"df: {df}")
     evaluator = SpanEvaluator(iou_threshold=0.9, schema=None)
     result = evaluator.evaluate(df)
 
@@ -318,3 +317,23 @@ def test_create_spans_bio(tokens, bio_labels, expected_spans):
             f"Start position mismatch. Expected {expected_span.start_position}, got {span.start_position}"
         assert span.end_position == expected_span.end_position, \
             f"End position mismatch. Expected {expected_span.end_position}, got {span.end_position}"
+        
+def test_evaluate_with_custom_skipwords():
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * 5,
+            "token": ["David", "paid", "the", "bill", "today"],
+            "annotation": ["PERSON", "O", "O", "O", "O"],
+            "prediction": ["PERSON", "O", "O", "PERSON", "O"],
+            "is_entity_start": [True, False, False, False, False],
+        }
+    )
+
+    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, skip_words=["bill"])
+    result = evaluator.evaluate(df)
+    # Calculate expected metrics
+    expected_recall = 1
+    expected_precision = 1
+
+    assert result["recall"] == pytest.approx(expected_recall)
+    assert result["precision"] == pytest.approx(expected_precision)
