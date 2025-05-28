@@ -148,7 +148,7 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, Evaluati
             [True, False, False, False],
             0,
             1,
-            2,
+            1,
             True,
         ),  # Annotated: "Marie Claire de Roth", Predicted: "Marie" and "de"
         # No Entities in Annotation, Some in Prediction
@@ -159,7 +159,7 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, Evaluati
             [False, False, False, False],
             0,
             0,
-            2,
+            1,
             True,
         ),  # All predictions are false positives
         # No Entities in Prediction, Some in Annotation with a skip word
@@ -311,7 +311,7 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, Evaluati
             ["James", "Robert", "Smith", "III"],
             [True, False, True, False],
             0,  
-            1,  
+            2,  
             2,  
             False,
         ),
@@ -322,8 +322,8 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, Evaluati
             ["United", "-", "States", "Government"],
             [True, False, False, True],
             0,  
-            3,  
             2,  
+            1,  
             False,
         )
     ],
@@ -351,6 +351,11 @@ def test_evaluate(
 
     # Assert that the result is an EvaluationResult instance
     assert isinstance(result, EvaluationResult)
+
+    # Check counts
+    assert result.total_predicted == num_predicted
+    assert result.total_annotated == num_annotated
+    assert result.total_true_positives == TP
 
     assert result.precision == pytest.approx(expected_precision), \
         f"Precision mismatch: expected {expected_precision}, got {result.precision}"

@@ -333,8 +333,9 @@ class SpanEvaluator:
             entity_type = row[column]
             token = row["token"]
             is_entity_start = row["is_entity_start"]
-            if token in self.skip_words:
-                entity_type = "O"  # Treat skip words as non-entities
+            # if token in self.skip_words:
+            #     entity_type = "O"  # Treat skip words as non-entities
+            
             if entity_type == "O":
                 if current_entity_type and current_tokens:
                     normalized_tokens = self._normalize_tokens(current_tokens)
@@ -369,6 +370,7 @@ class SpanEvaluator:
                 current_entity_type = entity_type
                 current_tokens = [token]
                 current_start = idx
+        
             else:
                 current_tokens.append(row["token"])
 
