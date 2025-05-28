@@ -2,10 +2,11 @@ import pytest
 import pandas as pd
 from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
 from presidio_evaluator.data_objects import Span
+from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, EvaluationResult
 
 
 @pytest.mark.parametrize(
-    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted",
+    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, merge_adjacent_spans",
     [
         # Single Entity with a Skip Word
         (
@@ -16,6 +17,7 @@ from presidio_evaluator.data_objects import Span
             1,
             1,
             1,
+            True,
         ),  # 'is' is a skip word
         # Predicted entity with a skip word gap
         (
@@ -26,6 +28,7 @@ from presidio_evaluator.data_objects import Span
             1,
             1,
             1,
+            True,
         ),  # 'is' is a skip word
         # Annotated entity with a punctuation gap
         (
@@ -36,6 +39,7 @@ from presidio_evaluator.data_objects import Span
             1,
             1,
             1,
+            True,
         ),  # ',' is a punctuation character
         # Predicted entity with a punctuation gap
         (
@@ -46,6 +50,7 @@ from presidio_evaluator.data_objects import Span
             1,
             1,
             1,
+            True,
         ),  # '-' is a punctuation character
         # End of entity skip words
         (
@@ -56,6 +61,7 @@ from presidio_evaluator.data_objects import Span
             1,
             1,
             1,
+            True,
         ),
         # Prediction Misses Entire Annotated Span
         (
@@ -66,6 +72,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             0,
+            True,
         ),
         # Partial Overlap: Start Boundary Mismatch
         (
@@ -76,6 +83,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             1,
+            True,
         ),  # Annotated: "New York City", Predicted: "York City"
         # Partial Overlap: End Boundary Mismatch
         (
@@ -86,6 +94,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             2,
+            True,
         ),  # Annotated: "John Doe", Predicted: "John" and "Doe" separately
         # No Overlap: Completely Different Entities
         (
@@ -96,6 +105,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             1,
+            True,
         ),  # Annotated: "Paris" as PERSON, Predicted: "Paris" as LOCATION
         # One Entity: One Correct, One Incorrect
         (
@@ -106,6 +116,7 @@ from presidio_evaluator.data_objects import Span
                 2,
                 2,
                 2,
+                True,
         ),
         # Multiple Entities: One Correct, One Incorrect
         (
@@ -116,6 +127,7 @@ from presidio_evaluator.data_objects import Span
             1,
             2,
             2,
+            True,
         ),  # "Alice" correctly predicted, "Paris" mispredicted as PERSON
         # Overlapping Entities: Nested Span (Not Typical in NER but for Robustness)
         (
@@ -126,6 +138,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             2,
+            True,
         ),  # Annotated: "Sir Arthur Conan Doyle", Predicted: "Sir" and "Conan Doyle"
         # Multiple Predicted Spans for a Single Annotated Span
         (
@@ -136,6 +149,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             2,
+            True,
         ),  # Annotated: "Marie Claire de Roth", Predicted: "Marie" and "de"
         # No Entities in Annotation, Some in Prediction
         (
@@ -146,6 +160,7 @@ from presidio_evaluator.data_objects import Span
             0,
             0,
             2,
+            True,
         ),  # All predictions are false positives
         # No Entities in Prediction, Some in Annotation with a skip word
         (
@@ -156,6 +171,7 @@ from presidio_evaluator.data_objects import Span
                 0,
                 0,
                 1,
+                True,
         ),  # All predictions are false positives but merge into one entity
         # No Entities in Prediction, Some in Annotation
         (
@@ -166,6 +182,7 @@ from presidio_evaluator.data_objects import Span
             0,
             2,
             0,
+            True,
         ),  # All annotations are false negatives
         # Exact Match with Multiple Entities
         (
@@ -176,6 +193,7 @@ from presidio_evaluator.data_objects import Span
             2,
             2,
             2,
+            True,
         ),  # Two entities correctly predicted
         # Exact Match with Multiple Entities and skip word
         (
@@ -186,6 +204,7 @@ from presidio_evaluator.data_objects import Span
                 2,
                 2,
                 2,
+                True,
         ),  # Two entities correctly predicted
         # Adjacent Entities Without Overlap
         (
@@ -196,6 +215,7 @@ from presidio_evaluator.data_objects import Span
             2,
             2,
             2,
+            True,
         ),  # Two adjacent entities correctly predicted
         # Prediction Extends Beyond Annotated Span
         (
@@ -206,6 +226,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             1,
+            True,
         ),  # Prediction merges into a single span, but is longer than the annotated span
         # Prediction Extends Beyond Annotated Span
         (
@@ -216,6 +237,7 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             1,
+            True,
         ),  # Prediction is longer than annotation
         # Prediction is Subset of Annotated Span
         (
@@ -226,15 +248,17 @@ from presidio_evaluator.data_objects import Span
             0,
             1,
             1,
+            True,
         ),  # Prediction is shorter than annotation
         (
             ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
             ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
             ["John", "Doe", "and", "Jane", "Smith"],
             [True, False, False, True, False],
-            0,
-            2,
             1,
+            1,
+            1,
+            True,
         ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted:
         # "John Doe and Jane Smith" as one merged entity
         (
@@ -245,6 +269,7 @@ from presidio_evaluator.data_objects import Span
             2,
             2,
             2,
+            True,
         ),  # Special characters test: "O'Brien Jr." as PERSON and "McDonald's Corp. Inc."
         # as ORGANIZATION
         (
@@ -255,11 +280,56 @@ from presidio_evaluator.data_objects import Span
             0,
             0,
             0,
+            True,
         ),
+        # Adjacent entities of same type - not merged when merge_adjacent_spans=False
+        (
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["John", "Doe", "Smith", "Jr"],
+            [True, False, True, False],
+            0,  
+            2,  
+            1,  
+            False,
+        ),
+        # Adjacent entities with intervening 'O' token - should behave the same with merge_adjacent_spans=False
+        (
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Doe", "and", "Jane", "Smith"],
+            [True, False, False, True, False],
+            2,  
+            2,  
+            2,  
+            False,
+        ),
+        # Partially overlapping predictions - counted separately when merge_adjacent_spans=False
+        (
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "O", "PERSON", "PERSON"],
+            ["James", "Robert", "Smith", "III"],
+            [True, False, True, False],
+            0,  
+            1,  
+            2,  
+            False,
+        ),
+        # Multiple adjacent predictions matching single annotation - counted as separate when merge_adjacent_spans=False
+        (
+            ["ORGANIZATION", "ORGANIZATION","ORGANIZATION", "ORGANIZATION"],
+            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
+            ["United", "-", "States", "Government"],
+            [True, False, False, True],
+            0,  
+            3,  
+            2,  
+            False,
+        )
     ],
 )
 def test_evaluate(
-    annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted
+    annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, merge_adjacent_spans
 ):
     # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame(
@@ -272,20 +342,20 @@ def test_evaluate(
         }
     )
     print(f"df: {df}")
-    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None)
+    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, merge_adjacent_spans=merge_adjacent_spans)
     result = evaluator.evaluate(df)
 
     # Calculate expected metrics
     expected_recall = TP / num_annotated if num_annotated > 0 else 0
     expected_precision = TP / num_predicted if num_predicted > 0 else 0
 
-    assert result["recall"] == pytest.approx(
-        expected_recall
-    ), f"Recall mismatch: expected {expected_recall}, got {result['recall']}"
-    assert result["precision"] == pytest.approx(
-        expected_precision
-    ), f"Precision mismatch: expected {expected_precision}, got {result['precision']}"
+    # Assert that the result is an EvaluationResult instance
+    assert isinstance(result, EvaluationResult)
 
+    assert result.precision == pytest.approx(expected_precision), \
+        f"Precision mismatch: expected {expected_precision}, got {result.precision}"
+    assert result.recall == pytest.approx(expected_recall), \
+        f"Recall mismatch: expected {expected_recall}, got {result.recall}"
 
 def test_evaluate_with_custom_skipwords():
     df = pd.DataFrame(
@@ -305,8 +375,14 @@ def test_evaluate_with_custom_skipwords():
     expected_recall = 1
     expected_precision = 1
 
-    assert result["recall"] == pytest.approx(expected_recall)
-    assert result["precision"] == pytest.approx(expected_precision)
+    # Assert that the result is an EvaluationResult instance
+    assert isinstance(result, EvaluationResult)
+
+    assert result.recall == pytest.approx(expected_recall), \
+        f"Recall mismatch: expected {expected_recall}, got {result.recall}"
+    assert result.precision == pytest.approx(expected_precision), \
+        f"Precision mismatch: expected {expected_precision}, got {result.precision}"
+
 
 
 @pytest.mark.parametrize(
