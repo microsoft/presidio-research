@@ -262,6 +262,17 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, Evaluati
         ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted:
         # "John Doe and Jane Smith" as one merged entity
         (
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
+            ["John", "Doe", "and", "Jane", "Smith"],
+            [True, False, False, True, False],
+            0,
+            2,
+            1,
+            False,
+        ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted:
+        # "John Doe and Jane Smith" as one merged entity
+        (
             ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
             ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
             ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
