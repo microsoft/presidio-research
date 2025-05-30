@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
 from presidio_evaluator.data_objects import Span
-from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, EvaluationResult
+from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, SpanEvaluationResult
 
 
 @pytest.mark.parametrize(
@@ -349,7 +349,7 @@ def test_evaluate(
             "token": tokens,
             "annotation": annotation,
             "prediction": prediction,
-            "is_entity_start": start_indices,
+            "start_indices": start_indices,
         }
     )
     print(f"df: {df}")
@@ -360,8 +360,8 @@ def test_evaluate(
     expected_recall = TP / num_annotated if num_annotated > 0 else 0
     expected_precision = TP / num_predicted if num_predicted > 0 else 0
 
-    # Assert that the result is an EvaluationResult instance
-    assert isinstance(result, EvaluationResult)
+    # Assert that the result is an SpanEvaluationResult instance
+    assert isinstance(result, SpanEvaluationResult)
 
     # Check counts
     assert result.total_predicted == num_predicted
@@ -380,7 +380,7 @@ def test_evaluate_with_custom_skipwords():
             "token": ["David", "paid", "the", "bill", "today"],
             "annotation": ["PERSON", "O", "O", "O", "O"],
             "prediction": ["PERSON", "O", "O", "PERSON", "O"],
-            "is_entity_start": [True, False, False, False, False],
+            "start_indices": [True, False, False, False, False],
         }
     )
 
@@ -391,8 +391,8 @@ def test_evaluate_with_custom_skipwords():
     expected_recall = 1
     expected_precision = 1
 
-    # Assert that the result is an EvaluationResult instance
-    assert isinstance(result, EvaluationResult)
+    # Assert that the result is an SpanEvaluationResult instance
+    assert isinstance(result, SpanEvaluationResult)
 
     assert result.recall == pytest.approx(expected_recall), \
         f"Recall mismatch: expected {expected_recall}, got {result.recall}"
