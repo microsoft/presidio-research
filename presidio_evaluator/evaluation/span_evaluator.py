@@ -60,7 +60,8 @@ class SpanEvaluator:
         schema: str = None,
         beta: int = 2,
         skip_words: Optional[List] = None,
-        merge_adjacent_spans: bool = True
+        merge_adjacent_spans: bool = True,
+        char_based: bool = True
     ):
         """
         Initialize the SpanEvaluator for evaluating pii entities detection results.
@@ -78,12 +79,14 @@ class SpanEvaluator:
         :param merge_adjacent_spans: Whether to merge adjacent spans of the same entity type. 
                                     Spans are considered adjacent if they are separated only by skip words or punctuation.
                                     Default is True.
+        :param char_based: If True, calculate IoU at the character-level, else, calculate iou at the token-level.
         """
         self.iou_threshold = iou_threshold
         self.schema = schema
         self.beta = beta
         self.merge_adjacent_spans = merge_adjacent_spans
         self.skip_words = skip_words if skip_words else get_skip_words()
+        self.char_based = char_based
         
     def _normalize_tokens(self, tokens: List[str]) -> List[str]:
         """
@@ -156,24 +159,39 @@ class SpanEvaluator:
         return len(non_skip_tokens) == 0
 
     @staticmethod
-    def calculate_iou(span1: Span, span2: Span) -> float:
+    def calculate_iou(span1: Span, span2: Span, char_based: bool) -> float:
         """
-        Calculate the Intersection over Union (IoU) between two spans using normalized tokens.
-
-        :param span1: First Span object
-        :param span2: Second Span object
-        :param df: DataFrame containing the tokens
-        :return: IoU score (float between 0 and 1)
+        Calculate the Intersection over Union (IoU) between two spans at character level.
+        
+        Args:
+            span1: First Span object
+            span2: Second Span object
+            char_based: If True, calculate IoU based on character positions
+            
+        Returns:
+            IoU score (float between 0 and 1)
         """
-        set1 = set("".join(span1.normalized_value))
-        set2 = set("".join(span2.normalized_value))
-
-        intersection = len(set1.intersection(set2))
-        union = len(set1.union(set2))
-
-        return intersection / union if union > 0 else 0.0
+        if char_based:
+            # Get character ranges for both spans
+            range1 = set(range(span1.start_position, span1.end_position))
+            range2 = set(range(span2.start_position, span2.end_position))
+            
+            # Calculate intersection and union of character positions
+            intersection = len(range1.intersection(range2))
+            union = len(range1.union(range2))
+            
+            return intersection / union if union > 0 else 0.0
+        else:
+            # Token-based IoU calculation (existing code)
+            set1 = set(span1.normalized_value)
+            set2 = set(span2.normalized_value)
+            intersection = len(set1.intersection(set2))
+            union = len(set1.union(set2))
+            
+            return intersection / union if union > 0 else 0.0
     
-    def _initialize_metrics(self):
+    @staticmethod
+    def _initialize_metrics():
         return {
             "total_true_positives": 0,
             "total_false_positives": 0,
@@ -255,7 +273,7 @@ class SpanEvaluator:
         
         for pred_span in prediction_spans:
             if self._is_valid_prediction(pred_span, ann_span, matched_preds):
-                iou = self.calculate_iou(ann_span, pred_span)
+                iou = self.calculate_iou(ann_span, pred_span, self.char_based)
                 if iou > best_iou:
                     best_iou = iou
                     best_match = pred_span
@@ -465,13 +483,20 @@ class SpanEvaluator:
         current_entity_type = None
         current_tokens = []
         current_start = None
+        curr_char_position = 0
 
         for idx, row in df.iterrows():
             entity_type = row[column]
             token = row["token"]
             is_entity_start = row["start_indices"]
-            # if token in self.skip_words:
-            #     entity_type = "O"  # Treat skip words as non-entities
+            token_length = len(token)
+            # If this isn't the first token, add space before it
+            if idx > df.index[0]:
+                curr_char_position += 1  # Account for space between tokens
+
+
+            token_start = curr_char_position
+            token_end = curr_char_position + token_length
             
             if entity_type == "O":
                 if current_entity_type and current_tokens:
@@ -482,16 +507,18 @@ class SpanEvaluator:
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=idx,
+                                end_position=token_start - 1,
                                 normalized_value=normalized_tokens
                             )
                         )
                     current_entity_type = None
                     current_tokens = []
                     current_start = None
+                curr_char_position = token_end
                 continue
 
-            if (entity_type != current_entity_type) or (is_entity_start and column == "annotation"):
+            # if (entity_type != current_entity_type) or (is_entity_start and column == "annotation"):
+            if entity_type != current_entity_type:
                 if current_entity_type and current_tokens:
                     normalized_tokens = self._normalize_tokens(current_tokens)
                     if normalized_tokens:
@@ -500,17 +527,17 @@ class SpanEvaluator:
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=idx,
+                                end_position=token_start - 1,
                                 normalized_value=normalized_tokens
                             )
                         )
                 current_entity_type = entity_type
                 current_tokens = [token]
-                current_start = idx
+                current_start = token_start
         
             else:
-                current_tokens.append(row["token"])
-
+                current_tokens.append(token)
+            curr_char_position = token_end
         # Handle final span
         if current_entity_type and current_tokens:
             normalized_tokens = self._normalize_tokens(current_tokens)
@@ -520,7 +547,7 @@ class SpanEvaluator:
                         entity_type=current_entity_type,
                         entity_value=current_tokens,
                         start_position=current_start,
-                        end_position=df.index[-1] + 1,
+                        end_position=curr_char_position,
                         normalized_value=normalized_tokens
                     )
                 )
@@ -568,7 +595,7 @@ class SpanEvaluator:
             annotation_spans, prediction_spans = self._process_sentence_spans(sentence_df)
             for ann in annotation_spans:
                 for pred in prediction_spans:
-                    iou = self.calculate_iou(ann, pred)
+                    iou = self.calculate_iou(ann, pred, self.char_based)
                     records.append(
                         {
                             "sentence_id": sentence_id,
@@ -595,9 +622,19 @@ class SpanEvaluator:
         current_type = None
         current_tokens = []
         current_start = None
+        curr_char_position = 0
 
         for idx, row in df.iterrows():
             tag = row[column]
+            token = row["token"]
+            token_length = len(token)
+
+            # Add space before token (except for first token)
+            if idx > df.index[0]:
+                curr_char_position += 1  # Account for space between tokens
+
+            token_start = curr_char_position
+            token_end = curr_char_position + token_length
 
             # Handle non-entity tokens
             if tag == "O":
@@ -609,13 +646,14 @@ class SpanEvaluator:
                                 entity_type=current_type,
                                 entity_value=current_tokens,  # Keep original tokens
                                 start_position=current_start,
-                                end_position=idx,
+                                end_position=token_start - 1,  # End at the previous token
                                 normalized_value=normalized_tokens  # Add normalized tokens
                             )
                         )
                     current_type = None
                     current_tokens = []
                     current_start = None
+                curr_char_position = token_end
                 continue
 
             # Split BIO tag into B/I and entity type
@@ -631,17 +669,18 @@ class SpanEvaluator:
                                 entity_type=current_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=idx,
+                                end_position=token_start - 1,
                                 normalized_value=normalized_tokens
                             )
                         )
                 current_type = entity_type
-                current_tokens = [row["token"]]
-                current_start = idx
+                current_tokens = [token]
+                current_start = token_start
 
             # Inside of entity
             elif bio_prefix == "I" and current_type == entity_type:
-                current_tokens.append(row["token"])
+                current_tokens.append(token)
+            curr_char_position = token_end
 
         # Add final span if exists
         if current_type:
@@ -652,7 +691,7 @@ class SpanEvaluator:
                         entity_type=current_type,
                         entity_value=current_tokens,
                         start_position=current_start,
-                        end_position=df.index[-1] + 1,
+                        end_position=curr_char_position,
                         normalized_value=normalized_tokens
                     )
                 )
