@@ -31,6 +31,7 @@ class SpanEvaluationResult:
     total_false_negatives: int
     per_type: Dict[str, EntityTypeMetrics]
     error_analysis: Dict[str, int]
+    entity_type_mismatches: List[Dict[str, str]]
 
     def to_dict(self) -> Dict:
         """Convert evaluation results to dictionary format for backward compatibility."""
@@ -164,8 +165,8 @@ class SpanEvaluator:
         :param df: DataFrame containing the tokens
         :return: IoU score (float between 0 and 1)
         """
-        set1 = set(span1.normalized_value)
-        set2 = set(span2.normalized_value)
+        set1 = set("".join(span1.normalized_value))
+        set2 = set("".join(span2.normalized_value))
 
         intersection = len(set1.intersection(set2))
         union = len(set1.union(set2))
@@ -242,8 +243,8 @@ class SpanEvaluator:
         if pred_span_key in matched_preds:
             return False
             
-        # Check if entity types match
-        if pred_span.entity_type != ann_span.entity_type:
+        # Check if the prediction is a non-entity (O) while the annotation is an entity
+        if pred_span.entity_type == "O" and ann_span.entity_type != "O":
             return False
             
         return True
@@ -282,7 +283,8 @@ class SpanEvaluator:
             total_false_positives=metrics["total_false_positives"],
             total_false_negatives=metrics["total_false_negatives"],
             per_type=per_type_results,
-            error_analysis=dict(metrics["error_analysis"])
+            error_analysis=dict(metrics["error_analysis"]),
+            entity_type_mismatches=metrics.get("entity_type_mismatches", [])
         )
 
 
@@ -290,40 +292,83 @@ class SpanEvaluator:
         """
         Match predictions to annotations and update metrics accordingly.
         
+        A true positive is counted when:
+        - A prediction matches an annotation with IoU >= threshold
+        - The prediction hasn't been matched to another annotation yet
+        
         Args:
             annotation_spans: List of annotation Span objects
             prediction_spans: List of prediction Span objects
             metrics: Dictionary containing metrics to update
         """
         matched_preds = set()
+        matched_anns = set()
+        entity_type_mismatches = []
         
-        # Find best matching predictions for each annotation
+        # Sort predictions by IoU score to ensure we match the best predictions first
+        all_matches = []
         for ann_span in annotation_spans:
-            best_match, best_iou = self._find_best_match(ann_span, prediction_spans, matched_preds)
-            
-            entity_type = ann_span.entity_type
-            
-            # Handle matches and mismatches
-            if best_match and best_iou >= self.iou_threshold:
-                metrics["total_true_positives"] += 1
-                metrics["per_type_metrics"][entity_type]["tp"] += 1
-                matched_preds.add(
-                    (
-                        best_match.entity_type,
-                        best_match.start_position,
-                        best_match.end_position,
-                    )
-                )
-            else:
-                metrics["total_false_negatives"] += 1
-                metrics["per_type_metrics"][entity_type]["fn"] += 1
-                if best_match:
-                    metrics["error_analysis"][f"low_iou_{entity_type}"] += 1
-                else:
-                    metrics["error_analysis"][f"missed_{entity_type}"] += 1
+            for pred_span in prediction_spans:
+                iou = self.calculate_iou(ann_span, pred_span)
+                if iou >= self.iou_threshold:
+                    all_matches.append((ann_span, pred_span, iou))
         
-        # Handle any unmatched predictions
-        self._handle_unmatched_predictions(prediction_spans, matched_preds, metrics)
+        # Sort matches by IoU score in descending order
+        all_matches.sort(key=lambda x: x[2], reverse=True)
+        
+        # Process matches in order of highest IoU
+        for ann_span, pred_span, iou in all_matches:
+            pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+            ann_key = (ann_span.entity_type, ann_span.start_position, ann_span.end_position)
+            
+            # Skip if either span is already matched
+            if pred_key in matched_preds or ann_key in matched_anns:
+                continue
+            
+            # Count as true positive
+            metrics["total_true_positives"] += 1
+            
+            # Handle type matching/mismatching
+            if pred_span.entity_type == ann_span.entity_type:
+                metrics["per_type_metrics"][ann_span.entity_type]["tp"] += 1
+            else:
+                # Record type mismatch
+                mismatch = {
+                    "true_type": ann_span.entity_type,
+                    "predicted_type": pred_span.entity_type,
+                    "text": " ".join(pred_span.entity_value),
+                    "start": pred_span.start_position,
+                    "end": pred_span.end_position,
+                    "iou": iou
+                }
+                entity_type_mismatches.append(mismatch)
+                metrics["error_analysis"][f"type_mismatch_{ann_span.entity_type}_as_{pred_span.entity_type}"] += 1
+                
+                # Update per-type metrics
+                metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
+                metrics["per_type_metrics"][pred_span.entity_type]["fp"] += 1
+            
+            matched_preds.add(pred_key)
+            matched_anns.add(ann_key)
+        
+        # Handle unmatched annotations as false negatives
+        for ann_span in annotation_spans:
+            ann_key = (ann_span.entity_type, ann_span.start_position, ann_span.end_position)
+            if ann_key not in matched_anns:
+                metrics["total_false_negatives"] += 1
+                metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
+                metrics["error_analysis"][f"missed_{ann_span.entity_type}"] += 1
+        
+        # Handle unmatched predictions as false positives
+        for pred_span in prediction_spans:
+            pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+            if pred_key not in matched_preds:
+                metrics["total_false_positives"] += 1
+                metrics["per_type_metrics"][pred_span.entity_type]["fp"] += 1
+                metrics["error_analysis"][f"extra_{pred_span.entity_type}"] += 1
+        
+        metrics["entity_type_mismatches"] = entity_type_mismatches
+
 
     def _calculate_per_type_metrics(self, per_type_metrics: dict) -> Dict[str, EntityTypeMetrics]:
         """
@@ -421,140 +466,6 @@ class SpanEvaluator:
         
         # Create and return the final evaluation result
         return self._create_evaluation_result(metrics)
-        
-    
-    # old evaluate before refactoring
-    # def evaluate(self, results_df: pd.DataFrame) -> SpanEvaluationResult:
-    #     """
-    #     Evaluate the predictions against ground truth annotations.
-        
-    #     Args:
-    #         results_df: DataFrame containing tokens, annotations and predictions
-            
-    #     Returns:
-    #         SpanEvaluationResult object containing precision, recall, f_beta and per-type metrics
-    #     """
-    #     sentences = results_df.groupby("sentence_id")
-
-    #     total_true_positives = 0
-    #     total_false_positives = 0
-    #     total_false_negatives = 0
-    #     total_num_annotated = 0
-    #     total_num_predicted = 0
-
-    #     # Track metrics per entity type
-    #     per_type_metrics = defaultdict(
-    #         lambda: {"tp": 0, "fp": 0, "fn": 0, "num_annotated": 0, "num_predicted": 0}
-    #     )
-
-    #     # Error analysis tracking
-    #     error_analysis = defaultdict(int)
-
-    #     for _, sentence_df in sentences:
-    #         # Create and potentially merge spans
-    #         annotation_spans, prediction_spans = self._process_sentence_spans(sentence_df)
-            
-    #         total_num_annotated += len(annotation_spans)
-    #         total_num_predicted += len(prediction_spans)
-
-    #         # Update per-entity type counts
-    #         for ann_span in annotation_spans:
-    #             per_type_metrics[ann_span.entity_type]["num_annotated"] += 1
-    #         for pred_span in prediction_spans:
-    #             per_type_metrics[pred_span.entity_type]["num_predicted"] += 1
-
-    #         # Track matched predictions
-    #         matched_preds = set()
-
-    #         # Find best matching predictions for each annotation
-    #         for ann_span in annotation_spans:
-    #             best_match = None
-    #             best_iou = 0.0
-
-    #             for pred_span in prediction_spans:
-    #                 pred_span_key = (
-    #                     pred_span.entity_type,
-    #                     pred_span.start_position,
-    #                     pred_span.end_position,
-    #                 )
-    #                 if pred_span_key in matched_preds:
-    #                     continue
-
-    #                 if pred_span.entity_type != ann_span.entity_type:
-    #                     continue
-
-    #                 iou = self.calculate_iou(ann_span, pred_span)
-    #                 if iou > best_iou:
-    #                     best_iou = iou
-    #                     best_match = pred_span
-
-    #             entity_type = ann_span.entity_type
-
-    #             # Handle matches and mismatches
-    #             if best_match and best_iou >= self.iou_threshold:
-    #                 total_true_positives += 1
-    #                 per_type_metrics[entity_type]["tp"] += 1
-    #                 matched_preds.add(
-    #                     (
-    #                         best_match.entity_type,
-    #                         best_match.start_position,
-    #                         best_match.end_position,
-    #                     )
-    #                 )
-    #             else:
-    #                 total_false_negatives += 1
-    #                 per_type_metrics[entity_type]["fn"] += 1
-    #                 if best_match:
-    #                     error_analysis[f"low_iou_{entity_type}"] += 1
-    #                 else:
-    #                     error_analysis[f"missed_{entity_type}"] += 1
-
-    #         # Count unmatched predictions as false positives
-    #         for pred_span in prediction_spans:
-    #             pred_span_key = (
-    #                 pred_span.entity_type,
-    #                 pred_span.start_position,
-    #                 pred_span.end_position,
-    #             )
-    #             if pred_span_key not in matched_preds:
-    #                 total_false_positives += 1
-    #                 per_type_metrics[pred_span.entity_type]["fp"] += 1
-    #                 error_analysis[f"extra_{pred_span.entity_type}"] += 1
-
-    #     # Calculate global metrics
-    #     global_metrics = self._calculate_metrics(
-    #         total_true_positives, total_num_predicted, total_num_annotated, self.beta
-    #     )
-
-    #     # Calculate per-type metrics
-    #     per_type_results = {}
-    #     for entity_type, counts in per_type_metrics.items():
-    #         metrics = self._calculate_metrics(
-    #             counts["tp"], counts["num_predicted"], counts["num_annotated"], self.beta
-    #         )
-    #         per_type_results[entity_type] = EntityTypeMetrics(
-    #             precision=metrics["precision"],
-    #             recall=metrics["recall"],
-    #             f_beta=metrics["f_beta"],
-    #             num_predicted=counts["num_predicted"],
-    #             num_annotated=counts["num_annotated"],
-    #             true_positives=counts["tp"],
-    #             false_positives=counts["fp"],
-    #             false_negatives=counts["fn"]
-    #         )
-
-    #     return SpanEvaluationResult(
-    #         precision=global_metrics["precision"],
-    #         recall=global_metrics["recall"],
-    #         f_beta=global_metrics["f_beta"],
-    #         total_predicted=total_num_predicted,
-    #         total_annotated=total_num_annotated,
-    #         total_true_positives=total_true_positives,
-    #         total_false_positives=total_false_positives,
-    #         total_false_negatives=total_false_negatives,
-    #         per_type=per_type_results,
-    #         error_analysis=dict(error_analysis)
-    #     )
         
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> List[Span]:
