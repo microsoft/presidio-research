@@ -292,80 +292,59 @@ class SpanEvaluator:
         """
         Match predictions to annotations and update metrics accordingly.
         
-        A true positive is counted when:
-        - A prediction matches an annotation with IoU >= threshold
-        - The prediction hasn't been matched to another annotation yet
-        
         Args:
             annotation_spans: List of annotation Span objects
             prediction_spans: List of prediction Span objects
             metrics: Dictionary containing metrics to update
         """
         matched_preds = set()
-        matched_anns = set()
         entity_type_mismatches = []
         
-        # Sort predictions by IoU score to ensure we match the best predictions first
-        all_matches = []
+        # Process each annotation and find its best matching prediction
         for ann_span in annotation_spans:
-            for pred_span in prediction_spans:
-                iou = self.calculate_iou(ann_span, pred_span)
-                if iou >= self.iou_threshold:
-                    all_matches.append((ann_span, pred_span, iou))
-        
-        # Sort matches by IoU score in descending order
-        all_matches.sort(key=lambda x: x[2], reverse=True)
-        
-        # Process matches in order of highest IoU
-        for ann_span, pred_span, iou in all_matches:
-            pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
-            ann_key = (ann_span.entity_type, ann_span.start_position, ann_span.end_position)
+            best_match, best_iou = self._find_best_match(ann_span, prediction_spans, matched_preds)
             
-            # Skip if either span is already matched
-            if pred_key in matched_preds or ann_key in matched_anns:
-                continue
-            
-            # Count as true positive
-            metrics["total_true_positives"] += 1
-            
-            # Handle type matching/mismatching
-            if pred_span.entity_type == ann_span.entity_type:
-                metrics["per_type_metrics"][ann_span.entity_type]["tp"] += 1
-            else:
-                # Record type mismatch
-                mismatch = {
-                    "true_type": ann_span.entity_type,
-                    "predicted_type": pred_span.entity_type,
-                    "text": " ".join(pred_span.entity_value),
-                    "start": pred_span.start_position,
-                    "end": pred_span.end_position,
-                    "iou": iou
-                }
-                entity_type_mismatches.append(mismatch)
-                metrics["error_analysis"][f"type_mismatch_{ann_span.entity_type}_as_{pred_span.entity_type}"] += 1
+            if best_match and best_iou >= self.iou_threshold:
+                # Count as true positive
+                metrics["total_true_positives"] += 1
                 
-                # Update per-type metrics
-                metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
-                metrics["per_type_metrics"][pred_span.entity_type]["fp"] += 1
-            
-            matched_preds.add(pred_key)
-            matched_anns.add(ann_key)
-        
-        # Handle unmatched annotations as false negatives
-        for ann_span in annotation_spans:
-            ann_key = (ann_span.entity_type, ann_span.start_position, ann_span.end_position)
-            if ann_key not in matched_anns:
+                # Handle type matching/mismatching
+                if best_match.entity_type == ann_span.entity_type:
+                    metrics["per_type_metrics"][ann_span.entity_type]["tp"] += 1
+                else:
+                    # Record type mismatch
+                    mismatch = {
+                        "true_type": ann_span.entity_type,
+                        "predicted_type": best_match.entity_type,
+                        "text": " ".join(best_match.entity_value),
+                        "start": best_match.start_position,
+                        "end": best_match.end_position,
+                        "iou": best_iou
+                    }
+                    entity_type_mismatches.append(mismatch)
+                    metrics["error_analysis"][f"type_mismatch_{ann_span.entity_type}_as_{best_match.entity_type}"] += 1
+                    
+                    # Update per-type metrics
+                    metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
+                    metrics["per_type_metrics"][best_match.entity_type]["fp"] += 1
+                
+                # Mark prediction as matched
+                matched_preds.add((
+                    best_match.entity_type,
+                    best_match.start_position,
+                    best_match.end_position,
+                ))
+            else:
+                # No match found - false negative
                 metrics["total_false_negatives"] += 1
                 metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
-                metrics["error_analysis"][f"missed_{ann_span.entity_type}"] += 1
+                if best_match:
+                    metrics["error_analysis"][f"low_iou_{ann_span.entity_type}"] += 1
+                else:
+                    metrics["error_analysis"][f"missed_{ann_span.entity_type}"] += 1
         
         # Handle unmatched predictions as false positives
-        for pred_span in prediction_spans:
-            pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
-            if pred_key not in matched_preds:
-                metrics["total_false_positives"] += 1
-                metrics["per_type_metrics"][pred_span.entity_type]["fp"] += 1
-                metrics["error_analysis"][f"extra_{pred_span.entity_type}"] += 1
+        self._handle_unmatched_predictions(prediction_spans, matched_preds, metrics)
         
         metrics["entity_type_mismatches"] = entity_type_mismatches
 
