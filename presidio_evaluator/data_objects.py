@@ -41,13 +41,21 @@ class Span:
     """
 
     def __init__(
-        self, entity_type, entity_value, start_position, end_position, normalized_value: Optional[List[str]] = None
+        self,
+        entity_type,
+        entity_value,
+        start_position, end_position,
+        token_start: Optional[int] = None,
+        token_end: Optional[int] = None,
+        normalized_value: Optional[List[str]] = None
     ):
         self.entity_type = entity_type
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
         self.normalized_value = normalized_value
+        self.token_start = token_start
+        self.token_end = token_end
 
     def intersect(self, other, ignore_entity_type: bool):
         """

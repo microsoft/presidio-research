@@ -153,7 +153,7 @@ class SpanEvaluator:
         """
         # Slice tokens between span1 and span2 using the row indices
         between_tokens = df.loc[
-            span1.end_position : span2.start_position - 1, "token"
+            span1.token_end : span2.token_start - 1, "token"
         ].tolist()
         non_skip_tokens = [tok for tok in between_tokens if tok not in self.skip_words]
         return len(non_skip_tokens) == 0
@@ -161,12 +161,12 @@ class SpanEvaluator:
     @staticmethod
     def calculate_iou(span1: Span, span2: Span, char_based: bool) -> float:
         """
-        Calculate the Intersection over Union (IoU) between two spans at character level.
+        Calculate the Intersection over Union (IoU) between two spans at character or token level.
         
         Args:
             span1: First Span object
             span2: Second Span object
-            char_based: If True, calculate IoU based on character positions
+            char_based: If True, calculate IoU based on character positions, else token positions
             
         Returns:
             IoU score (float between 0 and 1)
@@ -182,11 +182,24 @@ class SpanEvaluator:
             
             return intersection / union if union > 0 else 0.0
         else:
-            # Token-based IoU calculation (existing code)
-            set1 = set(span1.normalized_value)
-            set2 = set(span2.normalized_value)
-            intersection = len(set1.intersection(set2))
-            union = len(set1.union(set2))
+            # Token-based IoU calculation using token positions
+            if (span1.token_start is None or span1.token_end is None or 
+                span2.token_start is None or span2.token_end is None):
+                # Fallback to normalized token comparison if token positions not available
+                set1 = set(span1.normalized_value)
+                set2 = set(span2.normalized_value)
+                intersection = len(set1.intersection(set2))
+                union = len(set1.union(set2))
+                
+                return intersection / union if union > 0 else 0.0
+            
+            # Use token position ranges for IoU calculation
+            range1 = set(range(span1.token_start, span1.token_end + 1))
+            range2 = set(range(span2.token_start, span2.token_end + 1))
+            
+            # Calculate intersection and union of token positions
+            intersection = len(range1.intersection(range2))
+            union = len(range1.union(range2))
             
             return intersection / union if union > 0 else 0.0
     
@@ -483,17 +496,17 @@ class SpanEvaluator:
         current_entity_type = None
         current_tokens = []
         current_start = None
+        current_token_start = None  # Add token position tracking
         curr_char_position = 0
+        token_position = 0  # Add token position counter
 
         for idx, row in df.iterrows():
             entity_type = row[column]
             token = row["token"]
-            is_entity_start = row["start_indices"]
             token_length = len(token)
             # If this isn't the first token, add space before it
             if idx > df.index[0]:
                 curr_char_position += 1  # Account for space between tokens
-
 
             token_start = curr_char_position
             token_end = curr_char_position + token_length
@@ -507,17 +520,20 @@ class SpanEvaluator:
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=token_start - 1,
-                                normalized_value=normalized_tokens
+                                end_position=token_start - 2,
+                                normalized_value=normalized_tokens,
+                                token_start=current_token_start,
+                                token_end=idx
                             )
                         )
                     current_entity_type = None
                     current_tokens = []
                     current_start = None
+                    current_token_start = None
                 curr_char_position = token_end
+                token_position += 1  # Increment token position
                 continue
 
-            # if (entity_type != current_entity_type) or (is_entity_start and column == "annotation"):
             if entity_type != current_entity_type:
                 if current_entity_type and current_tokens:
                     normalized_tokens = self._normalize_tokens(current_tokens)
@@ -527,17 +543,22 @@ class SpanEvaluator:
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=token_start - 1,
-                                normalized_value=normalized_tokens
+                                end_position=token_start - 2,
+                                normalized_value=normalized_tokens,
+                                token_start=current_token_start,
+                                token_end=idx
                             )
                         )
                 current_entity_type = entity_type
                 current_tokens = [token]
                 current_start = token_start
+                current_token_start = idx  # Set token start position
         
             else:
                 current_tokens.append(token)
             curr_char_position = token_end
+            token_position += 1  # Increment token position
+            
         # Handle final span
         if current_entity_type and current_tokens:
             normalized_tokens = self._normalize_tokens(current_tokens)
@@ -548,7 +569,9 @@ class SpanEvaluator:
                         entity_value=current_tokens,
                         start_position=current_start,
                         end_position=curr_char_position,
-                        normalized_value=normalized_tokens
+                        normalized_value=normalized_tokens,
+                        token_start=current_token_start,
+                        token_end=df.index[-1] + 1
                     )
                 )
         return spans
@@ -622,7 +645,9 @@ class SpanEvaluator:
         current_type = None
         current_tokens = []
         current_start = None
+        current_token_start = None  # Add token position tracking
         curr_char_position = 0
+        token_position = 0  # Add token position counter
 
         for idx, row in df.iterrows():
             tag = row[column]
@@ -646,14 +671,18 @@ class SpanEvaluator:
                                 entity_type=current_type,
                                 entity_value=current_tokens,  # Keep original tokens
                                 start_position=current_start,
-                                end_position=token_start - 1,  # End at the previous token
-                                normalized_value=normalized_tokens  # Add normalized tokens
+                                end_position=token_start - 2,  # End at the previous token
+                                normalized_value=normalized_tokens,  # Add normalized tokens
+                                token_start=current_token_start,  # Add token start position
+                                token_end=idx      # Add token end position
                             )
                         )
                     current_type = None
                     current_tokens = []
                     current_start = None
+                    current_token_start = None
                 curr_char_position = token_end
+                token_position += 1  # Increment token position
                 continue
 
             # Split BIO tag into B/I and entity type
@@ -669,18 +698,22 @@ class SpanEvaluator:
                                 entity_type=current_type,
                                 entity_value=current_tokens,
                                 start_position=current_start,
-                                end_position=token_start - 1,
-                                normalized_value=normalized_tokens
+                                end_position=token_start - 2,
+                                normalized_value=normalized_tokens,
+                                token_start=current_token_start,
+                                token_end=idx
                             )
                         )
                 current_type = entity_type
                 current_tokens = [token]
                 current_start = token_start
+                current_token_start = idx  # Set token start position
 
             # Inside of entity
             elif bio_prefix == "I" and current_type == entity_type:
                 current_tokens.append(token)
             curr_char_position = token_end
+            token_position += 1  # Increment token position
 
         # Add final span if exists
         if current_type:
@@ -692,7 +725,9 @@ class SpanEvaluator:
                         entity_value=current_tokens,
                         start_position=current_start,
                         end_position=curr_char_position,
-                        normalized_value=normalized_tokens
+                        normalized_value=normalized_tokens,
+                        token_start=current_token_start,
+                        token_end=df.index[-1] + 1
                     )
                 )
 
