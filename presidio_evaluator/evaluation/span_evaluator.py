@@ -7,6 +7,7 @@ from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator.evaluation import BaseEvaluator, EvaluationResult
 from presidio_evaluator.data_objects import Span
+from evaluation_result import EvaluationResult
 from presidio_evaluator.models import BaseModel
 
 
@@ -23,14 +24,13 @@ class EntityTypeMetrics:
     false_positives: int
     false_negatives: int
 
-
 @dataclass
-class SpanEvaluationResult:
+class SpanEvaluationResult(EvaluationResult):
     """Results of span-based evaluation."""
 
-    precision: float
-    recall: float
-    f_beta: float
+    # precision: float
+    # recall: float
+    # f_beta: float
     total_predicted: int
     total_annotated: int
     total_true_positives: int
@@ -55,6 +55,7 @@ class SpanEvaluationResult:
                 for entity_type, metrics in self.per_type.items()
             },
         }
+
 
 
 class SpanEvaluator(BaseEvaluator):
@@ -254,11 +255,18 @@ class SpanEvaluator(BaseEvaluator):
         """
         Handle predictions that weren't matched to any annotation.
 
-        Args:
-            prediction_spans: List of prediction Span objects
-            matched_preds: Set of already matched prediction spans
-            metrics: Dictionary containing the metrics to update
+        :param prediction_spans: List of prediction Span objects
+        :param matched_preds: Set of already matched prediction spans
+        :param metrics: Dictionary containing the metrics to check
+
+        :returns: Dictionary with updates for false positives and error analysis
         """
+        updates = {
+            "total_false_positives": 0,
+            "per_type_fp": defaultdict(int),
+            "error_analysis": defaultdict(int),
+        }
+
         for pred_span in prediction_spans:
             pred_span_key = (
                 pred_span.entity_type,
@@ -266,9 +274,11 @@ class SpanEvaluator(BaseEvaluator):
                 pred_span.end_position,
             )
             if pred_span_key not in matched_preds:
-                metrics["total_false_positives"] += 1
-                metrics["per_type_metrics"][pred_span.entity_type]["fp"] += 1
-                metrics["error_analysis"][f"extra_{pred_span.entity_type}"] += 1
+                updates["total_false_positives"] += 1
+                updates["per_type_fp"][pred_span.entity_type] += 1
+                updates["error_analysis"][f"extra_{pred_span.entity_type}"] += 1
+
+        return updates
 
     def _check_if_matched_already(
         self, pred_span: Span, ann_span: Span, matched_preds: set
@@ -299,9 +309,9 @@ class SpanEvaluator(BaseEvaluator):
         if pred_span_key in matched_preds:
             return False
 
-        # Check if the prediction is a non-entity (O) while the annotation is an entity
-        if pred_span.entity_type == "O" and ann_span.entity_type != "O":
-            return False
+        # # Check if the prediction is a non-entity (O) while the annotation is an entity
+        # if pred_span.entity_type == "O" and ann_span.entity_type != "O":
+        #     return False
 
         return True
 
@@ -329,7 +339,7 @@ class SpanEvaluator(BaseEvaluator):
         per_type_results = self._calculate_per_type_metrics(metrics["per_type_metrics"], beta)
 
         return SpanEvaluationResult(
-            precision=global_metrics["precision"],
+            pii_precision=global_metrics["precision"],
             recall=global_metrics["recall"],
             f_beta=global_metrics["f_beta"],
             total_predicted=metrics["total_num_predicted"],
@@ -346,15 +356,26 @@ class SpanEvaluator(BaseEvaluator):
         self, annotation_spans, prediction_spans, metrics
     ):
         """
-        Match predictions to annotations and update metrics accordingly.
+        Match predictions to annotations and calculate metrics.
 
         Args:
             annotation_spans: List of annotation Span objects
             prediction_spans: List of prediction Span objects
-            metrics: Dictionary containing metrics to update
+            metrics: Dictionary containing current metrics state
+
+        Returns:
+            Dictionary with matching results and metric updates
         """
         matched_preds = set()
         entity_type_mismatches = []
+        updates = {
+            "total_true_positives": 0,
+            "total_false_negatives": 0,
+            "per_type_tp": defaultdict(int),
+            "per_type_fn": defaultdict(int),
+            "per_type_fp": defaultdict(int),
+            "error_analysis": defaultdict(int),
+        }
 
         # Process each annotation and find its best matching prediction
         for ann_span in annotation_spans:
@@ -365,11 +386,11 @@ class SpanEvaluator(BaseEvaluator):
 
             if best_match and best_iou >= self.iou_threshold:
                 # Count as true positive
-                metrics["total_true_positives"] += 1
+                updates["total_true_positives"] += 1
 
                 # Handle type matching/mismatching
                 if best_match.entity_type == ann_span.entity_type:
-                    metrics["per_type_metrics"][ann_span.entity_type]["tp"] += 1
+                    updates["per_type_tp"][ann_span.entity_type] += 1
                 else:
                     # Record type mismatch
                     mismatch = {
@@ -381,13 +402,13 @@ class SpanEvaluator(BaseEvaluator):
                         "iou": best_iou,
                     }
                     entity_type_mismatches.append(mismatch)
-                    metrics["error_analysis"][
+                    updates["error_analysis"][
                         f"type_mismatch_{ann_span.entity_type}_as_{best_match.entity_type}"
                     ] += 1
 
                     # Update per-type metrics
-                    metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
-                    metrics["per_type_metrics"][best_match.entity_type]["fp"] += 1
+                    updates["per_type_fn"][ann_span.entity_type] += 1
+                    updates["per_type_fp"][best_match.entity_type] += 1
 
                 # Mark prediction as matched
                 matched_preds.add(
@@ -399,17 +420,24 @@ class SpanEvaluator(BaseEvaluator):
                 )
             else:
                 # No match found - false negative
-                metrics["total_false_negatives"] += 1
-                metrics["per_type_metrics"][ann_span.entity_type]["fn"] += 1
+                updates["total_false_negatives"] += 1
+                updates["per_type_fn"][ann_span.entity_type] += 1
                 if best_match:
-                    metrics["error_analysis"][f"low_iou_{ann_span.entity_type}"] += 1
+                    updates["error_analysis"][f"low_iou_{ann_span.entity_type}"] += 1
                 else:
-                    metrics["error_analysis"][f"missed_{ann_span.entity_type}"] += 1
+                    updates["error_analysis"][f"missed_{ann_span.entity_type}"] += 1
 
         # Handle unmatched predictions as false positives
-        self._handle_unmatched_predictions(prediction_spans, matched_preds, metrics)
+        unmatched_updates = self._handle_unmatched_predictions(
+            prediction_spans, matched_preds, metrics
+        )
 
-        metrics["entity_type_mismatches"] = entity_type_mismatches
+        # Merge unmatched prediction updates
+        updates["total_false_positives"] = unmatched_updates["total_false_positives"]
+        for entity_type, count in unmatched_updates["per_type_fp"].items():
+            updates["per_type_fp"][entity_type] += count
+        for error_type, count in unmatched_updates["error_analysis"].items():
+            updates["error_analysis"][error_type] += count
 
     def _calculate_per_type_metrics(
         self, per_type_metrics: dict, beta: int
@@ -417,12 +445,11 @@ class SpanEvaluator(BaseEvaluator):
         """
         Calculate precision, recall, and F-beta scores for each entity type.
 
-        Args:
-            per_type_metrics: Dictionary containing per-type counts of true positives,
+        :param per_type_metrics: Dictionary containing per-type counts of true positives,
                             false positives, false negatives, and total counts
+        :param beta: F-beta parameter
 
-        Returns:
-            Dictionary mapping entity types to EntityTypeMetrics objects
+        :returns: Dictionary mapping entity types to EntityTypeMetrics objects
         """
         per_type_results = {}
 
@@ -444,9 +471,9 @@ class SpanEvaluator(BaseEvaluator):
                 num_annotated=counts["num_annotated"],
                 true_positives=counts["tp"],
                 false_positives=counts["fp"],
-                false_negatives=counts["fn"],
+                false_negatives=counts["fn"]
             )
-
+        
         return per_type_results
 
     def _update_per_type_counts(
@@ -459,11 +486,16 @@ class SpanEvaluator(BaseEvaluator):
             annotation_spans: List of annotation Span objects
             prediction_spans: List of prediction Span objects
             per_type_metrics: Dictionary to track per-type metrics
+
+        Returns:
+            Dictionary with updated per-type counts
         """
+        updated_metrics = per_type_metrics.copy()
         for ann_span in annotation_spans:
-            per_type_metrics[ann_span.entity_type]["num_annotated"] += 1
+            updated_metrics[ann_span.entity_type]["num_annotated"] += 1
         for pred_span in prediction_spans:
-            per_type_metrics[pred_span.entity_type]["num_predicted"] += 1
+            updated_metrics[pred_span.entity_type]["num_predicted"] += 1
+        return updated_metrics
 
     def calculate_score(
         self,
@@ -612,7 +644,7 @@ class SpanEvaluator(BaseEvaluator):
                         end_position=curr_char_position,
                         normalized_value=normalized_tokens,
                         token_start=current_token_start,
-                        token_end=df.index[-1] + 1,
+                        token_end=df.index[-1] + 1
                     )
                 )
         return spans
@@ -670,137 +702,3 @@ class SpanEvaluator(BaseEvaluator):
                         }
                     )
         return pd.DataFrame(records)
-
-    def _create_spans_bio(self, df: pd.DataFrame, column: str) -> List[Span]:
-        """
-        Create Span objects from a DataFrame using BIO labeling scheme with normalization.
-
-        :param df: DataFrame containing tokens and BIO labels
-        :param column: Column name containing entity labels ('annotation' or 'prediction')
-        :return: List of Span objects
-        """
-        spans = []
-        current_type = None
-        current_tokens = []
-        current_start = None
-        current_token_start = None  # Add token position tracking
-        curr_char_position = 0
-        token_position = 0  # Add token position counter
-
-        for idx, row in df.iterrows():
-            tag = row[column]
-            token = row["token"]
-            token_length = len(token)
-
-            # Add space before token (except for first token)
-            if idx > df.index[0]:
-                curr_char_position += 1  # Account for space between tokens
-
-            token_start = curr_char_position
-            token_end = curr_char_position + token_length
-
-            # Handle non-entity tokens
-            if tag == "O":
-                if current_type:
-                    normalized_tokens = self._normalize_tokens(current_tokens)
-                    if (
-                        normalized_tokens
-                    ):  # Only create span if we have tokens after normalization
-                        spans.append(
-                            Span(
-                                entity_type=current_type,
-                                entity_value=current_tokens,  # Keep original tokens
-                                start_position=current_start,
-                                end_position=token_start
-                                - 2,  # End at the previous token
-                                normalized_value=normalized_tokens,  # Add normalized tokens
-                                token_start=current_token_start,  # Add token start position
-                                token_end=idx,  # Add token end position
-                            )
-                        )
-                    current_type = None
-                    current_tokens = []
-                    current_start = None
-                    current_token_start = None
-                curr_char_position = token_end
-                token_position += 1  # Increment token position
-                continue
-
-            # Split BIO tag into B/I and entity type
-            bio_prefix, entity_type = tag.split("-", 1)
-
-            # Start of new entity
-            if bio_prefix == "B":
-                if current_type:
-                    normalized_tokens = self._normalize_tokens(current_tokens)
-                    if normalized_tokens:
-                        spans.append(
-                            Span(
-                                entity_type=current_type,
-                                entity_value=current_tokens,
-                                start_position=current_start,
-                                end_position=token_start - 2,
-                                normalized_value=normalized_tokens,
-                                token_start=current_token_start,
-                                token_end=idx,
-                            )
-                        )
-                current_type = entity_type
-                current_tokens = [token]
-                current_start = token_start
-                current_token_start = idx  # Set token start position
-
-            # Inside of entity
-            elif bio_prefix == "I" and current_type == entity_type:
-                current_tokens.append(token)
-            curr_char_position = token_end
-            token_position += 1  # Increment token position
-
-        # Add final span if exists
-        if current_type:
-            normalized_tokens = self._normalize_tokens(current_tokens)
-            if normalized_tokens:
-                spans.append(
-                    Span(
-                        entity_type=current_type,
-                        entity_value=current_tokens,
-                        start_position=current_start,
-                        end_position=curr_char_position,
-                        normalized_value=normalized_tokens,
-                        token_start=current_token_start,
-                        token_end=df.index[-1] + 1,
-                    )
-                )
-
-        return spans
-
-    @staticmethod
-    def convert_to_bio_scheme(df: pd.DataFrame, entity_column: str) -> pd.Series:
-        """
-        Convert entity annotations to BIO scheme.
-
-        Args:
-            df: DataFrame with token-level annotations
-            entity_column: Name of column containing entity labels
-
-        Returns:
-            Series with BIO tags
-        """
-        bio_tags = []
-        prev_entity = "O"
-
-        for idx, row in df.iterrows():
-            current_entity = row[entity_column]
-
-            if current_entity == "O":
-                bio_tags.append("O")
-            elif prev_entity != current_entity:
-                # Start of new entity
-                bio_tags.append(f"B-{current_entity}")
-            else:
-                # Inside existing entity
-                bio_tags.append(f"I-{current_entity}")
-
-            prev_entity = current_entity
-
-        return pd.Series(bio_tags)
