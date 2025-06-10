@@ -6,7 +6,7 @@ from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator.evaluation import BaseEvaluator, ModelError, ErrorType
 from presidio_evaluator.data_objects import Span
-from evaluation_result import EvaluationResult
+from evaluation_result import EvaluationResult, PIIEvaluationMetrics
 from presidio_evaluator.models import BaseModel
 
 
@@ -24,7 +24,6 @@ class SpanEvaluator(BaseEvaluator):
         generic_entities: Optional[List[str]] = None,
         skip_words: Optional[List] = None,
         iou_threshold: float = 0.9,
-        merge_adjacent_spans: bool = True,
         char_based: bool = True,
     ):
         """
@@ -36,9 +35,6 @@ class SpanEvaluator(BaseEvaluator):
                             should also include punctuation marks.
                          If None, uses skip words from skipwords.py (default: None).
                          Pass an empty list ([]) to disable skip word removal entirely.
-        :param merge_adjacent_spans: Whether to merge adjacent spans of the same entity type.
-                                    Spans are considered adjacent if they are separated only by skip words or punctuation.
-                                    Default is True.
         :param char_based: If True, calculate IoU at the character-level, else, calculate iou at the token-level.
         """
         super().__init__(
@@ -51,7 +47,6 @@ class SpanEvaluator(BaseEvaluator):
         )
 
         self.iou_threshold = iou_threshold
-        self.merge_adjacent_spans = merge_adjacent_spans
         self.char_based = char_based
 
     def _normalize_tokens(self, tokens: List[str]) -> List[str]:
@@ -173,19 +168,19 @@ class SpanEvaluator(BaseEvaluator):
 
             return intersection / union if union > 0 else 0.0
 
-
     def _process_sentence_spans(self, sentence_df):
         annotation_spans = self._create_spans(sentence_df, "annotation")
         prediction_spans = self._create_spans(sentence_df, "prediction")
 
-        if self.merge_adjacent_spans:
-            annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
-            prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
+        annotation_spans = self._merge_adjacent_spans(annotation_spans, sentence_df)
+        prediction_spans = self._merge_adjacent_spans(prediction_spans, sentence_df)
 
         return annotation_spans, prediction_spans
 
     @staticmethod
-    def _handle_unmatched_predictions(prediction_spans, matched_preds, evaluation_result) -> EvaluationResult:
+    def _handle_unmatched_predictions(
+        prediction_spans, matched_preds, evaluation_result
+    ) -> EvaluationResult:
         """
         Handle predictions that weren't matched to any annotation.
 
@@ -210,7 +205,7 @@ class SpanEvaluator(BaseEvaluator):
                     annotation="O",
                     prediction=pred_span.entity_type,
                     full_text=" ".join(pred_span.entity_value),
-                    explanation=f"False positive for {pred_span}"
+                    explanation=f"False positive for {pred_span}",
                 )
                 evaluation_result.error_analysis.append(model_error)
 
@@ -265,14 +260,23 @@ class SpanEvaluator(BaseEvaluator):
 
         return best_match, best_iou
 
-    def _create_evaluation_result(self, evaluation_result:EvaluationResult, beta: float) -> EvaluationResult:
-
-        # TODO: update calculate_metrics and _calculate_per_type_metrics to use the evaluation_result object
-
-        evaluation_result = self._calculate_metrics(evaluation_result, beta)
-
-        evaluation_result = self._calculate_per_type_metrics(evaluation_result, beta)
-
+    def _create_evaluation_result(
+        self,
+        evaluation_result: EvaluationResult,
+        true_positives: int,
+        num_predicted: int,
+        num_annotated: int,
+        beta: float,
+    ) -> EvaluationResult:
+        metrics = self._calculate_metrics(
+            true_positives, num_predicted, num_annotated, beta
+        )
+        evaluation_result.pii_recall = metrics["recall"]
+        evaluation_result.pii_precision = metrics["precision"]
+        evaluation_result.pii_f = metrics["f_beta"]
+        evaluation_result.per_type = self._calculate_per_type_metrics(
+            evaluation_result, beta
+        )
         return evaluation_result
 
     def _match_predictions_with_annotations(
@@ -288,7 +292,6 @@ class SpanEvaluator(BaseEvaluator):
         """
         matched_preds = set()
         entity_type_mismatches = []
-
 
         # Process each annotation and find its best matching prediction
         for ann_span in annotation_spans:
@@ -308,19 +311,25 @@ class SpanEvaluator(BaseEvaluator):
                     ] += 1
                 else:
                     # Record type mismatch
-                    evaluation_result.results[(ann_span.entity_type, best_match.entity_type)] += 1
-                    model_error = ModelError(error_type=ErrorType.WrongEntity,
-                                             annotation=ann_span.entity_type,
-                                             prediction=best_match.entity_type,
-                                             full_text = " ".join(best_match.entity_value),
-                                             explanation=f"Wrong entity between {ann_span} "
-                                                         f"and {best_match}. "
-                                                         f"IoU: {best_iou}")
+                    evaluation_result.results[
+                        (ann_span.entity_type, best_match.entity_type)
+                    ] += 1
+                    model_error = ModelError(
+                        error_type=ErrorType.WrongEntity,
+                        annotation=ann_span.entity_type,
+                        prediction=best_match.entity_type,
+                        full_text=" ".join(best_match.entity_value),
+                        explanation=f"Wrong entity between {ann_span} "
+                        f"and {best_match}. "
+                        f"IoU: {best_iou}",
+                    )
 
                     evaluation_result.error_analysis.append(model_error)
 
                     # Update per-type metrics
-                    evaluation_result.per_type[ann_span.entity_type].false_negatives += 1
+                    evaluation_result.per_type[
+                        ann_span.entity_type
+                    ].false_negatives += 1
 
                 # Mark prediction as matched
                 matched_preds.add(
@@ -352,9 +361,10 @@ class SpanEvaluator(BaseEvaluator):
 
         return evaluation_result
 
-
     def _calculate_per_type_metrics(
-        self, per_type_metrics: dict, beta: float
+        self,
+        per_type_metrics: dict,
+        beta: float,
     ) -> EvaluationResult:
         """
         Calculate precision, recall, and F-beta scores for each entity type.
@@ -375,9 +385,8 @@ class SpanEvaluator(BaseEvaluator):
                 counts["num_annotated"],
                 beta,
             )
-
             # Create EntityTypeMetrics object
-            per_type_results[entity_type] = EntityTypeMetrics(
+            per_type_results[entity_type] = PIIEvaluationMetrics(
                 precision=metrics["precision"],
                 recall=metrics["recall"],
                 f_beta=metrics["f_beta"],
@@ -385,10 +394,11 @@ class SpanEvaluator(BaseEvaluator):
                 num_annotated=counts["num_annotated"],
                 true_positives=counts["tp"],
                 false_positives=counts["fp"],
-                false_negatives=counts["fn"]
+                false_negatives=counts["fn"],
             )
-        
+
         return per_type_results
+
     @staticmethod
     def _update_per_type_counts(
         annotation_spans, prediction_spans, evaluation_result
@@ -416,14 +426,15 @@ class SpanEvaluator(BaseEvaluator):
         entities: Optional[List[str]] = None,
         beta: float = 2.0,
     ) -> EvaluationResult:
+        # TODO: Add docstring
 
-        #TODO: Add docstring
-
-        #TODO: filter evaluation_results by entities
+        # TODO: filter evaluation_results by entities
         df = self.get_results_dataframe(evaluation_results)
         return self.calculate_score_on_df(df, beta=beta)
 
-    def calculate_score_on_df(self, results_df: pd.DataFrame, beta: float = 2) -> EvaluationResult:
+    def calculate_score_on_df(
+        self, results_df: pd.DataFrame, beta: float = 2
+    ) -> EvaluationResult:
         """
         Evaluate the predictions against ground truth annotations.
 
@@ -549,14 +560,17 @@ class SpanEvaluator(BaseEvaluator):
                         end_position=curr_char_position,
                         normalized_value=normalized_tokens,
                         token_start=current_token_start,
-                        token_end=df.index[-1] + 1
+                        token_end=df.index[-1] + 1,
                     )
                 )
         return spans
 
     @staticmethod
     def _calculate_metrics(
-        true_positives: int, num_predicted: int, num_annotated: int, beta: float = 2
+        true_positives: int,
+        num_predicted: int,
+        num_annotated: int,
+        beta: float = 2,
     ) -> EvaluationResult:
         """
         Calculate precision, recall, and F-beta score using the new logic.
@@ -574,7 +588,6 @@ class SpanEvaluator(BaseEvaluator):
             if (precision + recall) > 0
             else 0.0
         )
-
         return {"precision": precision, "recall": recall, "f_beta": f_beta}
 
     def span_pairwise_iou_df(self, df: pd.DataFrame) -> pd.DataFrame:
