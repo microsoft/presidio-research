@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 from plotly.graph_objs import Figure
 
-from presidio_evaluator.evaluation import Evaluator, EvaluationResult, ModelError
+from presidio_evaluator.evaluation import BaseEvaluator, EvaluationResult, ModelError
 
 
 class Plotter:
@@ -68,7 +68,7 @@ class Plotter:
         scores["count"] = list(self.results.n_dict.values())
 
         scores[f"f{self.beta}_score"] = [
-            Evaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
+            BaseEvaluator.f_beta(precision=precision, recall=recall, beta=self.beta)
             for recall, precision in zip(scores["recall"], scores["precision"])
         ]
 

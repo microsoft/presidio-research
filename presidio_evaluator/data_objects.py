@@ -129,7 +129,7 @@ class InputSample(object):
         metadata: Dict = None,
         sample_id: int = None,
         template_id: int = None,
-        start_indices: Optional[List[bool]] = None,
+        start_indices: Optional[List[int]] = None,
     ):
         """
         Hold all the information needed for evaluation in the
@@ -148,7 +148,7 @@ class InputSample(object):
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
         :param sample_id: Unique identifier for this sample (within a dataset)
-        :param start_indices: List of booleans indicating the start of each token
+        :param start_indices: List of int indicating the start index of each token in the sentence
         """
         if tags is None:
             tags = []
@@ -195,7 +195,7 @@ class InputSample(object):
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
         return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm"):
+    def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm") -> Tuple[Doc, List[str], List[int]]:
         """Extract the tokens, tags, and start_indices from the spans.
 
         :param scheme: IO, BIO or BILUO
@@ -217,14 +217,7 @@ class InputSample(object):
             token_model_version=model_version,
         )
 
-        # Calculate start_indices
-        start_indices = [False] * len(tokens)
-        for span_start in start_positions:
-            for i, token in enumerate(tokens):
-                if token.idx == span_start:
-                    start_indices[i] = True
-                    break
-
+        start_indices = [token.idx for token in tokens]
         return tokens, labels, start_indices
 
     def to_conll(

@@ -1,8 +1,9 @@
 import pytest
 import pandas as pd
-from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
 from presidio_evaluator.data_objects import Span
 from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, SpanEvaluationResult
+from tests.mocks import MockModel
+
 
 
 @pytest.mark.parametrize(
@@ -62,7 +63,7 @@ from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator, SpanEval
             ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
             ["David", "Johnson", "is", "my", "friend"],
             [True, False, False, False, False],
-            0,
+            1,
             1,
             1,
             True,
@@ -539,8 +540,11 @@ def test_evaluate(
         }
     )
     print(f"df: {df}")
-    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, merge_adjacent_spans=merge_adjacent_spans, char_based=char_based)
-    result = evaluator.evaluate(df)
+    evaluator = SpanEvaluator(model=MockModel(),
+                              iou_threshold=0.9,
+                              merge_adjacent_spans=merge_adjacent_spans,
+                              char_based=char_based)
+    result = evaluator.calculate_score_on_df(df)
 
     # Calculate expected metrics
     expected_recall = TP / num_annotated if num_annotated > 0 else 0
@@ -570,8 +574,8 @@ def test_evaluate_with_custom_skipwords():
         }
     )
 
-    evaluator = SpanEvaluator(iou_threshold=0.9, schema=None, skip_words=["bill"])
-    result = evaluator.evaluate(df)
+    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.9, skip_words=["bill"])
+    result = evaluator.calculate_score_on_df(df)
 
     # Calculate expected metrics
     expected_recall = 1
@@ -665,7 +669,7 @@ def test_create_spans_bio(tokens, bio_labels, expected_spans, char_based):
         {"sentence_id": [0] * len(tokens), "token": tokens, "annotation": bio_labels}
     )
 
-    evaluator = SpanEvaluator(iou_threshold=0.9, schema="BIO", char_based=char_based)
+    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.9, char_based=char_based)
     spans = evaluator._create_spans_bio(df, "annotation")
     assert len(spans) == len(
         expected_spans

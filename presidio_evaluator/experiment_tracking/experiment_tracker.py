@@ -2,7 +2,7 @@ import json
 import time
 import os
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List
 
 
 class ExperimentTracker:
