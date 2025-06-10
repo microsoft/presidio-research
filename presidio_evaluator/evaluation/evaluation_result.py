@@ -23,7 +23,7 @@ class EvaluationResult:
         tokens: Optional[List[str]] = None,
         actual_tags: Optional[List[str]] = None,
         predicted_tags: Optional[List[str]] = None,
-        start_indices: List[bool] = None
+        start_indices: List[int] = None
     ):
         """
         Holds the output of a comparison between ground truth and predicted
@@ -41,8 +41,7 @@ class EvaluationResult:
         :param tokens: List of tokens
         :param actual_tags: List of actual tags
         :param predicted_tags: List of predicted tags
-        :param start_indices: List of boolean values indicating if
-        the token is a start token of an entity
+        :param start_indices: List of start indices of tokens in the text
         """
 
         self.results = results

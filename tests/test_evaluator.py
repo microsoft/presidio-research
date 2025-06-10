@@ -491,7 +491,7 @@ def test_results_to_dataframe():
     prediction = ["O", "EMAIL", "PHONE", "LOCATION", "PERSON"]
     tokens = ["John", "details", "john@mail.com", "123-456-7890", "today"]
     tags = ["PERSON", "O", "EMAIL", "PHONE", "O"]
-    start_indices = [True, False, True, True, False]
+    start_indices = [0, 5, 13, 27, 40]
     evaluator = Evaluator(model=MockTokensModel(prediction))
 
     sample = InputSample(
@@ -504,7 +504,7 @@ def test_results_to_dataframe():
     results = evaluator.evaluate_all([sample, sample])
 
     df = evaluator.get_results_dataframe(results)
-    expected_columns = ["sentence_id", "token", "annotation", "prediction"]
+    expected_columns = ["sentence_id", "token", "annotation", "prediction", "start_indices"]
     for col in expected_columns:
         assert col in df.columns
 

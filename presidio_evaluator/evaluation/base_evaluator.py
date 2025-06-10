@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from collections import Counter
 from typing import List, Optional, Dict, Union
 
@@ -13,7 +14,9 @@ from presidio_evaluator.models import BaseModel, PresidioAnalyzerWrapper
 GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENERIC_PII")
 
 
-class Evaluator:
+
+
+class BaseEvaluator(ABC):
     def __init__(
         self,
         model: Union[BaseModel, AnalyzerEngine],
@@ -21,7 +24,7 @@ class Evaluator:
         compare_by_io=True,
         entities_to_keep: Optional[List[str]] = None,
         generic_entities: Optional[List[str]] = None,
-        skip_words: Optional[List] = None,
+        skip_words: Optional[List] = None
     ):
         """
         Evaluate a PII detection model or a Presidio analyzer / recognizer
@@ -202,7 +205,11 @@ class Evaluator:
         if self.verbose:
             print("Input sentence: {}".format(sample.full_text))
 
+
+
         results, model_errors = self.compare(input_sample=sample, prediction=prediction)
+
+
         return EvaluationResult(
             results=results,
             model_errors=model_errors,
@@ -254,7 +261,7 @@ class Evaluator:
         allow_missing_mappings: bool = False,
     ) -> List[InputSample]:
         """
-        Change input samples to conform with Presidio's entities
+        Change input samples to conform with the provided entity mappings
         :return: new list of InputSample
         """
 
@@ -314,6 +321,7 @@ class Evaluator:
         return new_list
         # Iterate on all samples
 
+    @abstractmethod
     def calculate_score(
         self,
         evaluation_results: List[EvaluationResult],
@@ -321,96 +329,10 @@ class Evaluator:
         beta: float = 2.0,
     ) -> EvaluationResult:
         """
-        Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
-        or for all entities (ignore_entity_type = True)
-        :param evaluation_results: List of EvaluationResult
-        :param entities: List of entities to calculate score to. Default is None: all entities
-        :param beta: F measure beta value
-        between different entity types, or to treat these as misclassifications
-        :return: EvaluationResult with precision, recall and f measures
+        Compares the evaluation results (predicted vs. actual) and calculates evaluation scores
         """
 
-        # aggregate results
-        all_results = sum([er.results for er in evaluation_results], Counter())
-
-        # compute pii_recall per entity
-        entity_recall = {}
-        entity_precision = {}
-        n = {}
-        if not entities:
-            entities1 = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
-            entities2 = list(set([x[1] for x in all_results.keys() if x[1] != "O"]))
-            entities = list(set(entities1).union(set(entities2)))
-
-        for entity in entities:
-            # all annotation of given type
-            annotated = sum([all_results[x] for x in all_results if x[0] == entity])
-            predicted = sum([all_results[x] for x in all_results if x[1] == entity])
-            n[entity] = annotated
-            tp = all_results[(entity, entity)]
-
-            if annotated > 0:
-                entity_recall[entity] = tp / annotated
-            else:
-                entity_recall[entity] = np.nan
-
-            if predicted > 0:
-                per_entity_tp = all_results[(entity, entity)]
-                entity_precision[entity] = per_entity_tp / predicted
-            else:
-                entity_precision[entity] = np.nan
-
-        # compute pii_precision and pii_recall
-        annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
-        predicted_all = sum([all_results[x] for x in all_results if x[1] != "O"])
-        if annotated_all > 0:
-            pii_recall = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / annotated_all
-            )
-        else:
-            pii_recall = np.nan
-        if predicted_all > 0:
-            pii_precision = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / predicted_all
-            )
-        else:
-            pii_precision = np.nan
-        # compute pii_f_beta-score
-        pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
-
-        # aggregate errors
-        errors = []
-        for res in evaluation_results:
-            if res.model_errors:
-                errors.extend(res.model_errors)
-
-        evaluation_result = EvaluationResult(
-            results=all_results,
-            model_errors=errors,
-            pii_precision=pii_precision,
-            pii_recall=pii_recall,
-            entity_recall_dict=entity_recall,
-            entity_precision_dict=entity_precision,
-            n_dict=n,
-            pii_f=pii_f_beta,
-            n=sum(n.values()),
-        )
-
-        return evaluation_result
+        pass
 
     @staticmethod
     def get_results_dataframe(evaluation_results: List[EvaluationResult]) -> pd.DataFrame:
@@ -421,7 +343,7 @@ class Evaluator:
         - token text
         - annotation
         - prediction
-        - start_indices
+        - token_start
         """
 
         if not evaluation_results or not evaluation_results[0].tokens:
