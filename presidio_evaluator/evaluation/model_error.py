@@ -29,10 +29,11 @@ class ModelError:
         error_type: Union[str, ErrorType],
         annotation: str,
         prediction: str,
-        token: Union[Token, str],
-        full_text: str,
+        token: Optional[Union[Token, str]] = None,
+        full_text: Optional[str] = None,
         sample_id: Optional[int] = None,
         metadata: Optional[Dict] = None,
+        explanation: Optional[str] = None,
     ):
         """
         Holds information about an error a model made for analysis purposes
@@ -43,6 +44,7 @@ class ModelError:
         :param full_text: full input text
         :param sample_id: Id of the sample this error belongs to
         :param metadata: metadata on text from InputSample
+        :param explanation: Optional reasoning for the error, e.g. "Token was too short"
         """
 
         self.error_type = error_type
@@ -52,6 +54,7 @@ class ModelError:
         self.full_text = full_text
         self.sample_id = sample_id
         self.metadata = metadata
+        self.explanation = explanation
 
     def __str__(self):
         return (
