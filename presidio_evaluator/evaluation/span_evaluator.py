@@ -6,7 +6,10 @@ from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator.evaluation import BaseEvaluator, ModelError, ErrorType
 from presidio_evaluator.data_objects import Span
-from evaluation_result import EvaluationResult, PIIEvaluationMetrics
+from presidio_evaluator.evaluation.evaluation_result import (
+    EvaluationResult,
+    PIIEvaluationMetrics,
+)
 from presidio_evaluator.models import BaseModel
 
 
@@ -268,13 +271,13 @@ class SpanEvaluator(BaseEvaluator):
         num_annotated: int,
         beta: float,
     ) -> EvaluationResult:
-        metrics = self._calculate_metrics(
+        precision, recall, f_beta = self._calculate_metrics(
             true_positives, num_predicted, num_annotated, beta
         )
-        evaluation_result.pii_recall = metrics["recall"]
-        evaluation_result.pii_precision = metrics["precision"]
-        evaluation_result.pii_f = metrics["f_beta"]
-        evaluation_result.per_type = self._calculate_per_type_metrics(
+        evaluation_result.pii_recall = recall
+        evaluation_result.pii_precision = precision
+        evaluation_result.pii_f = f_beta
+        evaluation_result = self._calculate_per_type_metrics(
             evaluation_result, beta
         )
         return evaluation_result
@@ -363,7 +366,7 @@ class SpanEvaluator(BaseEvaluator):
 
     def _calculate_per_type_metrics(
         self,
-        per_type_metrics: dict,
+        evaluation_result: EvaluationResult,
         beta: float,
     ) -> EvaluationResult:
         """
@@ -375,29 +378,19 @@ class SpanEvaluator(BaseEvaluator):
 
         :returns: Dictionary mapping entity types to EntityTypeMetrics objects
         """
-        per_type_results = {}
 
-        for entity_type, counts in per_type_metrics.items():
+        for entity_type, pii_metrics in evaluation_result.per_type.items():
             # Calculate metrics for this entity type
-            metrics = self._calculate_metrics(
-                counts["tp"],
-                counts["num_predicted"],
-                counts["num_annotated"],
+            precision, recall, f_beta = self._calculate_metrics(
+                pii_metrics.true_positives,
+                pii_metrics.num_predicted,
+                pii_metrics.num_annotated,
                 beta,
             )
-            # Create EntityTypeMetrics object
-            per_type_results[entity_type] = PIIEvaluationMetrics(
-                precision=metrics["precision"],
-                recall=metrics["recall"],
-                f_beta=metrics["f_beta"],
-                num_predicted=counts["num_predicted"],
-                num_annotated=counts["num_annotated"],
-                true_positives=counts["tp"],
-                false_positives=counts["fp"],
-                false_negatives=counts["fn"],
-            )
-
-        return per_type_results
+            pii_metrics.precision = precision
+            pii_metrics.recall = recall
+            pii_metrics.f_beta = f_beta
+        return evaluation_result
 
     @staticmethod
     def _update_per_type_counts(
@@ -410,10 +403,6 @@ class SpanEvaluator(BaseEvaluator):
         :param prediction_spans: List of prediction Span objects
 
         """
-        if not evaluation_result.per_type:
-            # Initialize per_type if not already done
-            evaluation_result.per_type = {}
-
         for ann_span in annotation_spans:
             evaluation_result.per_type[ann_span.entity_type].num_annotated += 1
         for pred_span in prediction_spans:
@@ -467,7 +456,13 @@ class SpanEvaluator(BaseEvaluator):
             )
 
         # Create and return the final evaluation result
-        return self._create_evaluation_result(evaluation_result, beta)
+        return self._create_evaluation_result(
+            evaluation_result,
+            evaluation_result.total_true_positives,
+            evaluation_result.total_predicted,
+            evaluation_result.total_annotated,
+            beta,
+        )
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> List[Span]:
         """
@@ -565,13 +560,13 @@ class SpanEvaluator(BaseEvaluator):
                 )
         return spans
 
-    @staticmethod
     def _calculate_metrics(
+        self,
         true_positives: int,
         num_predicted: int,
         num_annotated: int,
         beta: float = 2,
-    ) -> EvaluationResult:
+    ) -> tuple[float, float, float]:
         """
         Calculate precision, recall, and F-beta score using the new logic.
 
@@ -583,12 +578,8 @@ class SpanEvaluator(BaseEvaluator):
         """
         precision = true_positives / num_predicted if num_predicted > 0 else 0.0
         recall = true_positives / num_annotated if num_annotated > 0 else 0.0
-        f_beta = (
-            (1 + beta**2) * (precision * recall) / ((beta**2 * precision) + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
-        return {"precision": precision, "recall": recall, "f_beta": f_beta}
+        f_beta = self.f_beta(precision, recall, beta)
+        return precision, recall, f_beta
 
     def span_pairwise_iou_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """
