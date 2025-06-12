@@ -47,13 +47,17 @@ class Span:
         start_position, end_position,
         token_start: Optional[int] = None,
         token_end: Optional[int] = None,
-        normalized_value: Optional[List[str]] = None
+        normalized_value: Optional[List[str]] = None,
+        normalized_indices_start: Optional[List[int]] = None,
+        normalized_indices_end: Optional[List[int]] = None,
     ):
         self.entity_type = entity_type
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
         self.normalized_value = normalized_value
+        self.normalized_indices_start = normalized_indices_start
+        self.normalized_indices_end = normalized_indices_end
         self.token_start = token_start
         self.token_end = token_end
 

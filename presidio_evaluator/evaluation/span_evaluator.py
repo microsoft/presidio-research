@@ -52,7 +52,7 @@ class SpanEvaluator(BaseEvaluator):
         self.iou_threshold = iou_threshold
         self.char_based = char_based
 
-    def _normalize_tokens(self, tokens: List[str]) -> List[str]:
+    def _normalize_tokens(self, tokens: List[str], start_indices: List[int]) -> tuple[List[str], List[int]]:
         """
         Normalize tokens by:
         1. Converting to lowercase
@@ -64,13 +64,15 @@ class SpanEvaluator(BaseEvaluator):
         :return: List of normalized tokens
         """
         normalized = []
-        for token in tokens:
+        normalized_indices = []
+        for token, start in zip(tokens, start_indices):
             token = token.lower()
             # Skip if token is in skip words list
             if token in self.skip_words:
                 continue
             normalized.append(token)
-        return normalized
+            normalized_indices.append(start)
+        return normalized, normalized_indices
 
     def _merge_adjacent_spans(self, spans: List[Span], df: pd.DataFrame) -> List[Span]:
         """
@@ -92,12 +94,17 @@ class SpanEvaluator(BaseEvaluator):
                 and self._are_spans_adjacent(current, next_span, df)
             ):
                 merged_tokens = current.entity_value + next_span.entity_value
+                merged_normalized_text = current.normalized_value + next_span.normalized_value
                 current = Span(
                     entity_type=current.entity_type,
                     entity_value=merged_tokens,
                     start_position=current.start_position,
                     end_position=next_span.end_position,
-                    normalized_value=self._normalize_tokens(merged_tokens),
+                    normalized_indices_start=min(
+                        current.normalized_indices_start, next_span.normalized_indices_start),
+                    normalized_indices_end=max(
+                        current.normalized_indices_end, next_span.normalized_indices_end),
+                    normalized_value=merged_normalized_text,
                 )
             else:
                 merged.append(current)
@@ -137,40 +144,18 @@ class SpanEvaluator(BaseEvaluator):
         """
         if char_based:
             # Get character ranges for both spans
-            range1 = set(range(span1.start_position, span1.end_position))
-            range2 = set(range(span2.start_position, span2.end_position))
-
-            # Calculate intersection and union of character positions
-            intersection = len(range1.intersection(range2))
-            union = len(range1.union(range2))
-
-            return intersection / union if union > 0 else 0.0
+            range1 = set(range(span1.normalized_indices_start, span1.normalized_indices_end))
+            range2 = set(range(span2.normalized_indices_start, span2.normalized_indices_end))
         else:
-            # Token-based IoU calculation using token positions
-            if (
-                span1.token_start is None
-                or span1.token_end is None
-                or span2.token_start is None
-                or span2.token_end is None
-            ):
-                # Fallback to normalized token comparison if token positions not available
-                set1 = set(span1.normalized_value)
-                set2 = set(span2.normalized_value)
-                intersection = len(set1.intersection(set2))
-                union = len(set1.union(set2))
+            range1 = set(span1.normalized_value)
+            range2 = set(span2.normalized_value)
+                
+            # Calculate intersection and union of character positions
+        intersection = len(range1.intersection(range2))
+        union = len(range1.union(range2))
 
-                return intersection / union if union > 0 else 0.0
-
-            # Use token position ranges for IoU calculation
-            range1 = set(range(span1.token_start, span1.token_end + 1))
-            range2 = set(range(span2.token_start, span2.token_end + 1))
-
-            # Calculate intersection and union of token positions
-            intersection = len(range1.intersection(range2))
-            union = len(range1.union(range2))
-
-            return intersection / union if union > 0 else 0.0
-
+        return intersection / union if union > 0 else 0.0
+            
     def _process_sentence_spans(self, sentence_df):
         annotation_spans = self._create_spans(sentence_df, "annotation")
         prediction_spans = self._create_spans(sentence_df, "prediction")
@@ -351,7 +336,7 @@ class SpanEvaluator(BaseEvaluator):
                     error_type=ErrorType.WrongEntity,
                     annotation=ann_span.entity_type,
                     prediction="O",
-                    full_text=" ".join(best_match.entity_value),
+                    full_text="",
                     explanation=f"False negative for {ann_span} "
                     f"Reason: {'low_iou' if best_match else 'missed'} ",
                 )
@@ -479,7 +464,7 @@ class SpanEvaluator(BaseEvaluator):
         spans = []
         current_entity_type = None
         current_tokens = []
-        current_start = None
+        current_start_indices = []
         current_token_start = None  # Add token position tracking
         curr_char_position = 0
         token_position = 0  # Add token position counter
@@ -487,73 +472,81 @@ class SpanEvaluator(BaseEvaluator):
         for idx, row in df.iterrows():
             entity_type = row[column]
             token = row["token"]
+            token_start = row["start_indices"]
             token_length = len(token)
             # If this isn't the first token, add space before it
             if idx > df.index[0]:
                 curr_char_position += 1  # Account for space between tokens
 
-            token_start = curr_char_position
             token_end = curr_char_position + token_length
 
             if entity_type == "O":
                 if current_entity_type and current_tokens:
-                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    normalized_tokens, normalized_indices = self._normalize_tokens(current_tokens, current_start_indices)
                     if normalized_tokens:
                         spans.append(
                             Span(
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
-                                start_position=current_start,
-                                end_position=token_start - 2,
+                                start_position=current_start_indices[0],
+                                end_position=current_start_indices[-1] + len(current_tokens[-1]),
                                 normalized_value=normalized_tokens,
+                                normalized_indices_start=min(normalized_indices),
+                                normalized_indices_end=max([len(tok) + start for tok, start in zip(normalized_tokens, normalized_indices)]),
                                 token_start=current_token_start,
                                 token_end=idx,
                             )
                         )
                     current_entity_type = None
                     current_tokens = []
-                    current_start = None
+                    current_start_indices = []
                     current_token_start = None
+
                 curr_char_position = token_end
                 token_position += 1  # Increment token position
                 continue
 
             if entity_type != current_entity_type:
                 if current_entity_type and current_tokens:
-                    normalized_tokens = self._normalize_tokens(current_tokens)
+                    normalized_tokens, normalized_indices = self._normalize_tokens(current_tokens, current_start_indices)
                     if normalized_tokens:
                         spans.append(
                             Span(
                                 entity_type=current_entity_type,
                                 entity_value=current_tokens,
-                                start_position=current_start,
-                                end_position=token_start - 2,
+                                start_position=current_start_indices[0],
+                                end_position=current_start_indices[-1] + len(current_tokens[-1]),
                                 normalized_value=normalized_tokens,
+                                normalized_indices_start=min(normalized_indices),
+                                normalized_indices_end=max([len(tok) + start for tok, start in zip(normalized_tokens, normalized_indices)]),
                                 token_start=current_token_start,
                                 token_end=idx,
                             )
                         )
                 current_entity_type = entity_type
                 current_tokens = [token]
-                current_start = token_start
+                current_start_indices = [token_start]
                 current_token_start = idx  # Set token start position
 
             else:
                 current_tokens.append(token)
+                current_start_indices.append(token_start)
             curr_char_position = token_end
             token_position += 1  # Increment token position
 
         # Handle final span
         if current_entity_type and current_tokens:
-            normalized_tokens = self._normalize_tokens(current_tokens)
+            normalized_tokens, normalized_indices = self._normalize_tokens(current_tokens, current_start_indices)
             if normalized_tokens:
                 spans.append(
                     Span(
                         entity_type=current_entity_type,
                         entity_value=current_tokens,
-                        start_position=current_start,
-                        end_position=curr_char_position,
+                        start_position=current_start_indices[0],
+                        end_position=current_start_indices[-1] + len(current_tokens[-1]),
                         normalized_value=normalized_tokens,
+                        normalized_indices_start=min(normalized_indices),
+                        normalized_indices_end=max([len(tok) + start for tok, start in zip(normalized_tokens, normalized_indices)]),
                         token_start=current_token_start,
                         token_end=df.index[-1] + 1,
                     )
@@ -580,34 +573,3 @@ class SpanEvaluator(BaseEvaluator):
         recall = true_positives / num_annotated if num_annotated > 0 else 0.0
         f_beta = self.f_beta(precision, recall, beta)
         return precision, recall, f_beta
-
-    def span_pairwise_iou_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        For each sentence, compute IoU for all combinations of annotated and predicted spans.
-        Returns a DataFrame with columns:
-        ['sentence_id', 'ann_entity', 'ann_start', 'ann_end', 'pred_entity', 'pred_start', 'pred_end', 'iou']
-
-        :param df: DataFrame containing sentence tokens and entity annotations/predictions
-        :return: DataFrame with IoU scores for all span pairs per sentence
-        """
-        records = []
-        for sentence_id, sentence_df in df.groupby("sentence_id"):
-            annotation_spans, prediction_spans = self._process_sentence_spans(
-                sentence_df
-            )
-            for ann in annotation_spans:
-                for pred in prediction_spans:
-                    iou = self.calculate_iou(ann, pred, self.char_based)
-                    records.append(
-                        {
-                            "sentence_id": sentence_id,
-                            "ann_entity": ann.entity_type,
-                            "ann_start": ann.start_position,
-                            "ann_end": ann.end_position,
-                            "pred_entity": pred.entity_type,
-                            "pred_start": pred.start_position,
-                            "pred_end": pred.end_position,
-                            "iou": iou,
-                        }
-                    )
-        return pd.DataFrame(records)

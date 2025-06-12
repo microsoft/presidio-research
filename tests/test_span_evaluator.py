@@ -9,477 +9,311 @@ from tests.mocks import MockModel
 @pytest.mark.parametrize(
     "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, char_based",
     [
-        # Single Entity with a Skip Word
+        # BASIC ENTITY MATCHING
         (
             ["PERSON", "O", "O", "O"],
             ["PERSON", "O", "O", "O"],
             ["David", "is", "my", "friend"],
-            [True, False, False, False],
-            1,
-            1,
-            1,
-            False,
-        ),  # 'is' is a skip word
-        # Predicted entity with a skip word gap
+            [0, 6, 9, 12],
+            1, 1, 1, False
+        ),
+        (
+            ["EMAIL", "O", "O", "O"],
+            ["EMAIL", "O", "O", "O"],
+            ["user@example.com", "sent", "a", "message"],
+            [0, 17, 22, 24],
+            1, 1, 1, False
+        ),
+        
+        # SKIP WORD HANDLING
         (
             ["PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "O", "PERSON", "O"],
             ["David", "is", "living", "abroad"],
-            [True, False, False, False],
-            1,
-            1,
-            1,
-            False,
-        ),  # 'is' is a skip word
-        # Annotated entity with a punctuation gap
-        (
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["David", ",", "Maxwell", "Morris"],
-            [True, False, True, False],
-            1,
-            1,
-            1,
-            False,
-        ),  # ',' is a punctuation character
-        # Predicted entity with a punctuation gap
-        (
-            ["PERSON", "O", "O", "PERSON"],
-            ["PERSON", "O", "O", "PERSON"],
-            ["David", "-", "-", "Morris"],
-            [True, False, False, True],
-            1,
-            1,
-            1,
-            False,
-        ),  # '-' is a punctuation character
-        # End of entity skip words
-        (
-            ["PERSON", "PERSON", "O", "O", "O"],
-            ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
-            ["David", "Johnson", "is", "my", "friend"],
-            [True, False, False, False, False],
-            1,
-            1,
-            1,
-            False,
+            [0, 6, 9, 16],
+            1, 1, 1, False
         ),
-        # Prediction Misses Entire Annotated Span
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["O", "O", "O", "O"],
-            ["David", "Johnson", "my", "friend"],
-            [True, False, False, False],
-            0,
-            1,
-            0,
-            False,
-        ),
-        # Partial Overlap: Start Boundary Mismatch
-        (
-            ["LOCATION", "LOCATION", "LOCATION", "O"],
-            ["O", "LOCATION", "LOCATION", "O"],
-            ["New", "York", "City", "is"],
-            [True, False, False, False],
-            0,
-            1,
-            1,
-            False,
-        ),  # Annotated: "New York City", Predicted: "York City"
-        # Partial Overlap: End Boundary Mismatch
-        (
-            ["O", "O", "PERSON", "PERSON"],
-            ["O", "PERSON", "O", "PERSON"],
-            ["I", "met", "John", "Doe"],
-            [False, False, True, False],
-            0,
-            1,
-            2,
-            False,
-        ),  # Annotated: "John Doe", Predicted: "John" and "Doe" separately
-        # No Overlap: Completely Different Entities
-        (
-            ["PERSON", "O", "O", "O"],
-            ["LOCATION", "O", "O", "O"],
-            ["Paris", "is", "beautiful", "today"],
-            [True, False, False, False],
-            1,
-            1,
-            1,
-            False,
-        ),  # Annotated: "Paris" as PERSON, Predicted: "Paris" as LOCATION
-        # One Entity: One Correct, One Incorrect
-        (
-            ["PERSON", "O", "O", "PERSON"],
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["Alice", "went", "to", "Paris"],
-            [True, False, False, True],
-            1,
-            2,
-            2,
-            False,
-        ),
-        # Multiple Entities: One Correct, One Incorrect
-        (
-            ["PERSON", "O", "O", "LOCATION"],
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["Alice", "went", "to", "Paris"],
-            [True, False, False, True],
-            1,
-            2,
-            2,
-            False,
-        ),  # "Alice" correctly predicted, "Paris" mispredicted as PERSON
-        # Overlapping Entities: Nested Span (Not Typical in NER but for Robustness)
-        (
-            ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "PERSON", "O"],
-            ["Sir", "Arthur", "Conan", "Doyle", "wrote"],
-            [True, False, False, False, False],
-            0,
-            1,
-            2,
-            False,
-        ),  # Annotated: "Sir Arthur Conan Doyle", Predicted: "Sir" and "Conan Doyle"
-        # Multiple Predicted Spans for a Single Annotated Span
-        (
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["Marie", "Claire", "de", "Roth"],
-            [True, False, False, False],
-            0,
-            1,
-            1,
-            False,
-        ),  # Annotated: "Marie Claire de Roth", Predicted: "Marie" and "de"
-        # No Entities in Annotation, Some in Prediction
-        (
-            ["O", "O", "O", "O"],
-            ["PERSON", "O", "LOCATION", "O"],
-            ["This", "is", "London", "now"],
-            [False, False, False, False],
-            0,
-            0,
-            1,
-            False,
-        ),  # All predictions are false positives
-        # No Entities in Prediction, Some in Annotation with a skip word
-        (
-            ["O", "O", "O", "O"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["This", "is", "London", "now"],
-            [False, False, False, False],
-            0,
-            0,
-            1,
-            False,
-        ),  # All predictions are false positives but merge into one entity
-        # No Entities in Prediction, Some in Annotation
-        (
-            ["PERSON", "O", "LOCATION", "LOCATION"],
-            ["O", "O", "O", "O"],
-            ["Emma", "travels", "to", "Berlin"],
-            [True, False, True, False],
-            0,
-            2,
-            0,
-            False,
-        ),  # All annotations are false negatives
-        # Exact Match with Multiple Entities
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["Barack", "Obama", "visited", "New", "York"],
-            [True, False, False, True, False],
-            2,
-            2,
-            2,
-            False,
-        ),  # Two entities correctly predicted
-        # Exact Match with Multiple Entities and skip word
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["George", "Washington", "is", "George", "Washington"],
-            [True, False, False, True, False],
-            2,
-            2,
-            2,
-            False,
-        ),  # Two entities correctly predicted
-        # Adjacent Entities Without Overlap
-        (
-            ["PERSON", "PERSON", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "LOCATION", "LOCATION"],
-            ["John", "Doe", "Paris", "France"],
-            [True, False, True, False],
-            2,
-            2,
-            2,
-            False,
-        ),  # Two adjacent entities correctly predicted
-        # Prediction Extends Beyond Annotated Span
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["Anna", "Marie", "Smith", "Loves"],
-            [True, False, False, False],
-            0,
-            1,
-            1,
-            False,
-        ),  # Prediction merges into a single span, but is longer than the annotated span
-        # Prediction Extends Beyond Annotated Span
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "Doe", "Smith", "son"],
-            [True, False, False, False],
-            0,
-            1,
-            1,
-            False,
-        ),  # Prediction is longer than annotation
-        # Prediction is Subset of Annotated Span
-        (
-            ["PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "O"],
-            ["John", "Doe", "Smith"],
-            [True, False, False],
-            0,
-            1,
-            1,
-            False,
-        ),  # Prediction is shorter than annotation
-        (
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "Doe", "and", "Jane", "Smith"],
-            [True, False, False, True, False],
-            1,
-            1,
-            1,
-            False,
-        ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted:
-        # "John Doe and Jane Smith" as one merged entity
-        (
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "Doe", "and", "Jane", "Smith"],
-            [True, False, False, True, False],
-            0,
-            2,
-            1,
-            False,
-        ),  # Annotated: "John Doe" and "Jane Smith" separately, Predicted:
-        # "John Doe and Jane Smith" as one merged entity
-        (
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
-            [True, False, False, True, False, False],
-            2,
-            2,
-            2,
-            False,
-        ),  # Special characters test: "O'Brien Jr." as PERSON and "McDonald's Corp. Inc."
-        # as ORGANIZATION
-        (
-            ["O"] * 1000,
-            ["O"] * 1000,
-            ["word"] * 1000,
-            [False] * 1000,
-            0,
-            0,
-            0,
-            False,
-        ),
-        # Adjacent entities of same type - not merged when merge_adjacent_spans=False
-        (
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "Doe", "Smith", "Jr"],
-            [True, False, True, False],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # Adjacent entities with intervening 'O' token - should behave the same with merge_adjacent_spans=False
-        (
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["John", "Doe", "and", "Jane", "Smith"],
-            [True, False, False, True, False],
-            2,
-            2,
-            2,
-            False,
-        ),
-        # Partially overlapping predictions - counted separately when merge_adjacent_spans=False
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["James", "Robert", "Smith", "III"],
-            [True, False, True, False],
-            0,
-            1,
-            2,
-            False,
-        ),
-        # Multiple adjacent predictions matching single annotation - counted as separate when merge_adjacent_spans=False
-        (
-            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["United", "-", "States", "Government"],
-            [True, False, False, True],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # Char-based: Single entity exact match
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["John", "Smith", "works", "here"],
-            [True, False, False, False],
-            1,
-            1,
-            1,
-            True,
-        ),
-        # Char-based: Multiple entities exact match
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["John", "Smith", "visited", "New", "York"],
-            [True, False, False, True, False],
-            2,
-            2,
-            2,
-            True,
-        ),
-        # Char-based: Partial overlap at character level
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "O", "O", "O"],
-            ["John", "Smith", "is", "here"],
-            [True, False, False, False],
-            0,  # No exact match at char level
-            1,
-            1,
-            True,
-        ),
-        # Char-based: Entity with punctuation
-        (
-            ["PERSON", "O", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["Dr.", ",", "Smith", "arrived"],
-            [True, False, True, False],
-            1,
-            1,
-            1,
-            True,
-        ),
-        # Char-based: Skip words merging entities
         (
             ["PERSON", "O", "PERSON", "O"],
             ["PERSON", "O", "PERSON", "O"],
             ["John", "and", "Mary", "came"],
-            [True, False, True, False],
-            1,  # Merged into single entity due to skip word
-            1,
-            1,
-            True,
+            [0, 5, 9, 14],
+            1, 1, 1, True
         ),
-        # Char-based: No merge adjacent spans
         (
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "F.", "Kennedy", "Jr."],
-            [True, False, True, False],
-            1,
-            1,
-            1,
-            True,
+            ["PERSON", "O", "O", "O", "PERSON", "O"],
+            ["PERSON", "O", "O", "O", "PERSON", "O"],
+            ["John", "and", "the", "other", "Smith", "arrived"],
+            [0, 5, 9, 13, 19, 25],
+            1, 1, 1, False
         ),
-        # Char-based: Different entity types at same position
+        
+        # PUNCTUATION HANDLING
+        (
+            ["PERSON", "O", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["David", ",", "Maxwell", "Morris"],
+            [0, 6, 8, 16],
+            1, 1, 1, False
+        ),
+        (
+            ["PERSON", "O", "O", "PERSON"],
+            ["PERSON", "O", "O", "PERSON"],
+            ["David", "-", "-", "Morris"],
+            [0, 6, 8, 10],
+            1, 1, 1, False
+        ),
+        (
+            ["PERSON", "O", "PERSON", "O"],
+            ["PERSON", "O", "PERSON", "O"],
+            ["Dr.", ",", "Smith", "arrived"],
+            [0, 4, 6, 12],
+            1, 1, 1, True
+        ),
+        (
+            ["PERSON", "O", "O", "O", "PERSON"],
+            ["PERSON", "O", "O", "O", "PERSON"],
+            ["James", ".", "-", "/", "Bond"],
+            [0, 6, 8, 10, 12],
+            1, 1, 1, False
+        ),
+        
+        # BOUNDARY MISMATCHES
+        (
+            ["LOCATION", "LOCATION", "LOCATION", "O"],
+            ["O", "LOCATION", "LOCATION", "O"],
+            ["New", "York", "City", "is"],
+            [0, 4, 9, 14],
+            0, 1, 1, False
+        ),
+        (
+            ["O", "O", "PERSON", "PERSON"],
+            ["O", "PERSON", "O", "PERSON"],
+            ["I", "met", "John", "Doe"],
+            [0, 2, 6, 11],
+            0, 1, 2, False
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["Anna", "Marie", "Smith", "Loves"],
+            [0, 5, 11, 17],
+            0, 1, 1, False
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "O"],
+            ["John", "Doe", "Smith"],
+            [0, 5, 9],
+            0, 1, 1, False
+        ),
+        (
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "PERSON", "PERSON", "O", "O"],
+            ["Mr", "John", "Middle", "Smith", "Jr"],
+            [0, 3, 8, 15, 21],
+            0, 1, 1, False
+        ),
+        
+        # ENTITY TYPE MISMATCHES
         (
             ["PERSON", "O", "O", "O"],
             ["LOCATION", "O", "O", "O"],
             ["Paris", "is", "beautiful", "today"],
-            [True, False, False, False],
-            1,  # Different entity types
-            1,
-            1,
-            True,
+            [0, 6, 9, 19],
+            1, 1, 1, False
         ),
-        # Char-based: Prediction extends beyond annotation
         (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["John", "Smith", "Jr.", "arrived"],
-            [True, False, True, False],
-            0,  # Prediction longer than annotation
-            1,
-            1,
-            True,
+            ["CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD"],
+            ["PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER"],
+            ["1234", "5678", "9012", "3456"],
+            [0, 5, 10, 15],
+            1, 1, 1, False
         ),
-        # Char-based: Annotation extends beyond prediction
+        
+        # MULTIPLE ENTITY SCENARIOS
         (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["John", "F.", "Kennedy", "arrived"],
-            [True, False, True, False],
-            0,  # Annotation longer than prediction
-            1,
-            1,
-            True,
+            ["PERSON", "O", "O", "LOCATION"],
+            ["PERSON", "O", "PERSON", "PERSON"],
+            ["Alice", "went", "to", "Paris"],
+            [0, 6, 11, 14],
+            2, 2, 2, False
         ),
-        # Char-based: Multiple short entities
+        (
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["Barack", "Obama", "visited", "New", "York"],
+            [0, 7, 13, 21, 25],
+            2, 2, 2, False
+        ),
+        (
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Doe", "and", "Jane", "Smith"],
+            [0, 5, 9, 13, 18],
+            1, 1, 1, False
+        ),
+        (
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
+            ["John", "Doe", "and", "Jane", "Smith"],
+            [0, 5, 9, 13, 18],
+            1, 1, 1, False
+        ),
         (
             ["PERSON", "O", "PERSON", "O", "LOCATION"],
             ["PERSON", "O", "PERSON", "O", "LOCATION"],
             ["John", "met", "Jane", "in", "Paris"],
-            [True, False, True, False, True],
-            3,
-            3,
-            3,
-            True,
+            [0, 5, 9, 14, 17],
+            3, 3, 3, True
         ),
-        # Char-based: Empty predictions
+        (
+            ["PERSON", "PERSON", "O", "LOCATION", "O", "DATE", "DATE"],
+            ["PERSON", "PERSON", "O", "ORGANIZATION", "O", "DATE", "O"],
+            ["John", "Smith", "visited", "London", "on", "January", "1st"],
+            [0, 5, 11, 19, 26, 29, 37],
+            2, 3, 3, False
+        ),
+        
+        # OVERLAPPING/NESTED ENTITIES
+        (
+            ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "O", "PERSON", "PERSON", "O"],
+            ["Sir", "Arthur", "Conan", "Doyle", "wrote"],
+            [0, 4, 11, 17, 23],
+            0, 1, 2, False
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "O", "PERSON", "PERSON"],
+            ["James", "Robert", "Smith", "III"],
+            [0, 6, 13, 19],
+            0, 1, 2, False
+        ),
+        
+        # SPECIAL CHARACTERS AND FORMATTING
+        (
+            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
+            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
+            ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
+            [0, 8, 12, 15, 27, 34],
+            2, 2, 2, False
+        ),
+        (
+            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
+            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
+            ["United", "-", "States", "Government"],
+            [0, 7, 9, 16],
+            1, 1, 1, False
+        ),
+        (
+            ["PERSON", "PERSON", "O", "O"],
+            ["PERSON", "PERSON", "O", "O"],
+            ["José", "Martínez", "from", "España"],
+            [0, 5, 14, 19],
+            1, 1, 1, True
+        ),
+        (
+            ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
+            ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
+            ["ID", "-", "12345"],
+            [0, 3, 5],
+            1, 1, 1, False
+        ),
+        
+        # EDGE CASES
+        (
+            ["O"] * 1000,
+            ["O"] * 1000,
+            ["word"] * 1000,
+            list(range(0, 5000, 5)),  # Start positions spaced by 5 characters
+            0, 0, 0, False
+        ),
+        (
+            ["O", "O", "O", "O"],
+            ["PERSON", "O", "LOCATION", "O"],
+            ["This", "is", "London", "now"],
+            [0, 5, 8, 15],
+            0, 0, 1, False
+        ),
+        (
+            ["PERSON", "O", "LOCATION", "LOCATION"],
+            ["O", "O", "O", "O"],
+            ["Emma", "travels", "to", "Berlin"],
+            [0, 5, 13, 16],
+            0, 2, 0, False
+        ),
         (
             ["PERSON", "PERSON", "O", "O"],
             ["O", "O", "O", "O"],
             ["John", "Smith", "works", "here"],
-            [True, False, False, False],
-            0,
-            1,
-            0,
-            True,
+            [0, 5, 11, 17],
+            0, 1, 0, True
         ),
-        # Char-based: Empty annotations
         (
             ["O", "O", "O", "O"],
             ["PERSON", "PERSON", "O", "O"],
             ["John", "Smith", "works", "here"],
-            [True, False, False, False],
-            0,
-            0,
-            1,
-            True,
+            [0, 5, 11, 17],
+            0, 0, 1, True
         ),
-        # Char-based: Complex case with multiple overlaps
+        (
+            ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
+            ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
+            ["UK", "and", "US", "and", "EU"],
+            [0, 3, 7, 10, 14],
+            1, 1, 1, False
+        ),
+        
+        # CHARACTER-BASED EVALUATION
+        (
+            ["PERSON", "PERSON", "O", "O"],
+            ["PERSON", "PERSON", "O", "O"],
+            ["John", "Smith", "works", "here"],
+            [0, 5, 11, 17],
+            1, 1, 1, True
+        ),
+        (
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["John", "Smith", "visited", "New", "York"],
+            [0, 5, 11, 19, 23],
+            2, 2, 2, True
+        ),
+        (
+            ["PERSON", "PERSON", "O", "O"],
+            ["PERSON", "O", "O", "O"],
+            ["John", "Smith", "is", "here"],
+            [0, 5, 11, 14],
+            0, 1, 1, True
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["PERSON", "PERSON", "PERSON", "PERSON"],
+            ["John", "F.", "Kennedy", "Jr."],
+            [0, 5, 8, 16],
+            1, 1, 1, True
+        ),
+        (
+            ["PERSON", "PERSON", "O", "O"],
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["John", "Smith", "Jr.", "arrived"],
+            [0, 5, 11, 15],
+            0, 1, 1, True
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "PERSON", "O", "O"],
+            ["John", "F.", "Kennedy", "arrived"],
+            [0, 5, 8, 16],
+            0, 1, 1, True
+        ),
         (
             ["PERSON", "PERSON", "O", "ORGANIZATION"],
             ["PERSON", "O", "PERSON", "ORGANIZATION"],
             ["John", "Smith", "at", "Microsoft"],
-            [True, False, False, True],
-            1,  # Only "Microsoft" matches exactly
-            2,
-            2,
-            True,
+            [0, 5, 11, 14],
+            1, 2, 2, True
         ),
     ],
 )
@@ -515,7 +349,7 @@ def test_evaluate(
     expected_recall = TP / num_annotated if num_annotated > 0 else 0
     expected_precision = TP / num_predicted if num_predicted > 0 else 0
 
-    # Assert that the result is an SpanEvaluationResult instance
+    # Assert that the result is an EvaluationResult instance
     assert isinstance(result, EvaluationResult)
 
     # Check counts
@@ -538,7 +372,7 @@ def test_evaluate_with_custom_skipwords():
             "token": ["David", "paid", "the", "bill", "today"],
             "annotation": ["PERSON", "O", "O", "O", "O"],
             "prediction": ["PERSON", "O", "O", "PERSON", "O"],
-            "start_indices": [True, False, False, False, False],
+            "start_indices": [0, 6, 11, 15, 20],
         }
     )
 
@@ -549,12 +383,12 @@ def test_evaluate_with_custom_skipwords():
     expected_recall = 1
     expected_precision = 1
 
-    # Assert that the result is an SpanEvaluationResult instance
-    assert isinstance(result, SpanEvaluationResult)
+    # Assert that the result is an EvaluationResult instance
+    assert isinstance(result, EvaluationResult)
 
-    assert result.recall == pytest.approx(
+    assert result.pii_recall == pytest.approx(
         expected_recall
-    ), f"Recall mismatch: expected {expected_recall}, got {result.recall}"
-    assert result.precision == pytest.approx(
+    ), f"Recall mismatch: expected {expected_recall}, got {result.pii_recall}"
+    assert result.pii_precision == pytest.approx(
         expected_precision
-    ), f"Precision mismatch: expected {expected_precision}, got {result.precision}"
+    ), f"Precision mismatch: expected {expected_precision}, got {result.pii_precision}"

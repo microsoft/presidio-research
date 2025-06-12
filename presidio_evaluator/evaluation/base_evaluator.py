@@ -343,7 +343,7 @@ class BaseEvaluator(ABC):
         - token text
         - annotation
         - prediction
-        - token_start
+        - start_indices
         """
 
         if not evaluation_results or not evaluation_results[0].tokens:

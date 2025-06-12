@@ -1,5 +1,5 @@
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Tuple
 
@@ -21,6 +21,7 @@ class PIIEvaluationMetrics:
     false_positives: int = 0
     false_negatives: int = 0
 
+@dataclass
 class EvaluationResult:
     def __init__(
         self,
@@ -73,7 +74,7 @@ class EvaluationResult:
         :param start_indices: List of start indices of tokens in the text
         """
 
-        self.results = results
+        self.results = results if results else Counter()
         self.model_errors = model_errors
         self.text = text
 
@@ -107,7 +108,7 @@ class EvaluationResult:
             }
 
 
-        self.per_type = per_type if per_type else {}
+        self.per_type = per_type if per_type else defaultdict(PIIEvaluationMetrics)
         self.pii_recall = pii_recall
         self.pii_precision = pii_precision
         self.pii_f = pii_f
