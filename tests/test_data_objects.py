@@ -52,6 +52,15 @@ def input_sample_result_2():
         create_tags_from_span=True
     )
 
+@pytest.fixture(scope="session")
+def pair_of_spans():
+    span1 = Span(entity_type="PERSON", entity_value="Alice is my", start_position=3, end_position=14,
+                 normalized_tokens=["Alice"], normalized_start_index=3, normalized_end_index=8)
+    span2 = Span(entity_type="ORG", entity_value="Acme Corp", start_position=0, end_position=9,
+                 normalized_tokens=["Acme","Corp"], normalized_start_index=0, normalized_end_index=9)
+
+    return span1, span2
+
 
 def test_update_entity_types(input_sample_result):
     records = [deepcopy(input_sample_result)]
@@ -206,3 +215,56 @@ def test_manually_set_start_indices():
     tokens, labels, start_indices = sample.get_tags()
     assert start_indices == [0, 5, 9, 13, 17, 24]
 
+
+
+def test_span_intersection(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    intersection_strict = span1.intersect(span2, ignore_entity_type=False)
+    assert intersection_strict == 0  # Different types should not intersect
+
+    intersection_type = span1.intersect(span2, ignore_entity_type=True)
+    assert intersection_type == 6
+
+    intersection_strict_normalized = span1.intersect(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert intersection_strict_normalized == 0  # Different types should not intersect
+
+    intersection_type_normalized = span1.intersect(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert intersection_type_normalized == 5
+
+
+def test_span_union(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    union_strict = span1.union(span2, ignore_entity_type=False)
+    assert union_strict == 0  # Different types should not union
+
+    union_type = span1.union(span2, ignore_entity_type=True)
+    assert union_type == 14
+
+    union_strict_normalized = span1.union(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert union_strict_normalized == 0  # Different types should not union in normalized form
+
+    union_type_normalized = span1.union(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert union_type_normalized == 9
+
+def test_span_iou(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    iou_strict = span1.iou(span2, ignore_entity_type=False)
+    assert iou_strict == 0
+
+    iou_type = span1.iou(span2, ignore_entity_type=True)
+    assert iou_type == 6 / 14.0
+
+    iou_strict_normalized = span1.iou(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert iou_strict_normalized == 0
+
+    iou_type_normalized = span1.iou(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert iou_type_normalized == 5 / 9.0

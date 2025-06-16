@@ -86,6 +86,7 @@ class BaseModel(ABC):
         return [tag if self._tag_in_entities(tag) else "O" for tag in tags]
 
     def to_scheme(self, tags: List[str]):
+
         """
         Translates IO tags to BIO/BILUO based on the input labeling_scheme
         :param tags: Current tags in IO
