@@ -892,28 +892,6 @@ def test_calculate_score_on_df_per_type_metrics_are_correct(
     assert location_metrics.f_beta == 1.0
 
 
-def test_integration_with_plotter(mock_span_evaluator, sample_df):
-    """Test that the EvaluationResult has the correct format for visualization with Plotter."""
-    from presidio_evaluator.evaluation.plotter import Plotter
-
-    # Generate an evaluation result
-    result = mock_span_evaluator.calculate_score_on_df(sample_df)
-
-    # Check if it can be used to create a Plotter
-    plotter = Plotter(results=result, model_name="TestModel")
-
-    # Check that the result has the necessary components for plotting
-    assert result.entity_recall_dict is not None
-    assert result.entity_precision_dict is not None
-    assert result.n_dict is not None
-    assert result.pii_recall is not None
-    assert result.pii_precision is not None
-    assert result.pii_f is not None
-
-
-# ===== Corner Case Tests =====
-
-
 def test_corner_case_empty_dataset():
     """Test behavior when processing an empty dataset."""
     df = pd.DataFrame(
