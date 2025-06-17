@@ -208,6 +208,8 @@ class SpanEvaluator(BaseEvaluator):
         :param evaluation_result: EvaluationResult object to update
 
         """
+        if not evaluation_result.model_errors:
+            evaluation_result.model_errors = []
 
         for pred_span in prediction_spans:
             pred_span_key = (
@@ -338,7 +340,8 @@ class SpanEvaluator(BaseEvaluator):
 
         """
         matched_preds = set()
-
+        if not evaluation_result.model_errors:
+            evaluation_result.model_errors = []
         # Process each annotation and find its best matching prediction
         for ann_span in annotation_spans:
             best_match, best_iou = self._find_best_match(

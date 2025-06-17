@@ -781,11 +781,11 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
     assert result.results[("O", "DATE")] == 1  # False positive
 
     # Check error analysis population
-    assert len(result.error_analysis) == 2  # One entity mismatch and one false positive
+    assert len(result.model_errors) == 2  # One entity mismatch and one false positive
     assert any(
-        error.error_type == ErrorType.WrongEntity for error in result.error_analysis
+        error.error_type == ErrorType.WrongEntity for error in result.model_errors
     )
-    assert any(error.error_type == ErrorType.FP for error in result.error_analysis)
+    assert any(error.error_type == ErrorType.FP for error in result.model_errors)
 
 
 # ===== Integration Tests =====
@@ -864,7 +864,7 @@ def test_calculate_score_on_df_with_errors():
     ) not in result.results  # DATE is a skip word, so it should not be counted
 
     # Check error analysis
-    assert len(result.error_analysis) == 1  # Location/Organization mismatch
+    assert len(result.model_errors) == 1  # Location/Organization mismatch
     # Check metrics
     assert result.pii_precision == 1.0  # PII was fully predicted
     assert result.pii_recall == 1.0  # Pii was fully covered
@@ -1143,7 +1143,7 @@ def test_error_analysis(
     eval_result = mock_span_evaluator.calculate_score_on_df(df)
 
     # Verify expected error types are present (not the exact count)
-    error_types = [error.error_type for error in eval_result.error_analysis]
+    error_types = [error.error_type for error in eval_result.model_errors]
     for expected_type in expected_errors_types:
         assert (
             expected_type in error_types
