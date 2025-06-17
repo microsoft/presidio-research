@@ -51,7 +51,6 @@ class EvaluationResult:
         pii_true_positives: Optional[int] = 0,
         pii_false_positives: Optional[int] = 0,
         pii_false_negatives: Optional[int] = 0,
-        error_analysis: Optional[List[ModelError]] = None,
         tokens: Optional[List[str]] = None,
         actual_tags: Optional[List[str]] = None,
         predicted_tags: Optional[List[str]] = None,
@@ -77,7 +76,6 @@ class EvaluationResult:
         :param pii_true_positives: Total number of true positives (agnostic to type: PII yes/no)
         :param pii_false_positives: Total number of false positives (agnostic to type: PII yes/no)
         :param pii_false_negatives: Total number of false negatives (agnostic to type: PII yes/no)
-        :param error_analysis: List of ModelError objects for error analysis
         :param tokens: List of tokens
         :param actual_tags: List of actual tags
         :param predicted_tags: List of predicted tags
@@ -133,7 +131,6 @@ class EvaluationResult:
         self.pii_false_positives = pii_false_positives
         self.pii_false_negatives = pii_false_negatives
 
-        self.error_analysis = error_analysis if error_analysis is not None else []
         self.tokens = tokens
         self.actual_tags = actual_tags
         self.predicted_tags = predicted_tags

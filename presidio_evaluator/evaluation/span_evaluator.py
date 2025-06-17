@@ -227,7 +227,7 @@ class SpanEvaluator(BaseEvaluator):
                     token=" ".join(pred_span.normalized_value),
                     explanation=f"False positive for {pred_span}",
                 )
-                evaluation_result.error_analysis.append(model_error)
+                evaluation_result.model_errors.append(model_error)
 
         return evaluation_result
 
@@ -371,7 +371,7 @@ class SpanEvaluator(BaseEvaluator):
                         f"IoU: {best_iou}",
                     )
 
-                    evaluation_result.error_analysis.append(model_error)
+                    evaluation_result.model_errors.append(model_error)
 
                     # Update per-type metrics for the annotation
                     evaluation_result.per_type[
@@ -405,7 +405,7 @@ class SpanEvaluator(BaseEvaluator):
                     explanation=f"False negative for {ann_span} "
                     f"Reason: {'low_iou' if best_match else 'missed'} ",
                 )
-                evaluation_result.error_analysis.append(model_error)
+                evaluation_result.model_errors.append(model_error)
 
         # Handle unmatched predictions as false positives
         evaluation_result = self._handle_unmatched_predictions(
