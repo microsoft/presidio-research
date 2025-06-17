@@ -2,9 +2,8 @@ import warnings
 from collections import Counter
 from typing import Optional, List
 
-import numpy as np
-
 from presidio_evaluator.evaluation import BaseEvaluator, EvaluationResult
+
 
 class TokenEvaluator(BaseEvaluator):
     """
@@ -55,47 +54,18 @@ class TokenEvaluator(BaseEvaluator):
             n[entity] = annotated
             tp = all_results[(entity, entity)]
 
-            if annotated > 0:
-                entity_recall[entity] = tp / annotated
-            else:
-                entity_recall[entity] = np.nan
+            entity_recall[entity] = self.recall(tp=tp, num_annotated=annotated)
 
-            if predicted > 0:
-                per_entity_tp = all_results[(entity, entity)]
-                entity_precision[entity] = per_entity_tp / predicted
-            else:
-                entity_precision[entity] = np.nan
+            entity_precision[entity] = self.precision(tp=tp, num_predicted=predicted)
 
         # compute pii_precision and pii_recall
         annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
         predicted_all = sum([all_results[x] for x in all_results if x[1] != "O"])
-        if annotated_all > 0:
-            pii_recall = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / annotated_all
-            )
-        else:
-            pii_recall = np.nan
-        if predicted_all > 0:
-            pii_precision = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / predicted_all
-            )
-        else:
-            pii_precision = np.nan
-        # compute pii_f_beta-score
+
+        tp = sum([all_results[x] for x in all_results if (x[0] != "O" and x[1] != "O")])
+        pii_recall = self.recall(tp=tp, num_annotated=annotated_all)
+        pii_precision = self.precision(tp=tp, num_predicted=predicted_all)
+
         pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
 
         # aggregate errors

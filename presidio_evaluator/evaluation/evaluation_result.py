@@ -10,7 +10,17 @@ from presidio_evaluator.evaluation import ModelError
 
 @dataclass
 class PIIEvaluationMetrics:
-    """Metrics for a specific entity type."""
+    """Metrics for a specific entity type.
+
+    :param precision: Precision for the entity type (true_positives / (true_positives + false_positives))
+    :param recall: Recall for the entity type (true_positives / (true_positives + false_negatives))
+    :param f_beta: F-beta score for the entity type, where beta is typically set to 1 (harmonic mean of precision and recall)
+    :param num_predicted: Total number of predicted entities of this type
+    :param num_annotated: Total number of annotated entities of this type
+    :param true_positives: Number of true positive predictions for this entity type
+    :param false_positives: Number of false positive predictions for this entity type
+    :param false_negatives: Number of false negative predictions for this entity type
+    """
 
     precision: float = 0.0
     recall: float = 0.0
@@ -36,11 +46,11 @@ class EvaluationResult:
         entity_precision_dict: Optional[Dict[str, float]] = None,
         n_dict: Optional[Dict[str, int]] = None,
         per_type: Optional[Dict[str, PIIEvaluationMetrics]] = None,
-        total_predicted: Optional[int] = 0,
-        total_annotated: Optional[int] = 0,
-        total_true_positives: Optional[int] = 0,
-        total_false_positives: Optional[int] = 0,
-        total_false_negatives: Optional[int] = 0,
+        pii_predicted: Optional[int] = 0,
+        pii_annotated: Optional[int] = 0,
+        pii_true_positives: Optional[int] = 0,
+        pii_false_positives: Optional[int] = 0,
+        pii_false_negatives: Optional[int] = 0,
         tokens: Optional[List[str]] = None,
         actual_tags: Optional[List[str]] = None,
         predicted_tags: Optional[List[str]] = None,
@@ -61,11 +71,11 @@ class EvaluationResult:
         :param entity_precision_dict: Precision per entity
         :param n_dict: Number of tokens per entity
         :param per_type: EntityTypeMetrics for each entity type
-        :param total_predicted: Total number of predicted entities
-        :param total_annotated: Total number of annotated entities
-        :param total_true_positives: Total number of true positives
-        :param total_false_positives: Total number of false positives
-        :param total_false_negatives: Total number of false negatives
+        :param pii_predicted: Total number of predicted entities (agnostic to type: PII yes/no)
+        :param pii_annotated: Total number of annotated entities (agnostic to type: PII yes/no)
+        :param pii_true_positives: Total number of true positives (agnostic to type: PII yes/no)
+        :param pii_false_positives: Total number of false positives (agnostic to type: PII yes/no)
+        :param pii_false_negatives: Total number of false negatives (agnostic to type: PII yes/no)
         :param tokens: List of tokens
         :param actual_tags: List of actual tags
         :param predicted_tags: List of predicted tags
@@ -111,24 +121,73 @@ class EvaluationResult:
         self.pii_precision = pii_precision
         self.pii_f = pii_f
         self.n = n
-        self.entity_recall_dict = entity_recall_dict if entity_recall_dict else {}
-        self.entity_precision_dict = (
-            entity_precision_dict if entity_precision_dict else {}
-        )
-        self.n_dict = n_dict if n_dict else {}
+        self._entity_recall_dict = entity_recall_dict if entity_recall_dict else {}
+        self._entity_precision_dict = entity_precision_dict if entity_precision_dict else {}
+        self._n_dict = n_dict if n_dict else {}
 
-        self.total_predicted = total_predicted
-        self.total_annotated = total_annotated
-        self.total_true_positives = total_true_positives
-        self.total_false_positives = total_false_positives
-        self.total_false_negatives = total_false_negatives
+        self.pii_predicted = pii_predicted
+        self.pii_annotated = pii_annotated
+        self.pii_true_positives = pii_true_positives
+        self.pii_false_positives = pii_false_positives
+        self.pii_false_negatives = pii_false_negatives
 
         self.tokens = tokens
         self.actual_tags = actual_tags
         self.predicted_tags = predicted_tags
         self.start_indices = start_indices if start_indices is not None else []
 
-    def __str__(self):
+    @property
+    def entity_precision_dict(self) -> Dict[str, float]:
+        """
+        Property that returns precision values per entity type.
+        Prioritizes deriving from per_type but falls back to stored _entity_precision_dict for backward compatibility.
+        """
+        if self.per_type:
+            return {ent: metrics.precision for ent, metrics in self.per_type.items()}
+        return self._entity_precision_dict
+
+    @entity_precision_dict.setter
+    def entity_precision_dict(self, value: Dict[str, float]) -> None:
+        """
+        Setter for entity_precision_dict to maintain backward compatibility.
+        """
+        self._entity_precision_dict = value if value else {}
+
+    @property
+    def entity_recall_dict(self) -> Dict[str, float]:
+        """
+        Property that returns recall values per entity type.
+        Prioritizes deriving from per_type but falls back to stored _entity_recall_dict for backward compatibility.
+        """
+        if self.per_type:
+            return {ent: metrics.recall for ent, metrics in self.per_type.items()}
+        return self._entity_recall_dict
+
+    @entity_recall_dict.setter
+    def entity_recall_dict(self, value: Dict[str, float]) -> None:
+        """
+        Setter for entity_recall_dict to maintain backward compatibility.
+        """
+        self._entity_recall_dict = value if value else {}
+
+    @property
+    def n_dict(self) -> Dict[str, int]:
+        """
+        Property that returns the number of annotated tokens per entity type.
+        Prioritizes deriving from per_type but falls back to stored _n_dict for backward compatibility.
+        """
+        if self.per_type:
+            return {ent: metrics.num_annotated for ent, metrics in self.per_type.items()}
+        return self._n_dict
+
+    @n_dict.setter
+    def n_dict(self, value: Dict[str, int]) -> None:
+        """
+        Setter for n_dict to maintain backward compatibility.
+        """
+        self._n_dict = value if value else {}
+
+    def __str__(self) -> str:
         return_str = ""
         if not self.entity_precision_dict or not self.entity_recall_dict:
             return json.dumps(self.results)
@@ -161,7 +220,7 @@ class EvaluationResult:
         return_str += f"\nPII F measure: {self.pii_f:.2%}"
         return return_str
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"stats={self.results}"
 
     def to_log(self) -> Dict:
