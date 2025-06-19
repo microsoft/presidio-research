@@ -600,7 +600,7 @@ def test_create_spans(mock_span_evaluator, sample_df):
     assert person_span.entity_value == "John Smith"
     assert person_span.start_position == 0
     assert person_span.end_position == 10  # 5 (start of Smith) + 5 (length of Smith)
-    assert person_span.normalized_value == ["john", "smith"]
+    assert person_span.normalized_tokens == ["john", "smith"]
     assert person_span.normalized_start_index == 0
     assert person_span.normalized_end_index == 10
 
@@ -662,7 +662,7 @@ def test_calculate_iou_token_based():
     """Test IoU calculation with token-based evaluation."""
     span1 = Span(
         entity_type="PERSON",
-        entity_value=["John", "Smith"],
+        entity_value="John Smith",
         start_position=0,
         end_position=10,
         normalized_tokens=["john", "smith"],
@@ -673,7 +673,7 @@ def test_calculate_iou_token_based():
     # Same tokens
     span2 = Span(
         entity_type="PERSON",
-        entity_value=["John", "Smith"],
+        entity_value="John Smith",
         start_position=0,
         end_position=10,
         normalized_tokens=["john", "smith"],
@@ -684,7 +684,7 @@ def test_calculate_iou_token_based():
     # Subset of tokens
     span3 = Span(
         entity_type="PERSON",
-        entity_value=["John"],
+        entity_value="John",
         start_position=0,
         end_position=4,
         normalized_tokens=["john"],
@@ -695,7 +695,7 @@ def test_calculate_iou_token_based():
     # Different tokens
     span4 = Span(
         entity_type="PERSON",
-        entity_value=["Mary"],
+        entity_value="Mary",
         start_position=15,
         end_position=19,
         normalized_tokens=["mary"],
@@ -720,7 +720,7 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
     ann_spans = [
         Span(
             entity_type="PERSON",
-            entity_value=["John", "Smith"],
+            entity_value="John Smith",
             start_position=0,
             end_position=10,
             normalized_tokens=["john", "smith"],
@@ -729,7 +729,7 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
         ),
         Span(
             entity_type="LOCATION",
-            entity_value=["London"],
+            entity_value="London",
             start_position=20,
             end_position=26,
             normalized_tokens=["london"],
@@ -742,7 +742,7 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
     pred_spans = [
         Span(
             entity_type="PERSON",
-            entity_value=["John", "Smith"],
+            entity_value="John Smith",
             start_position=0,
             end_position=10,
             normalized_tokens=["john", "smith"],
@@ -751,7 +751,7 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
         ),
         Span(
             entity_type="ORGANIZATION",
-            entity_value=["London"],
+            entity_value="London",
             start_position=20,
             end_position=26,
             normalized_tokens=["london"],
@@ -760,7 +760,7 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
         ),
         Span(
             entity_type="DATE",
-            entity_value=["2023"],
+            entity_value="2023",
             start_position=30,
             end_position=34,
             normalized_tokens=["2023"],
@@ -960,7 +960,7 @@ def test_span_edge_cases():
 
     # Check that empty tokens are handled properly
     assert len(spans) == 1
-    assert spans[0].normalized_value == ["john", "smith"]
+    assert spans[0].normalized_tokens == ["john", "smith"]
 
     # Run full evaluation
     result = evaluator.calculate_score_on_df(df)

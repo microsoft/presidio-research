@@ -66,7 +66,7 @@ class Span:
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
-        self.normalized_value = normalized_tokens
+        self.normalized_tokens = normalized_tokens
         self.normalized_start_index = normalized_start_index
         self.normalized_end_index = normalized_end_index
         self.token_start = token_start

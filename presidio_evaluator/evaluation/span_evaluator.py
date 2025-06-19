@@ -102,7 +102,7 @@ class SpanEvaluator(BaseEvaluator):
             ):
                 merged_tokens = [current.entity_value, next_span.entity_value]
                 merged_normalized_text = (
-                    current.normalized_value + next_span.normalized_value
+                        current.normalized_tokens + next_span.normalized_tokens
                 )
                 current = Span(
                     entity_type=current.entity_type,
@@ -169,8 +169,8 @@ class SpanEvaluator(BaseEvaluator):
                 use_normalized_indices=use_normalized_indices,
             )
         else:
-            range1 = set(span1.normalized_value)
-            range2 = set(span2.normalized_value)
+            range1 = set(span1.normalized_tokens)
+            range2 = set(span2.normalized_tokens)
 
             intersection = len(range1.intersection(range2))
             union = len(range1.union(range2))
@@ -197,7 +197,7 @@ class SpanEvaluator(BaseEvaluator):
     @staticmethod
     def _handle_unmatched_predictions(
         prediction_spans: List[Span],
-        matched_preds: List[Span],
+        matched_preds: Set[Tuple[str, int, int]],
         evaluation_result: EvaluationResult,
     ) -> EvaluationResult:
         """
@@ -226,7 +226,7 @@ class SpanEvaluator(BaseEvaluator):
                     annotation="O",
                     prediction=pred_span.entity_type,
                     full_text=pred_span.entity_value,
-                    token=" ".join(pred_span.normalized_value),
+                    token=" ".join(pred_span.normalized_tokens),
                     explanation=f"False positive for {pred_span}",
                 )
                 evaluation_result.model_errors.append(model_error)
@@ -368,7 +368,7 @@ class SpanEvaluator(BaseEvaluator):
                         annotation=ann_span.entity_type,
                         prediction=best_match.entity_type,
                         full_text=ann_span.entity_value,
-                        token=" ".join(ann_span.normalized_value),
+                        token=" ".join(ann_span.normalized_tokens),
                         explanation=f"Wrong entity between {ann_span} "
                         f"and {best_match}. "
                         f"IoU: {best_iou}",
@@ -404,7 +404,7 @@ class SpanEvaluator(BaseEvaluator):
                     annotation=ann_span.entity_type,
                     prediction="O",
                     full_text=ann_span.entity_value,
-                    token=" ".join(ann_span.normalized_value),
+                    token=" ".join(ann_span.normalized_tokens),
                     explanation=f"False negative for {ann_span} "
                     f"Reason: {'low_iou' if best_match else 'missed'} ",
                 )
@@ -478,7 +478,7 @@ class SpanEvaluator(BaseEvaluator):
         :param beta: The beta parameter for F-beta score calculation. Default is 2.
         """
 
-        df = self.get_results_dataframe(evaluation_results)
+        df = self.get_results_dataframe(evaluation_results=evaluation_results, entities=entities)
         return self.calculate_score_on_df(df, beta=beta)
 
     def calculate_score_on_df(
