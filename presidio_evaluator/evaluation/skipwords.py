@@ -7,6 +7,7 @@ from spacy.lang.en.stop_words import STOP_WORDS
 def get_skip_words() -> List[str]:
     """Return a list of tokens to ignore during evaluation."""
     skip_words = [x for x in string.punctuation]
+    skip_words += [x for x in string.whitespace]
     skip_words.extend(
         [
             " ",

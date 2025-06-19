@@ -52,6 +52,15 @@ def input_sample_result_2():
         create_tags_from_span=True
     )
 
+@pytest.fixture(scope="session")
+def pair_of_spans():
+    span1 = Span(entity_type="PERSON", entity_value="Alice is my", start_position=3, end_position=14,
+                 normalized_tokens=["Alice"], normalized_start_index=3, normalized_end_index=8)
+    span2 = Span(entity_type="ORG", entity_value="Acme Corp", start_position=0, end_position=9,
+                 normalized_tokens=["Acme","Corp"], normalized_start_index=0, normalized_end_index=9)
+
+    return span1, span2
+
 
 def test_update_entity_types(input_sample_result):
     records = [deepcopy(input_sample_result)]
@@ -169,40 +178,6 @@ def test_spans_intersection(
     assert intersection == intersection_length
 
 
-def test_start_indices_in_get_tags():
-    """Test that start_indices are correctly generated when using get_tags"""
-    sample = InputSample(
-        full_text="Dan Smith is my friend from Tel Aviv.",
-        spans=[
-            Span(entity_type="PERSON", entity_value="Dan Smith", start_position=0, end_position=9),
-            Span(entity_type="LOCATION", entity_value="Tel Aviv", start_position=28, end_position=36)
-        ]
-    )
-
-    tokens, tags, start_indices = sample.get_tags(scheme="IO")
-
-    # Verify tokens align with start_indices
-    assert len(tokens) == len(start_indices)
-
-    # "Dan" should be marked as start since it's the beginning of "Dan Smith"
-    assert tokens[0].text == "Dan"
-    assert start_indices[0] is True
-
-    # Other tokens in the "Dan Smith" entity should not be marked as start
-    assert tokens[1].text == "Smith"
-    assert start_indices[1] is False
-
-    # "Tel" should be marked as start since it's the beginning of "Tel Aviv"
-    assert tokens[6].text == "Tel"
-    assert start_indices[6] is True
-
-    # "Aviv" should not be marked as start
-    assert tokens[7].text == "Aviv"
-    assert start_indices[7] is False
-
-    # Non-entity tokens should be False
-    assert all(not start_indices[i] for i in [2, 3, 4, 5, 8])
-
 
 def test_start_indices_in_create_tags_from_span():
     """Test that start_indices are correctly set when using create_tags_from_span=True"""
@@ -218,16 +193,11 @@ def test_start_indices_in_create_tags_from_span():
     # Verify start_indices are set correctly
     assert len(sample.tokens) == len(sample.start_indices)
 
-    # "John" should be marked as start
     assert sample.tokens[0].text == "John"
-    assert sample.start_indices[0] is True
+    assert sample.start_indices[0]  == 0
 
-    # "Microsoft" should be marked as start
     assert sample.tokens[3].text == "Microsoft"
-    assert sample.start_indices[3] is True
-
-    # Non-entity tokens should be False
-    assert all(not sample.start_indices[i] for i in [1, 2, 4])
+    assert sample.start_indices[3]  == 14
 
 
 def test_manually_set_start_indices():
@@ -237,16 +207,64 @@ def test_manually_set_start_indices():
         spans=[
             Span(entity_type="PERSON", entity_value="Alex", start_position=0, end_position=4),
             Span(entity_type="PERSON", entity_value="Bob", start_position=9, end_position=12)
-        ],
-        start_indices=[True, False, True, False, False]
+        ]
     )
 
-    assert sample.start_indices == [True, False, True, False, False]
 
     # When creating tags from spans, the start_indices should be updated
-    sample.get_tags()
+    tokens, labels, start_indices = sample.get_tags()
+    assert start_indices == [0, 5, 9, 13, 17, 24]
 
-    # After updating, "Alex" and "Bob" should be marked as start tokens
-    assert sample.start_indices[0] is True  # Alex
-    assert sample.start_indices[2] is True  # Bob
-    assert all(not sample.start_indices[i] for i in [1, 3, 4])  # Other tokens
+
+
+def test_span_intersection(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    intersection_strict = span1.intersect(span2, ignore_entity_type=False)
+    assert intersection_strict == 0  # Different types should not intersect
+
+    intersection_type = span1.intersect(span2, ignore_entity_type=True)
+    assert intersection_type == 6
+
+    intersection_strict_normalized = span1.intersect(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert intersection_strict_normalized == 0  # Different types should not intersect
+
+    intersection_type_normalized = span1.intersect(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert intersection_type_normalized == 5
+
+
+def test_span_union(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    union_strict = span1.union(span2, ignore_entity_type=False)
+    assert union_strict == 0  # Different types should not union
+
+    union_type = span1.union(span2, ignore_entity_type=True)
+    assert union_type == 14
+
+    union_strict_normalized = span1.union(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert union_strict_normalized == 0  # Different types should not union in normalized form
+
+    union_type_normalized = span1.union(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert union_type_normalized == 9
+
+def test_span_iou(pair_of_spans):
+    """Test that spans with different entity types do not intersect"""
+    span1 = pair_of_spans[0]
+    span2 = pair_of_spans[1]
+
+    iou_strict = span1.iou(span2, ignore_entity_type=False)
+    assert iou_strict == 0
+
+    iou_type = span1.iou(span2, ignore_entity_type=True)
+    assert iou_type == 6 / 14.0
+
+    iou_strict_normalized = span1.iou(span2, ignore_entity_type=False, use_normalized_indices=True)
+    assert iou_strict_normalized == 0
+
+    iou_type_normalized = span1.iou(span2, ignore_entity_type=True, use_normalized_indices=True)
+    assert iou_type_normalized == 5 / 9.0

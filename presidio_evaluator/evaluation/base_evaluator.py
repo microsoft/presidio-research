@@ -1,5 +1,6 @@
+from abc import ABC, abstractmethod
 from collections import Counter
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,12 +14,12 @@ from presidio_evaluator.models import BaseModel, PresidioAnalyzerWrapper
 GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENERIC_PII")
 
 
-class Evaluator:
+class BaseEvaluator(ABC):
     def __init__(
         self,
         model: Union[BaseModel, AnalyzerEngine],
         verbose: bool = False,
-        compare_by_io=True,
+        compare_by_io: bool = True,
         entities_to_keep: Optional[List[str]] = None,
         generic_entities: Optional[List[str]] = None,
         skip_words: Optional[List] = None,
@@ -58,7 +59,9 @@ class Evaluator:
 
         self.skip_words = skip_words if skip_words else get_skip_words()
 
-    def compare(self, input_sample: InputSample, prediction: List[str]):
+    def compare(
+        self, input_sample: InputSample, prediction: List[str]
+    ) -> Tuple[Counter, List[ModelError]]:
         """
         Compares ground truth tags (annotation) and predicted (prediction)
         :param input_sample: input sample containing list of tags with scheme
@@ -150,7 +153,11 @@ class Evaluator:
         return results, mistakes
 
     def __revert_known_errors(
-        self, current_annotation, current_prediction, current_token, results
+        self,
+        current_annotation: str,
+        current_prediction: str,
+        current_token: str,
+        results: Counter[Tuple[str, str]],
     ) -> bool:
         reverted = False
 
@@ -179,14 +186,14 @@ class Evaluator:
 
         return reverted
 
-    def _adjust_per_entities(self, tags):
+    def _adjust_per_entities(self, tags: List[str]) -> List[str]:
         if self.entities_to_keep:
             return [tag if tag in self.entities_to_keep else "O" for tag in tags]
         else:
             return tags
 
     @staticmethod
-    def _to_io(tags):
+    def _to_io(tags: List[str]) -> List[str]:
         """
         Translates BILUO/BIO/IOB to IO - only In or Out of entity.
         ['B-PERSON','I-PERSON','L-PERSON'] is translated into
@@ -203,6 +210,7 @@ class Evaluator:
             print("Input sentence: {}".format(sample.full_text))
 
         results, model_errors = self.compare(input_sample=sample, prediction=prediction)
+
         return EvaluationResult(
             results=results,
             model_errors=model_errors,
@@ -233,7 +241,6 @@ class Evaluator:
         print("Finished running model on dataset")
 
         for prediction, sample in zip(predictions, dataset):
-
             # Remove entities not requested (in model.entities_to_keep))
             prediction = self.model.filter_tags_in_supported_entities(prediction)
 
@@ -254,13 +261,13 @@ class Evaluator:
         allow_missing_mappings: bool = False,
     ) -> List[InputSample]:
         """
-        Change input samples to conform with Presidio's entities
+        Change input samples to conform with the provided entity mappings
         :return: new list of InputSample
         """
 
         new_input_samples = input_samples.copy()
 
-        def is_key_in_dict(key_dict: Dict[str, str], search_key: str):
+        def is_key_in_dict(key_dict: Dict[str, str], search_key: str) -> bool:
             """Check if a key is in a dictionary, ignoring case and underscores."""
             # Normalize the search key by converting to uppercase and removing underscores
             normalized_search_key = search_key.upper().replace("_", "")
@@ -314,6 +321,7 @@ class Evaluator:
         return new_list
         # Iterate on all samples
 
+    @abstractmethod
     def calculate_score(
         self,
         evaluation_results: List[EvaluationResult],
@@ -321,137 +329,117 @@ class Evaluator:
         beta: float = 2.0,
     ) -> EvaluationResult:
         """
-        Returns the pii_precision, pii_recall, f_measure either and number of records for each entity
-        or for all entities (ignore_entity_type = True)
-        :param evaluation_results: List of EvaluationResult
-        :param entities: List of entities to calculate score to. Default is None: all entities
-        :param beta: F measure beta value
-        between different entity types, or to treat these as misclassifications
-        :return: EvaluationResult with precision, recall and f measures
+        Compares the evaluation results (predicted vs. actual) and calculates evaluation scores
         """
 
-        # aggregate results
-        all_results = sum([er.results for er in evaluation_results], Counter())
-
-        # compute pii_recall per entity
-        entity_recall = {}
-        entity_precision = {}
-        n = {}
-        if not entities:
-            entities1 = list(set([x[0] for x in all_results.keys() if x[0] != "O"]))
-            entities2 = list(set([x[1] for x in all_results.keys() if x[1] != "O"]))
-            entities = list(set(entities1).union(set(entities2)))
-
-        for entity in entities:
-            # all annotation of given type
-            annotated = sum([all_results[x] for x in all_results if x[0] == entity])
-            predicted = sum([all_results[x] for x in all_results if x[1] == entity])
-            n[entity] = annotated
-            tp = all_results[(entity, entity)]
-
-            if annotated > 0:
-                entity_recall[entity] = tp / annotated
-            else:
-                entity_recall[entity] = np.nan
-
-            if predicted > 0:
-                per_entity_tp = all_results[(entity, entity)]
-                entity_precision[entity] = per_entity_tp / predicted
-            else:
-                entity_precision[entity] = np.nan
-
-        # compute pii_precision and pii_recall
-        annotated_all = sum([all_results[x] for x in all_results if x[0] != "O"])
-        predicted_all = sum([all_results[x] for x in all_results if x[1] != "O"])
-        if annotated_all > 0:
-            pii_recall = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / annotated_all
-            )
-        else:
-            pii_recall = np.nan
-        if predicted_all > 0:
-            pii_precision = (
-                sum(
-                    [
-                        all_results[x]
-                        for x in all_results
-                        if (x[0] != "O" and x[1] != "O")
-                    ]
-                )
-                / predicted_all
-            )
-        else:
-            pii_precision = np.nan
-        # compute pii_f_beta-score
-        pii_f_beta = self.f_beta(pii_precision, pii_recall, beta)
-
-        # aggregate errors
-        errors = []
-        for res in evaluation_results:
-            if res.model_errors:
-                errors.extend(res.model_errors)
-
-        evaluation_result = EvaluationResult(
-            results=all_results,
-            model_errors=errors,
-            pii_precision=pii_precision,
-            pii_recall=pii_recall,
-            entity_recall_dict=entity_recall,
-            entity_precision_dict=entity_precision,
-            n_dict=n,
-            pii_f=pii_f_beta,
-            n=sum(n.values()),
-        )
-
-        return evaluation_result
+        pass
 
     @staticmethod
-    def get_results_dataframe(evaluation_results: List[EvaluationResult]) -> pd.DataFrame:
+    def get_results_dataframe(
+        evaluation_results: List[EvaluationResult], entities: Optional[List[str]] = None
+    ) -> pd.DataFrame:
         """Return a DataFrame with the results of the evaluation.
 
-        Columns:
-        - sentence_id
-        - token text
-        - annotation
-        - prediction
-        - start_indices
+        :param evaluation_results: List of EvaluationResult objects containing the evaluation results.
+        :param entities: Optional list of entities to filter the results. If None, all entities are included.
+
+        :return: A pandas DataFrame with the following columns
+            - sentence_id
+            - token text
+            - annotation
+            - prediction
+            - start_indices
         """
 
         if not evaluation_results or not evaluation_results[0].tokens:
-            raise ValueError("The evaluation results should not be empty and must contain tokens. "
-                             "Ensure that the input samples have tokens.")
+            raise ValueError(
+                "The evaluation results should not be empty and must contain tokens. "
+                "Ensure that the input samples have tokens."
+            )
 
         rows_list = []
         for i, res in enumerate(evaluation_results):
             tokens = res.tokens
-            annotations = res.actual_tags
-            predictions = res.predicted_tags
+            annotations = BaseEvaluator._filter_entities(res.actual_tags, entities)
+            predictions = BaseEvaluator._filter_entities(res.predicted_tags, entities)
             start_indices = res.start_indices
             for j in range(len(tokens)):
-                rows_list.append({"sentence_id": i,
-                                  "token": tokens[j],
-                                  "annotation": annotations[j],
-                                  "prediction": predictions[j],
-                                  "start_indices": start_indices[j]})
+                rows_list.append(
+                    {
+                        "sentence_id": i,
+                        "token": tokens[j],
+                        "annotation": annotations[j],
+                        "prediction": predictions[j],
+                        "start_indices": start_indices[j],
+                    }
+                )
 
         results_df = pd.DataFrame(rows_list)
         return results_df
 
+    @staticmethod
+    def _filter_entities(
+        tags: List[str], entities: Optional[List[str]] = None
+    ) -> List[str]:
+        """
+        Filter the tags to only include the specified entities.
+        If entities is None, return all tags.
+        """
+        if entities is None:
+            return tags
+        return [tag if tag in entities else "O" for tag in tags]
 
     @staticmethod
-    def precision(tp: int, fp: int) -> float:
-        return tp / (tp + fp + 1e-100)
+    def precision(
+        tp: int, fp: Optional[int] = None, num_predicted: Optional[int] = None
+    ) -> float:
+        """
+        Calculate precision based on true positives (tp), false positives (fp), or total predicted entities (num_predicted).
+
+        :param tp: Number of true positives
+        :param fp: Number of false positives (optional, if num_predicted is not provided)
+        :param num_predicted: Total number of predicted entities (optional, if fp is not provided)
+        :return: Precision value as a float
+        """
+        if fp and num_predicted:
+            raise ValueError(
+                "Both fp and num_predicted should not be provided. "
+                "Use either fp or num_predicted, but not both."
+            )
+        if fp is None and num_predicted is None:
+            raise ValueError(
+                "Either fp or num_predicted should be provided to calculate precision."
+            )
+        if fp:
+            num_predicted = fp + tp
+
+        return tp / num_predicted if num_predicted > 0 else np.nan
 
     @staticmethod
-    def recall(tp: int, fn: int) -> float:
-        return tp / (tp + fn + 1e-100)
+    def recall(
+        tp: int, fn: Optional[int] = None, num_annotated: Optional[int] = None
+    ) -> float:
+        """
+        Calculate recall based on true positives (tp), false negatives (fn), or total annotated entities (num_annotated).
+
+        :param tp: Number of true positives
+        :param fn: Number of false negatives (optional, if num_annotated is not provided)
+        :param num_annotated: Total number of annotated entities (optional, if fn is not provided)
+        :return: Recall value as a float
+        """
+        if fn and num_annotated:
+            raise ValueError(
+                "Both fn and num_annotated should not be provided. "
+                "Use either fn or num_annotated, but not both."
+            )
+        if fn is None and num_annotated is None:
+            raise ValueError(
+                "Either fn or num_annotated should be provided to calculate recall."
+            )
+        if fn:
+            num_annotated = fn + tp
+
+        return tp / num_annotated if num_annotated > 0 else np.nan
 
     @staticmethod
     def f_beta(precision: float, recall: float, beta: float) -> float:

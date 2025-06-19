@@ -37,28 +37,70 @@ PRESIDIO_SPACY_ENTITIES = dict(
 class Span:
     """
     Holds information about the start, end, type and value
-    of an entity in a text
+    of an entity in a text.
+
+    :param entity_type: The type of the entity, e.g. PERSON, LOCATION
+    :param entity_value: The value of the entity, e.g. "John Doe"
+    :param start_position: The start position of the entity in the text
+    :param end_position: The end position of the entity in the text
+    :param token_start: The start token index of the entity in the tokenized text
+    :param token_end: The end token index of the entity in the tokenized text
+    :param normalized_tokens: Optional list of normalized tokens (excluding skip words, punctuation etc.)
+    :param normalized_start_index: Optional start index of the normalized value in the text
+    :param normalized_end_index: Optional end index of the normalized value in the text
     """
 
-    def __init__(self, entity_type, entity_value, start_position, end_position):
+    def __init__(
+        self,
+        entity_type: str,
+        entity_value: str,
+        start_position: int,
+        end_position: int,
+        token_start: Optional[int] = None,
+        token_end: Optional[int] = None,
+        normalized_tokens: Optional[List[str]] = None,
+        normalized_start_index: Optional[int] = None,
+        normalized_end_index: Optional[int] = None,
+    ):
         self.entity_type = entity_type
         self.entity_value = entity_value
         self.start_position = start_position
         self.end_position = end_position
+        self.normalized_tokens = normalized_tokens
+        self.normalized_start_index = normalized_start_index
+        self.normalized_end_index = normalized_end_index
+        self.token_start = token_start
+        self.token_end = token_end
 
-    def intersect(self, other, ignore_entity_type: bool):
+    def intersect(
+        self,
+        other: "Span",
+        ignore_entity_type: bool,
+        use_normalized_indices: bool = False,
+    ) -> int:
         """
         Checks if self intersects with a different Span
+        :param other: Another Span object to compare with.
+        :param ignore_entity_type: If True, ignores entity type when calculating intersection.
+        :param use_normalized_indices: If True, uses normalized indices for intersection calculation.
         :return: If intersecting, returns the number of
         intersecting characters.
         If not, returns 0
         """
 
+        if use_normalized_indices:
+            first_start = self.normalized_start_index
+            first_end = self.normalized_end_index
+            second_start = other.normalized_start_index
+            second_end = other.normalized_end_index
+        else:
+            first_start = self.start_position
+            first_end = self.end_position
+            second_start = other.start_position
+            second_end = other.end_position
+
         # if they do not overlap the intersection is 0
-        if (
-            self.end_position < other.start_position
-            or other.end_position < self.start_position
-        ):
+        if first_end < second_start or second_end < first_start:
             return 0
 
         # if we are accounting for entity type a diff type means intersection 0
@@ -66,9 +108,55 @@ class Span:
             return 0
 
         # otherwise the intersection is min(end) - max(start)
-        return min(self.end_position, other.end_position) - max(
-            self.start_position, other.start_position
-        )
+        return min(first_end, second_end) - max(first_start, second_start)
+
+    def union(
+        self, other, ignore_entity_type: bool, use_normalized_indices: bool = False
+    ) -> int:
+        """
+        Calculates the character based union of two spans.
+        :param other: Another Span object to compare with.
+        :param ignore_entity_type: If True, ignores entity type when calculating union.
+        :param use_normalized_indices: If True, uses normalized indices for union calculation.
+        :return: Union value as an integer.
+        """
+
+        if use_normalized_indices:
+            first_start = self.normalized_start_index
+            first_end = self.normalized_end_index
+            second_start = other.normalized_start_index
+            second_end = other.normalized_end_index
+        else:
+            first_start = self.start_position
+            first_end = self.end_position
+            second_start = other.start_position
+            second_end = other.end_position
+
+        if ignore_entity_type:
+            return max(first_end, second_end) - min(first_start, second_start)
+        else:
+            if self.entity_type == other.entity_type:
+                return max(first_end, second_end) - min(first_start, second_start)
+            else:
+                return 0
+
+    def iou(
+        self, other, ignore_entity_type: bool, use_normalized_indices: bool = False
+    ) -> float:
+        """
+        Calculates the character based Intersection over Union (IoU) between two spans.
+        :param other: Another Span object to compare with.
+        :param ignore_entity_type: If True, ignores entity type when calculating IoU.
+        :param use_normalized_indices: If True, uses normalized indices for IoU calculation.
+        :return: IoU value as a float.
+        """
+
+        intersection = self.intersect(other, ignore_entity_type, use_normalized_indices)
+        if intersection == 0:
+            return 0.0
+
+        union = self.union(other, ignore_entity_type, use_normalized_indices)
+        return intersection / union if union != 0 else 0.0
 
     def __repr__(self):
         return (
@@ -114,11 +202,11 @@ class InputSample(object):
         tags: Optional[List[str]] = None,
         create_tags_from_span=False,
         token_model_version="en_core_web_sm",
-        scheme:str="IO",
+        scheme: str = "IO",
         metadata: Dict = None,
         sample_id: int = None,
         template_id: int = None,
-        start_indices: Optional[List[bool]] = None,
+        start_indices: Optional[List[int]] = None,
     ):
         """
         Hold all the information needed for evaluation in the
@@ -137,7 +225,7 @@ class InputSample(object):
         in the English (or other language) vocabulary
         :param template_id: Original template (utterance) of sample, in case it was generated  # noqa
         :param sample_id: Unique identifier for this sample (within a dataset)
-        :param start_indices: List of booleans indicating the start of each token
+        :param start_indices: List of int indicating the start index of each token in the sentence
         """
         if tags is None:
             tags = []
@@ -184,7 +272,9 @@ class InputSample(object):
             data["spans"] = [Span.from_json(span) for span in data["spans"]]
         return cls(**data, create_tags_from_span=True, **kwargs)
 
-    def get_tags(self, scheme: str = "IOB", model_version: str = "en_core_web_sm"):
+    def get_tags(
+        self, scheme: str = "IOB", model_version: str = "en_core_web_sm"
+    ) -> Tuple[Doc, List[str], List[int]]:
         """Extract the tokens, tags, and start_indices from the spans.
 
         :param scheme: IO, BIO or BILUO
@@ -206,14 +296,7 @@ class InputSample(object):
             token_model_version=model_version,
         )
 
-        # Calculate start_indices
-        start_indices = [False] * len(tokens)
-        for span_start in start_positions:
-            for i, token in enumerate(tokens):
-                if token.idx == span_start:
-                    start_indices[i] = True
-                    break
-
+        start_indices = [token.idx for token in tokens]
         return tokens, labels, start_indices
 
     def to_conll(

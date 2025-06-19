@@ -1,41 +1,27 @@
 from collections import Counter
+from typing import List, Optional
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from presidio_evaluator import InputSample, Span
 
-from presidio_evaluator.evaluation import EvaluationResult, Evaluator, ErrorType
-from tests.mocks import (
-    IdentityTokensMockModel,
-    FiftyFiftyIdentityTokensMockModel,
-    MockTokensModel,
-)
+from presidio_evaluator.evaluation import EvaluationResult, BaseEvaluator, ErrorType
+from tests.mocks import MockTokensModel
 
 
-def test_evaluator_simple():
-    prediction = ["O", "O", "O", "U-ANIMAL"]
-    model = MockTokensModel(prediction=prediction, entities_to_keep=["ANIMAL"])
-
-    evaluator = Evaluator(model=model)
-    sample = InputSample(
-        full_text="I am the walrus", masked="I am the [ANIMAL]", spans=None
-    )
-    sample.tokens = ["I", "am", "the", "walrus"]
-    sample.tags = ["O", "O", "O", "U-ANIMAL"]
-
-    evaluated = evaluator.evaluate_sample(sample, prediction)
-    final_evaluation = evaluator.calculate_score([evaluated])
-
-    assert final_evaluation.pii_precision == 1
-    assert final_evaluation.pii_recall == 1
+class MockEvaluator(BaseEvaluator):
+    def calculate_score(self, evaluation_results: List[EvaluationResult], entities: Optional[List[str]] = None,
+                        beta: float = 2.0) -> EvaluationResult:
+        pass
 
 
 def test_evaluate_sample_wrong_entities_to_keep_correct_statistics():
     prediction = ["O", "O", "O", "U-ANIMAL"]
     model = MockTokensModel(prediction=prediction)
 
-    evaluator = Evaluator(model=model, entities_to_keep=["SPACESHIP"])
+    evaluator = MockEvaluator(model=model, entities_to_keep=["SPACESHIP"])
 
     sample = InputSample(
         full_text="I am the walrus", masked="I am the [ANIMAL]", spans=None
@@ -50,7 +36,7 @@ def test_evaluate_sample_wrong_entities_to_keep_correct_statistics():
 def test_evaluate_same_entity_correct_statistics():
     prediction = ["O", "U-ANIMAL", "O", "U-ANIMAL"]
     model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"], skip_words=["-"])
+    evaluator = MockEvaluator(model=model, entities_to_keep=["ANIMAL"], skip_words=["-"])
     sample = InputSample(
         full_text="I dog the walrus", masked="I [ANIMAL] the [ANIMAL]", spans=None
     )
@@ -67,7 +53,7 @@ def test_evaluate_multiple_entities_to_keep_correct_statistics():
     prediction = ["O", "U-ANIMAL", "O", "U-ANIMAL"]
     entities_to_keep = ["ANIMAL", "PLANT", "SPACESHIP"]
     model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(
+    evaluator = MockEvaluator(
         model=model, entities_to_keep=entities_to_keep, skip_words=["-"]
     )
 
@@ -83,224 +69,6 @@ def test_evaluate_multiple_entities_to_keep_correct_statistics():
     assert evaluation_result.results[("O", "ANIMAL")] == 1
 
 
-def test_evaluate_multiple_tokens_correct_statistics():
-    prediction = ["O", "O", "O", "B-ANIMAL", "I-ANIMAL", "L-ANIMAL"]
-    model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"])
-    sample = InputSample(
-        "I am the walrus amaericanus magnifico", masked=None, spans=None
-    )
-    sample.tokens = ["I", "am", "the", "walrus", "americanus", "magnifico"]
-    sample.tags = ["O", "O", "O", "B-ANIMAL", "I-ANIMAL", "L-ANIMAL"]
-
-    evaluated = evaluator.evaluate_sample(sample, prediction)
-    evaluation = evaluator.calculate_score([evaluated])
-
-    assert evaluation.pii_precision == 1
-    assert evaluation.pii_recall == 1
-
-
-def test_evaluate_multiple_tokens_partial_match_correct_statistics():
-    prediction = ["O", "O", "O", "B-ANIMAL", "L-ANIMAL", "O"]
-    model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"])
-    sample = InputSample(
-        "I am the walrus amaericanus magnifico", masked=None, spans=None
-    )
-    sample.tokens = ["I", "am", "the", "walrus", "americanus", "magnifico"]
-    sample.tags = ["O", "O", "O", "B-ANIMAL", "I-ANIMAL", "L-ANIMAL"]
-
-    evaluated = evaluator.evaluate_sample(sample, prediction)
-    evaluation = evaluator.calculate_score([evaluated])
-
-    assert evaluation.pii_precision == 1
-    assert evaluation.pii_recall == 4 / 6
-
-
-def test_evaluate_multiple_tokens_no_match_match_correct_statistics():
-    prediction = ["O", "O", "O", "B-SPACESHIP", "L-SPACESHIP", "O"]
-    model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["ANIMAL"])
-    sample = InputSample(
-        "I am the walrus amaericanus magnifico", masked=None, spans=None
-    )
-    sample.tokens = ["I", "am", "the", "walrus", "americanus", "magnifico"]
-    sample.tags = ["O", "O", "O", "B-ANIMAL", "I-ANIMAL", "L-ANIMAL"]
-
-    evaluated = evaluator.evaluate_sample(sample, prediction)
-    evaluation = evaluator.calculate_score([evaluated])
-
-    assert np.isnan(evaluation.pii_precision)
-    assert evaluation.pii_recall == 0
-
-
-def test_evaluate_multiple_examples_correct_statistics():
-    prediction = ["U-PERSON", "O", "O", "U-PERSON", "O", "O"]
-    model = MockTokensModel(prediction=prediction)
-    evaluator = Evaluator(model=model, entities_to_keep=["PERSON"], skip_words=["-"])
-    input_sample = InputSample("My name is Raphael or David", masked=None, spans=None)
-    input_sample.tokens = ["My", "name", "is", "Raphael", "or", "David"]
-    input_sample.tags = ["O", "O", "O", "U-PERSON", "O", "U-PERSON"]
-
-    evaluated = evaluator.evaluate_all(
-        [input_sample, input_sample, input_sample, input_sample]
-    )
-    scores = evaluator.calculate_score(evaluated)
-    assert scores.pii_precision == 0.5
-    assert scores.pii_recall == 0.5
-
-
-def test_evaluate_multiple_examples_ignore_entity_correct_statistics():
-    prediction = ["O", "O", "O", "U-PERSON", "O", "U-TENNIS_PLAYER"]
-    model = MockTokensModel(prediction=prediction)
-
-    evaluator = Evaluator(model=model, entities_to_keep=["PERSON", "TENNIS_PLAYER"])
-    input_sample = InputSample("My name is Raphael or David", masked=None, spans=None)
-    input_sample.tokens = ["My", "name", "is", "Raphael", "or", "David"]
-    input_sample.tags = ["O", "O", "O", "U-PERSON", "O", "U-PERSON"]
-
-    evaluated = evaluator.evaluate_all(
-        [input_sample, input_sample, input_sample, input_sample]
-    )
-    scores = evaluator.calculate_score(evaluated)
-    assert scores.pii_precision == 1
-    assert scores.pii_recall == 1
-
-
-def test_confusion_matrix_correct_metrics():
-    from collections import Counter
-
-    evaluated = [
-        EvaluationResult(
-            results=Counter(
-                {
-                    ("O", "O"): 150,
-                    ("O", "PERSON"): 30,
-                    ("O", "COMPANY"): 30,
-                    ("PERSON", "PERSON"): 40,
-                    ("COMPANY", "COMPANY"): 40,
-                    ("PERSON", "COMPANY"): 10,
-                    ("COMPANY", "PERSON"): 10,
-                    ("PERSON", "O"): 30,
-                    ("COMPANY", "O"): 30,
-                }
-            ),
-            model_errors=None,
-            text=None,
-        )
-    ]
-
-    model = MockTokensModel(prediction=None)
-    evaluator = Evaluator(model=model, entities_to_keep=["PERSON", "COMPANY"])
-    scores = evaluator.calculate_score(evaluated, beta=2.5)
-
-    assert scores.pii_precision == 0.625
-    assert scores.pii_recall == 0.625
-    assert scores.entity_recall_dict["PERSON"] == 0.5
-    assert scores.entity_precision_dict["PERSON"] == 0.5
-    assert scores.entity_recall_dict["COMPANY"] == 0.5
-    assert scores.entity_precision_dict["COMPANY"] == 0.5
-
-
-def test_confusion_matrix_2_correct_metrics():
-    from collections import Counter
-
-    evaluated = [
-        EvaluationResult(
-            results=Counter(
-                {
-                    ("O", "O"): 65467,
-                    ("O", "ORG"): 4189,
-                    ("GPE", "O"): 3370,
-                    ("PERSON", "PERSON"): 2024,
-                    ("GPE", "PERSON"): 1488,
-                    ("GPE", "GPE"): 1033,
-                    ("O", "GPE"): 964,
-                    ("ORG", "ORG"): 914,
-                    ("O", "PERSON"): 834,
-                    ("GPE", "ORG"): 401,
-                    ("PERSON", "ORG"): 35,
-                    ("PERSON", "O"): 33,
-                    ("ORG", "O"): 8,
-                    ("PERSON", "GPE"): 5,
-                    ("ORG", "PERSON"): 1,
-                }
-            ),
-            model_errors=None,
-            text=None,
-        )
-    ]
-
-    model = MockTokensModel(prediction=None)
-    evaluator = Evaluator(model=model)
-    scores = evaluator.calculate_score(evaluated, beta=2.5)
-
-    pii_tp = (
-        evaluated[0].results[("PERSON", "PERSON")]
-        + evaluated[0].results[("ORG", "ORG")]
-        + evaluated[0].results[("GPE", "GPE")]
-        + evaluated[0].results[("ORG", "GPE")]
-        + evaluated[0].results[("ORG", "PERSON")]
-        + evaluated[0].results[("GPE", "ORG")]
-        + evaluated[0].results[("GPE", "PERSON")]
-        + evaluated[0].results[("PERSON", "GPE")]
-        + evaluated[0].results[("PERSON", "ORG")]
-    )
-
-    pii_fp = (
-        evaluated[0].results[("O", "PERSON")]
-        + evaluated[0].results[("O", "GPE")]
-        + evaluated[0].results[("O", "ORG")]
-    )
-
-    pii_fn = (
-        evaluated[0].results[("PERSON", "O")]
-        + evaluated[0].results[("GPE", "O")]
-        + evaluated[0].results[("ORG", "O")]
-    )
-
-    assert scores.pii_precision == pii_tp / (pii_tp + pii_fp)
-    assert scores.pii_recall == pii_tp / (pii_tp + pii_fn)
-
-
-def test_dataset_to_metric_identity_model():
-    import os
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        "{}/data/generated_small.json".format(dir_path), length=10
-    )
-
-    model = IdentityTokensMockModel()
-    evaluator = Evaluator(model=model)
-    evaluation_results = evaluator.evaluate_all(input_samples)
-    metrics = evaluator.calculate_score(evaluation_results)
-
-    assert metrics.pii_precision == 1
-    assert metrics.pii_recall == 1
-
-
-def test_dataset_to_metric_50_50_model():
-    import os
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_samples = InputSample.read_dataset_json(
-        "{}/data/generated_small.json".format(dir_path), length=100
-    )
-
-    # Replace 50% of the predictions with a list of "O"
-    model = FiftyFiftyIdentityTokensMockModel()
-    evaluator = Evaluator(model=model, entities_to_keep=["PERSON"])
-    evaluation_results = evaluator.evaluate_all(input_samples)
-    metrics = evaluator.calculate_score(evaluation_results)
-
-    print(metrics.pii_precision)
-    print(metrics.pii_recall)
-    print(metrics.pii_f)
-
-    assert metrics.pii_precision == 1
-    assert metrics.pii_recall < 0.75
-    assert metrics.pii_recall > 0.25
 
 
 def test_align_entity_types_correct_output():
@@ -321,7 +89,7 @@ def test_align_entity_types_correct_output():
         "C": "1",
     }
 
-    new_samples = Evaluator.align_entity_types(samples, mapping)
+    new_samples = BaseEvaluator.align_entity_types(samples, mapping)
 
     count_per_entity = Counter()
     for sample in new_samples:
@@ -342,63 +110,10 @@ def test_align_entity_types_wrong_mapping_exception():
     entities_mapping = {"Z": "z"}
 
     with pytest.raises(ValueError):
-        Evaluator.align_entity_types(
+        BaseEvaluator.align_entity_types(
             input_samples=[sample1], entities_mapping=entities_mapping
         )
 
-
-@pytest.mark.parametrize(
-    "tokens, tags, predicted_tags, precision, recall",
-    [
-        (
-            ["John", "is", "in", "\n", "\t", "London"],
-            ["U-PERSON", "O", "O", "B-LOCATION", "I-LOCATION", "I-LOCATION"],
-            ["U-PERSON", "O", "O", "O", "O", "B-LOCATION"],
-            1,
-            1,
-        ),
-        (
-            [">", ">>", ">>>", "Baku"],
-            ["O", "O", "O", "U-LOCATION"],
-            ["B-LOCATION", "I-LOCATION", "I-LOCATION", "L-LOCATION"],
-            1,
-            1,
-        ),
-        (
-            ["Mr.", "", "Smith"],
-            ["O", "O", "U-PERSON"],
-            ["O", "B-PERSON", "I-PERSON"],
-            1,
-            1,
-        ),
-        (["!"], ["O"], ["U-PERSON"], np.nan, np.nan),
-        ([], [], [], np.nan, np.nan),
-    ],
-)
-def test_skip_words_are_not_counted_as_errors(
-    tokens, tags, predicted_tags, precision, recall
-):
-    model = MockTokensModel(
-        prediction=predicted_tags, entities_to_keep=["LOCATION", "PERSON"]
-    )
-
-    evaluator = Evaluator(model=model)
-    sample = InputSample(full_text=" ".join(tokens), spans=None)
-    sample.tokens = tokens
-    sample.tags = tags
-
-    evaluated = evaluator.evaluate_sample(sample, predicted_tags)
-    final_evaluation = evaluator.calculate_score([evaluated])
-
-    if np.isnan(precision):
-        assert np.isnan(final_evaluation.pii_precision)
-    else:
-        assert final_evaluation.pii_precision == precision
-
-    if np.isnan(recall):
-        assert np.isnan(final_evaluation.pii_recall)
-    else:
-        assert final_evaluation.pii_recall == recall
 
 
 @pytest.mark.parametrize(
@@ -425,7 +140,7 @@ def test_generic_entities_are_treated_like_specific_entities(
     tags, predicted_tags, expected_dict
 ):
     model = MockTokensModel(prediction=predicted_tags)
-    evaluator = Evaluator(model=model)
+    evaluator = MockEvaluator(model=model)
 
     tokens = ["A", "123", "456"]
 
@@ -447,7 +162,7 @@ def test_error_type_classification():
     """
     prediction = ["O", "EMAIL", "PHONE", "LOCATION", "PERSON"]
 
-    evaluator = Evaluator(model=MockTokensModel(prediction))
+    evaluator = MockEvaluator(model=MockTokensModel(prediction))
 
     # Ground truth: [PERSON, O, EMAIL, PHONE, O]
     # Prediction:   [PERSON, EMAIL, PHONE, LOCATION, PERSON]
@@ -487,130 +202,194 @@ def test_error_type_classification():
                and e.prediction == "LOCATION" for e in wrong_entities)
 
 
-def test_results_to_dataframe():
-    prediction = ["O", "EMAIL", "PHONE", "LOCATION", "PERSON"]
-    tokens = ["John", "details", "john@mail.com", "123-456-7890", "today"]
-    tags = ["PERSON", "O", "EMAIL", "PHONE", "O"]
-    start_indices = [True, False, True, True, False]
-    evaluator = Evaluator(model=MockTokensModel(prediction))
+def test_get_results_dataframe_basic():
+    """Test the basic functionality of get_results_dataframe without entity filtering."""
+    evaluation_results = [
+        EvaluationResult(
+            tokens=["I", "am", "John", "Smith", "from", "New", "York"],
+            actual_tags=["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            predicted_tags=["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            start_indices=[0, 1, 2, 3, 4, 5, 6],
+            results={}  # Not needed for these tests
+        )
+    ]
+
+    df = BaseEvaluator.get_results_dataframe(evaluation_results)
+
+    # Verify the dataframe has the correct shape and columns
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (7, 5)
+    assert list(df.columns) == ["sentence_id", "token", "annotation", "prediction", "start_indices"]
+
+    # Verify the data is correct
+    assert list(df["token"]) == ["I", "am", "John", "Smith", "from", "New", "York"]
+    assert list(df["annotation"]) == ["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"]
+    assert list(df["prediction"]) == ["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"]
+    assert list(df["start_indices"]) == [0, 1, 2, 3, 4, 5, 6]
+
+
+def test_get_results_dataframe_with_entity_filtering():
+    """Test that get_results_dataframe filters entities correctly when provided with a list."""
+    evaluation_results = [
+        EvaluationResult(
+            tokens=["I", "am", "John", "Smith", "from", "New", "York"],
+            actual_tags=["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            predicted_tags=["O", "O", "PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            start_indices=[0, 1, 2, 3, 4, 5, 6],
+            results={}
+        )
+    ]
+
+    # Filter to only include PERSON entities
+    df = BaseEvaluator.get_results_dataframe(evaluation_results, entities=["PERSON"])
+
+    # Verify that LOCATION tags are filtered out (replaced with "O")
+    assert list(df["annotation"]) == ["O", "O", "PERSON", "PERSON", "O", "O", "O"]
+    assert list(df["prediction"]) == ["O", "O", "PERSON", "PERSON", "O", "O", "O"]
+
+
+def test_get_results_dataframe_with_multiple_entities():
+    """Test filtering with multiple entities."""
+    evaluation_results = [
+        EvaluationResult(
+            tokens=["My", "name", "is", "John", "Smith", "and", "my", "email", "is", "john@example.com"],
+            actual_tags=["O", "O", "O", "PERSON", "PERSON", "O", "O", "O", "O", "EMAIL"],
+            predicted_tags=["O", "O", "O", "PERSON", "PERSON", "O", "O", "O", "O", "EMAIL"],
+            start_indices=list(range(10)),
+            results={}
+        )
+    ]
+
+    # Filter to only include PERSON entities
+    df_person = MockEvaluator.get_results_dataframe(evaluation_results, entities=["PERSON"])
+    assert list(df_person["annotation"]) == ["O", "O", "O", "PERSON", "PERSON", "O", "O", "O", "O", "O"]
+
+    # Filter to only include EMAIL entities
+    df_email = BaseEvaluator.get_results_dataframe(evaluation_results, entities=["EMAIL"])
+    assert list(df_email["annotation"]) == ["O", "O", "O", "O", "O", "O", "O", "O", "O", "EMAIL"]
+
+    # Include both PERSON and EMAIL entities
+    df_both = BaseEvaluator.get_results_dataframe(evaluation_results, entities=["PERSON", "EMAIL"])
+    assert list(df_both["annotation"]) == ["O", "O", "O", "PERSON", "PERSON", "O", "O", "O", "O", "EMAIL"]
+
+
+def test_get_results_dataframe_with_mismatched_predictions():
+    """Test that filtering works correctly when annotations and predictions have different entity types."""
+    evaluation_results = [
+        EvaluationResult(
+            tokens=["John", "Smith", "lives", "in", "New", "York"],
+            actual_tags=["PERSON", "PERSON", "O", "O", "LOCATION", "LOCATION"],
+            predicted_tags=["PERSON", "PERSON", "O", "O", "CITY", "CITY"],  # Predicted CITY instead of LOCATION
+            start_indices=list(range(6)),
+            results={}
+        )
+    ]
+
+    # Filter to only include PERSON entities
+    df_person = MockEvaluator.get_results_dataframe(evaluation_results, entities=["PERSON"])
+    assert list(df_person["annotation"]) == ["PERSON", "PERSON", "O", "O", "O", "O"]
+    assert list(df_person["prediction"]) == ["PERSON", "PERSON", "O", "O", "O", "O"]
+
+    # Filter to only include LOCATION entities
+    df_location = MockEvaluator.get_results_dataframe(evaluation_results, entities=["LOCATION"])
+    assert list(df_location["annotation"]) == ["O", "O", "O", "O", "LOCATION", "LOCATION"]
+    assert list(df_location["prediction"]) == ["O", "O", "O", "O", "O", "O"]  # CITY is filtered out
+
+    # Filter to only include CITY entities
+    df_city = MockEvaluator.get_results_dataframe(evaluation_results, entities=["CITY"])
+    assert list(df_city["annotation"]) == ["O", "O", "O", "O", "O", "O"]  # LOCATION is filtered out
+    assert list(df_city["prediction"]) == ["O", "O", "O", "O", "CITY", "CITY"]
+
+
+def test_get_results_dataframe_with_multiple_sentences():
+    """Test filtering with multiple evaluation results (sentences)."""
+    evaluation_results = [
+        EvaluationResult(
+            tokens=["John", "Smith", "lives", "in", "New", "York"],
+            actual_tags=["PERSON", "PERSON", "O", "O", "LOCATION", "LOCATION"],
+            predicted_tags=["PERSON", "PERSON", "O", "O", "LOCATION", "LOCATION"],
+            start_indices=list(range(6)),
+            results={}
+        ),
+        EvaluationResult(
+            tokens=["Jane", "Doe", "works", "at", "Microsoft"],
+            actual_tags=["PERSON", "PERSON", "O", "O", "ORG"],
+            predicted_tags=["PERSON", "PERSON", "O", "O", "ORG"],
+            start_indices=list(range(5)),
+            results={}
+        )
+    ]
+
+    # Filter to only include PERSON entities
+    df = BaseEvaluator.get_results_dataframe(evaluation_results, entities=["PERSON"])
+
+    # Verify that the dataframe has the correct shape and columns
+    assert df.shape == (11, 5)  # 6 tokens in first sentence + 5 tokens in second sentence
+
+    # Check that only PERSON entities are included and others are filtered out
+    assert list(df[df["sentence_id"] == 0]["annotation"]) == ["PERSON", "PERSON", "O", "O", "O", "O"]
+    assert list(df[df["sentence_id"] == 1]["annotation"]) == ["PERSON", "PERSON", "O", "O", "O"]
+
+
+def test_empty_evaluation_results():
+    """Test that an error is raised when evaluation results are empty."""
+    with pytest.raises(ValueError):
+        MockEvaluator.get_results_dataframe([])
+
+
+def test_evaluation_results_without_tokens():
+    """Test that an error is raised when evaluation results don't have tokens."""
+    # Create an EvaluationResult with empty tokens
+    empty_result = EvaluationResult(
+        tokens=[],
+        actual_tags=[],
+        predicted_tags=[],
+        start_indices=[],
+        results={}
+    )
+
+    with pytest.raises(ValueError):
+        MockEvaluator.get_results_dataframe([empty_result])
+
+
+def test_results_to_dataframe_with_entity_filtering():
+    """
+    Test that get_results_dataframe correctly filters entities when predictions
+    and actual tags are different
+    """
+    prediction = ["PERSON", "EMAIL", "PHONE", "CITY", "PERSON"]
+    tokens = ["John", "details", "john@example.com", "New York", "Smith"]
+    tags = ["PERSON", "O", "EMAIL", "LOCATION", "PERSON"]
+    start_indices = [0, 5, 13, 27, 40]
+    evaluator = MockEvaluator(model=MockTokensModel(prediction))
 
     sample = InputSample(
-        full_text="John details john@mail.com 123-456-7890 today",
+        full_text="John details john@example.com New York Smith",
         tokens=tokens,
         start_indices=start_indices,
         tags=tags
     )
 
-    results = evaluator.evaluate_all([sample, sample])
+    results = evaluator.evaluate_all([sample])
 
-    df = evaluator.get_results_dataframe(results)
-    expected_columns = ["sentence_id", "token", "annotation", "prediction"]
-    for col in expected_columns:
-        assert col in df.columns
+    # Test filtering for just PERSON entities
+    df_person = evaluator.get_results_dataframe(results, entities=["PERSON"])
 
-    assert df["annotation"].to_list() == tags + tags
-    assert df["prediction"].to_list() == prediction + prediction
-    assert df["token"].to_list() == tokens + tokens
-    assert df["sentence_id"].to_list() == [0]*len(tokens) + [1]*len(tokens)
-    assert df["start_indices"].to_list() == start_indices + start_indices
+    # Verify that other entities are filtered out (replaced with "O")
+    assert list(df_person["annotation"]) == ["PERSON", "O", "O", "O", "PERSON"]
+    assert list(df_person["prediction"]) == ["PERSON", "O", "O", "O", "PERSON"]
 
+    # Test filtering for just EMAIL entities
+    df_email = evaluator.get_results_dataframe(results, entities=["EMAIL"])
+    assert list(df_email["annotation"]) == ["O", "O", "EMAIL", "O", "O"]
+    assert list(df_email["prediction"]) == ["O", "EMAIL", "O", "O", "O"]
 
-def test_score_calculation():
-    """
-    Test that precision and recall calculations are correct:
-    - FP and WrongEntity both hurt precision
-    - Only FN hurts recall
-    """
-    prediction = ["PERSON", "PHONE", "O", "ORGANIZATION"]
+    # Test filtering for LOCATION entity (which is predicted as CITY)
+    df_location = evaluator.get_results_dataframe(results, entities=["LOCATION"])
+    assert list(df_location["annotation"]) == ["O", "O", "O", "LOCATION", "O"]
+    assert list(df_location["prediction"]) == ["O", "O", "O", "O", "O"]  # CITY is filtered out
 
-    evaluator = Evaluator(model=MockTokensModel(prediction))
-
-    # Ground truth: [PERSON, O, EMAIL]
-    # Prediction:   [PERSON, PHONE, LOCATION]
-    sample = InputSample(
-        full_text="John visited Paris France",
-        tokens=["John", "visited", "Paris", "France"],
-        tags=["PERSON", "O", "LOCATION", "LOCATION"],
-    )
-
-    result = evaluator.evaluate_sample(sample, prediction)
-    score = evaluator.calculate_score([result])
-
-    # Expected results:
-    # TP: PERSON->PERSON
-    # FP: O->PHONE
-    # FN: Missing LOCATION
-    # WrongEntity: LOCATION->ORGANIZATION
-
-    # Wrong entities are handled differently for PII in general and individual entities
-
-    # PII precision/recall don't take into account wrong entities (treat them as TP)
-    # as we are interested in whether PII was detected or not, not the exact type.
-    # Precision = (TP + WrongEntity) / (TP + WrongEntity + FP) = (1+1) / (1+1+1) = 0.667
-    # Recall = (TP + WrongEntity) / (TP + WrongEntity + FN) = (1+1) / (1+1+1) = 0.667
-
-    assert score.pii_precision == pytest.approx(0.66667 ,2)
-    assert score.pii_recall == pytest.approx(0.66667, 2)
-
-    # For individual entities, wrong entities are counted as FPs
-
-    assert score.entity_precision_dict["PERSON"] == 1
-    assert np.isnan(score.entity_precision_dict["LOCATION"])
-    assert score.entity_precision_dict["PHONE"] == 0
-    assert score.entity_precision_dict["ORGANIZATION"] == 0
-
-    assert score.entity_recall_dict["PERSON"] == 1
-    assert score.entity_recall_dict["LOCATION"] == 0
-    assert np.isnan(score.entity_recall_dict["PHONE"])
-    assert np.isnan(score.entity_recall_dict["ORGANIZATION"])
-
-
-def test_calculate_score_existing_results_counter_indivudal_entities():
-    results=Counter(
-        {
-            ("X", "X"): 50,
-            ("Y", "Y"): 60,
-            ("Z", "Z"): 70,
-            ("X", "O"): 5,
-            ("Y", "O"): 6,
-            ("Z", "O"): 7,
-            ("O", "X"): 5,
-            ("O", "Y"): 6,
-            ("O", "Z"): 7,
-            ("X", "Y"): 5,
-            ("X", "Z"): 5,
-            ("Y", "X"): 6,
-            ("Y", "Z"): 6,
-            ("Z", "X"): 7,
-            ("Z", "Y"): 7,
-        }
-    )
-    x_tp = sum([results[i] for i in results if i[0] == "X" and i[1] == "X"])
-    x_fp_tp = sum([results[i] for i in results if i[1] == "X"])
-    x_fn_tp = sum([results[i] for i in results if i[0] == "X"])
-    y_tp = sum([results[i] for i in results if i[0] == "Y" and i[1] == "Y"])
-    y_fp_tp = sum([results[i] for i in results if i[1] == "Y"])
-    y_fn_tp = sum([results[i] for i in results if i[0] == "Y"])
-    z_tp = sum([results[i] for i in results if i[0] == "Z" and i[1] == "Z"])
-    z_fp_tp = sum([results[i] for i in results if i[1] == "Z"])
-    z_fn_tp = sum([results[i] for i in results if i[0] == "Z"])
-
-
-    expected_x_precision=x_tp/x_fp_tp if x_fp_tp!=0 else np.nan
-    expected_x_recall=x_tp/x_fn_tp if x_fn_tp!=0 else np.nan
-    expected_y_precision=y_tp/y_fp_tp if y_fp_tp!=0 else np.nan
-    expected_y_recall=y_tp/y_fn_tp if y_fn_tp!=0 else np.nan
-    expected_z_precision=z_tp/z_fp_tp if z_fp_tp!=0 else np.nan
-    expected_z_recall=z_tp/z_fn_tp if z_fn_tp!=0 else np.nan
-
-
-    evaluator = Evaluator(model=MockTokensModel(prediction=None))
-    evaluation_score = evaluator.calculate_score(
-        evaluation_results=[EvaluationResult(results)])
-
-    assert evaluation_score.entity_precision_dict["X"] == expected_x_precision
-    assert evaluation_score.entity_recall_dict["X"] == expected_x_recall
-    assert evaluation_score.entity_precision_dict["Y"] == expected_y_precision
-    assert evaluation_score.entity_recall_dict["Y"] == expected_y_recall
-    assert evaluation_score.entity_precision_dict["Z"] == expected_z_precision
-    assert evaluation_score.entity_recall_dict["Z"] == expected_z_recall
+    # Test filtering for CITY entity (which is annotated as LOCATION)
+    df_city = evaluator.get_results_dataframe(results, entities=["CITY"])
+    assert list(df_city["annotation"]) == ["O", "O", "O", "O", "O"]  # LOCATION is filtered out
+    assert list(df_city["prediction"]) == ["O", "O", "O", "CITY", "O"]
