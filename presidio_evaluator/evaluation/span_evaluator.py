@@ -325,97 +325,97 @@ class SpanEvaluator(BaseEvaluator):
         evaluation_result = self._calculate_per_type_metrics(evaluation_result, beta)
         return evaluation_result
 
-    def _match_predictions_with_annotations(
-        self,
-        annotation_spans: List[Span],
-        prediction_spans: List[Span],
-        evaluation_result: EvaluationResult,
-    ) -> EvaluationResult:
-        """
-        Match predictions to annotations and calculate metrics.
+    # def _match_predictions_with_annotations(
+    #     self,
+    #     annotation_spans: List[Span],
+    #     prediction_spans: List[Span],
+    #     evaluation_result: EvaluationResult,
+    # ) -> EvaluationResult:
+    #     """
+    #     Match predictions to annotations and calculate metrics.
 
-        :param annotation_spans: List of annotation Span objects
-        :param prediction_spans: List of prediction Span objects
-        :param evaluation_result: EvaluationResult object to update with matching results
+    #     :param annotation_spans: List of annotation Span objects
+    #     :param prediction_spans: List of prediction Span objects
+    #     :param evaluation_result: EvaluationResult object to update with matching results
 
-        """
-        matched_preds = set()
-        if not evaluation_result.model_errors:
-            evaluation_result.model_errors = []
-        # Process each annotation and find its best matching prediction
-        for ann_span in annotation_spans:
-            best_match, best_iou = self._find_best_match(
-                ann_span, prediction_spans, matched_preds
-            )
+    #     """
+    #     matched_preds = set()
+    #     if not evaluation_result.model_errors:
+    #         evaluation_result.model_errors = []
+    #     # Process each annotation and find its best matching prediction
+    #     for ann_span in annotation_spans:
+    #         best_match, best_iou = self._find_best_match(
+    #             ann_span, prediction_spans, matched_preds
+    #         )
 
-            if best_match and best_iou >= self.iou_threshold:
-                # Count as true positive
-                evaluation_result.pii_true_positives += 1
+    #         if best_match and best_iou >= self.iou_threshold:
+    #             # Count as true positive
+    #             evaluation_result.pii_true_positives += 1
 
-                # Handle type matching/mismatching
-                if best_match.entity_type == ann_span.entity_type:
-                    evaluation_result.per_type[ann_span.entity_type].true_positives += 1
-                    evaluation_result.results[
-                        (ann_span.entity_type, best_match.entity_type)
-                    ] += 1
-                else:
-                    # Record type mismatch
-                    evaluation_result.results[
-                        (ann_span.entity_type, best_match.entity_type)
-                    ] += 1
-                    model_error = ModelError(
-                        error_type=ErrorType.WrongEntity,
-                        annotation=ann_span.entity_type,
-                        prediction=best_match.entity_type,
-                        full_text=ann_span.entity_value,
-                        token=" ".join(ann_span.normalized_tokens),
-                        explanation=f"Wrong entity between {ann_span} "
-                        f"and {best_match}. "
-                        f"IoU: {best_iou}",
-                    )
+    #             # Handle type matching/mismatching
+    #             if best_match.entity_type == ann_span.entity_type:
+    #                 evaluation_result.per_type[ann_span.entity_type].true_positives += 1
+    #                 evaluation_result.results[
+    #                     (ann_span.entity_type, best_match.entity_type)
+    #                 ] += 1
+    #             else:
+    #                 # Record type mismatch
+    #                 evaluation_result.results[
+    #                     (ann_span.entity_type, best_match.entity_type)
+    #                 ] += 1
+    #                 model_error = ModelError(
+    #                     error_type=ErrorType.WrongEntity,
+    #                     annotation=ann_span.entity_type,
+    #                     prediction=best_match.entity_type,
+    #                     full_text=ann_span.entity_value,
+    #                     token=" ".join(ann_span.normalized_tokens),
+    #                     explanation=f"Wrong entity between {ann_span} "
+    #                     f"and {best_match}. "
+    #                     f"IoU: {best_iou}",
+    #                 )
 
-                    evaluation_result.model_errors.append(model_error)
+    #                 evaluation_result.model_errors.append(model_error)
 
-                    # Update per-type metrics for the annotation
-                    evaluation_result.per_type[
-                        ann_span.entity_type
-                    ].false_negatives += 1
+    #                 # Update per-type metrics for the annotation
+    #                 evaluation_result.per_type[
+    #                     ann_span.entity_type
+    #                 ].false_negatives += 1
 
-                    # Update per-type metrics for the prediction
-                    evaluation_result.per_type[
-                        best_match.entity_type
-                    ].false_positives += 1
+    #                 # Update per-type metrics for the prediction
+    #                 evaluation_result.per_type[
+    #                     best_match.entity_type
+    #                 ].false_positives += 1
 
-                # Mark prediction as matched
-                matched_preds.add(
-                    (
-                        best_match.entity_type,
-                        best_match.start_position,
-                        best_match.end_position,
-                    )
-                )
-            else:
-                # No match found - false negative
-                evaluation_result.results[(ann_span.entity_type, "O")] += 1
-                evaluation_result.per_type[ann_span.entity_type].false_negatives += 1
+    #             # Mark prediction as matched
+    #             matched_preds.add(
+    #                 (
+    #                     best_match.entity_type,
+    #                     best_match.start_position,
+    #                     best_match.end_position,
+    #                 )
+    #             )
+    #         else:
+    #             # No match found - false negative
+    #             evaluation_result.results[(ann_span.entity_type, "O")] += 1
+    #             evaluation_result.per_type[ann_span.entity_type].false_negatives += 1
 
-                model_error = ModelError(
-                    error_type=ErrorType.FN,
-                    annotation=ann_span.entity_type,
-                    prediction="O",
-                    full_text=ann_span.entity_value,
-                    token=" ".join(ann_span.normalized_tokens),
-                    explanation=f"False negative for {ann_span} "
-                    f"Reason: {'low_iou' if best_match else 'missed'} ",
-                )
-                evaluation_result.model_errors.append(model_error)
+    #             model_error = ModelError(
+    #                 error_type=ErrorType.FN,
+    #                 annotation=ann_span.entity_type,
+    #                 prediction="O",
+    #                 full_text=ann_span.entity_value,
+    #                 token=" ".join(ann_span.normalized_tokens),
+    #                 explanation=f"False negative for {ann_span} "
+    #                 f"Reason: {'low_iou' if best_match else 'missed'} ",
+    #             )
+    #             evaluation_result.model_errors.append(model_error)
 
-        # Handle unmatched predictions as false positives
-        evaluation_result = self._handle_unmatched_predictions(
-            prediction_spans, matched_preds, evaluation_result
-        )
+    #     # Handle unmatched predictions as false positives
+    #     evaluation_result = self._handle_unmatched_predictions(
+    #         prediction_spans, matched_preds, evaluation_result
+    #     )
 
-        return evaluation_result
+    #     return evaluation_result
 
     def _calculate_per_type_metrics(
         self,
@@ -682,3 +682,185 @@ class SpanEvaluator(BaseEvaluator):
         recall = self.recall(tp=true_positives, num_annotated=num_annotated)
         f_beta = self.f_beta(precision=precision, recall=recall, beta=beta)
         return precision, recall, f_beta
+
+
+    def _match_predictions_with_annotations(
+        self,
+        annotation_spans: List[Span],
+        prediction_spans: List[Span],
+        evaluation_result: EvaluationResult,
+    ) -> EvaluationResult:
+        """
+        Match predictions to annotations in a single pass.
+        For each annotation, incrementally add prediction spans as long as they improve the IoU.
+
+        :param annotation_spans: List of annotation Span objects
+        :param prediction_spans: List of prediction Span objects
+        :param evaluation_result: EvaluationResult object to update
+        :return: Updated EvaluationResult
+        """
+        matched_predictions_global = set()  # For PII metrics (type-agnostic)
+        matched_predictions_per_type = set()  # For per-entity metrics (type-specific)
+
+        if not evaluation_result.model_errors:
+            evaluation_result.model_errors = []
+
+        # Process each annotation span
+        for ann_span in annotation_spans:
+            # Find all intersecting prediction spans that haven't been matched yet (for global metrics)
+            overlapping_preds = []
+            for pred_span in prediction_spans:
+                # Skip already matched predictions (for global metrics)
+                pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+                if pred_key in matched_predictions_global:
+                    continue
+
+                iou = self.calculate_iou(ann_span, pred_span, char_based=self.char_based)
+                if iou > 0:  # Any overlap
+                    overlapping_preds.append((pred_span, iou))
+
+            # Sort by position for consistent processing
+            overlapping_preds.sort(key=lambda x: x[0].start_position)
+
+            # 1. For global PII metrics (type-agnostic)
+            matched_preds_global = []
+            current_iou_global = 0.0
+
+            for pred_span, _ in overlapping_preds:
+                # Calculate IoU with current matched predictions plus this one
+                test_preds = matched_preds_global + [pred_span]
+                combined_iou = self._calculate_combined_iou(ann_span, test_preds)
+
+                # Add prediction if it improves IoU
+                if combined_iou > current_iou_global:
+                    matched_preds_global.append(pred_span)
+                    current_iou_global = combined_iou
+
+            # 2. For per-entity metrics (type-specific)
+            matched_preds_per_type = []
+            current_iou_per_type = 0.0
+
+            # Only consider predictions with matching entity types for per-entity metrics
+            type_matching_preds = [(p, iou) for p, iou in overlapping_preds 
+                                if p.entity_type == ann_span.entity_type and
+                                (p.entity_type, p.start_position, p.end_position) not in matched_predictions_per_type]
+
+            for pred_span, _ in type_matching_preds:
+                test_preds = matched_preds_per_type + [pred_span]
+                combined_iou = self._calculate_combined_iou(ann_span, test_preds)
+
+                if combined_iou > current_iou_per_type:
+                    matched_preds_per_type.append(pred_span)
+                    current_iou_per_type = combined_iou
+
+            # If we found a good set of predictions for global metrics
+            if current_iou_global >= self.iou_threshold and matched_preds_global:
+                # Count as true positive for global PII metrics
+                evaluation_result.pii_true_positives += 1
+
+                # Mark all used predictions as matched for global metrics
+                for pred_span in matched_preds_global:
+                    pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+                    matched_predictions_global.add(pred_key)
+
+                    # Record entity matches/mismatches in confusion matrix
+                    evaluation_result.results[(ann_span.entity_type, pred_span.entity_type)] = \
+                        evaluation_result.results.get((ann_span.entity_type, pred_span.entity_type), 0) + 1
+
+                    # Record entity type mismatches in error analysis
+                    if pred_span.entity_type != ann_span.entity_type:
+                        evaluation_result.model_errors.append(
+                            ModelError(
+                                error_type=ErrorType.WrongEntity,
+                                annotation=ann_span.entity_type,
+                                prediction=pred_span.entity_type,
+                                full_text=ann_span.entity_value,
+                                token=" ".join(ann_span.normalized_tokens),
+                                explanation=f"Wrong entity type: {ann_span.entity_type} detected as {pred_span.entity_type}"
+                            )
+                        )
+
+            # For per-entity metrics, if we have matching entity type predictions with good IoU
+            if current_iou_per_type >= self.iou_threshold and matched_preds_per_type:
+                # Record true positives for this entity type
+                evaluation_result.per_type[ann_span.entity_type].true_positives += 1
+
+                # Mark these predictions as matched for per-entity metrics
+                for pred_span in matched_preds_per_type:
+                    pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+                    matched_predictions_per_type.add(pred_key)
+            else:
+                # False negative for this entity type
+                evaluation_result.per_type[ann_span.entity_type].false_negatives += 1
+
+            # If no good match found for global metrics, count as false negative
+            if current_iou_global < self.iou_threshold or not matched_preds_global:
+                # False negative for global metrics
+                evaluation_result.results[(ann_span.entity_type, "O")] = \
+                    evaluation_result.results.get((ann_span.entity_type, "O"), 0) + 1
+                evaluation_result.model_errors.append(
+                    ModelError(
+                        error_type=ErrorType.FN,
+                        annotation=ann_span.entity_type,
+                        prediction="O",
+                        full_text=ann_span.entity_value,
+                        token=" ".join(ann_span.normalized_tokens),
+                        explanation=f"Entity {ann_span.entity_type} not detected: {ann_span.entity_value}"
+                    )
+                )
+
+        # Process unmatched predictions (false positives)
+        for pred_span in prediction_spans:
+            pred_key = (pred_span.entity_type, pred_span.start_position, pred_span.end_position)
+            
+            # Global metrics - process unmatched predictions
+            if pred_key not in matched_predictions_global:
+                evaluation_result.results[("O", pred_span.entity_type)] = \
+                    evaluation_result.results.get(("O", pred_span.entity_type), 0) + 1
+                evaluation_result.model_errors.append(
+                    ModelError(
+                        error_type=ErrorType.FP,
+                        annotation="O",
+                        prediction=pred_span.entity_type,
+                        full_text=pred_span.entity_value,
+                        token=" ".join(pred_span.normalized_tokens),
+                        explanation=f"False prediction: {pred_span.entity_type}"
+                    )
+                )
+            
+            # Per-entity metrics - record false positives
+            if pred_key not in matched_predictions_per_type:
+                evaluation_result.per_type[pred_span.entity_type].false_positives += 1
+
+        return evaluation_result
+    
+    def _calculate_combined_iou(self, annotation_span: Span, prediction_spans: List[Span]) -> float:
+        """
+        Calculate the combined IoU of multiple prediction spans against an annotation span.
+        
+        :param annotation_span: The annotation span to match against
+        :param prediction_spans: List of prediction spans that potentially overlap
+        :return: Combined IoU value between 0 and 1
+        """
+        if not prediction_spans:
+            return 0.0
+        
+        if self.char_based:
+            # Character-based IoU
+            ann_chars = set(range(annotation_span.start_position, annotation_span.end_position))
+            pred_chars = set()
+            for pred_span in prediction_spans:
+                pred_chars.update(range(pred_span.start_position, pred_span.end_position))
+            
+            intersection = len(ann_chars.intersection(pred_chars))
+            union = len(ann_chars.union(pred_chars))
+        else:
+            # Token-based IoU
+            ann_tokens = set(annotation_span.normalized_tokens)
+            pred_tokens = set()
+            for pred_span in prediction_spans:
+                pred_tokens.update(pred_span.normalized_tokens)
+            
+            intersection = len(ann_tokens.intersection(pred_tokens))
+            union = len(ann_tokens.union(pred_tokens))
+        return intersection / union if union > 0 else 0.0
