@@ -744,6 +744,8 @@ class SpanEvaluator(BaseEvaluator):
             type_matching_preds = [(p, iou) for p, iou in overlapping_preds 
                                 if p.entity_type == ann_span.entity_type and
                                 (p.entity_type, p.start_position, p.end_position) not in matched_predictions_per_type]
+            # type_matching_preds = [(p, iou) for p, iou in overlapping_preds 
+            #                     if (p.entity_type, p.start_position, p.end_position) not in matched_predictions_per_type]
 
             for pred_span, _ in type_matching_preds:
                 test_preds = matched_preds_per_type + [pred_span]
@@ -849,9 +851,13 @@ class SpanEvaluator(BaseEvaluator):
             # Character-based IoU
             ann_chars = set(range(annotation_span.start_position, annotation_span.end_position))
             pred_chars = set()
-            for pred_span in prediction_spans:
-                pred_chars.update(range(pred_span.start_position, pred_span.end_position))
-            
+            for i, pred_span in enumerate(prediction_spans):
+                if i == 0:
+                    pred_chars.update(range(pred_span.start_position, pred_span.end_position))
+                else:
+                    pred_chars.update(
+                        range(pred_span.start_position - 1, pred_span.end_position)
+                    )
             intersection = len(ann_chars.intersection(pred_chars))
             union = len(ann_chars.union(pred_chars))
         else:

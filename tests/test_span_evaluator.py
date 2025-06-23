@@ -481,6 +481,36 @@ def mock_span_evaluator():
             2,
             True,
         ),
+        (
+            ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["ADDRESS", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["123", "Main", "Street", "Suite", "100", "is"],
+            [0, 4, 9, 16, 22, 26],
+            1,
+            1,
+            1,
+            True,
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["PERSON", "PERSON", "O", "PERSON", "O"],
+            ["Dr.", "John", "F.", "Kennedy", "spoke"],
+            [0, 4, 9, 12, 20],
+            1,
+            1,
+            1,
+            True,
+        ),
+        (
+            ["PERSON", "PERSON", "PERSON", "O"],
+            ["TITLE", "PERSON", "LOCATION", "O"],
+            ["Dr.", "John", "London", "arrived"],
+            [0, 4, 9, 15],
+            1,  # Global PII metric counts as TP
+            1,
+            1,
+            True,
+        ),
     ],
 )
 def test_evaluate(
