@@ -1217,3 +1217,20 @@ def test_error_analysis(
                     f"got {eval_result.per_type[entity_type].false_negatives}"
                 )
 # fmt: on
+
+
+def test_mixture_of_entities():
+    """Test that the evaluator can handle a mixture of entity types."""
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0]*19,
+            "token": ["The","address","of", "Persint", "is", "6750", "Koskikatu", "25",	"Apt", ".",	"864","", "Artilleros","", ",", "CO", "",	"Uruguay", "64677"],
+            "annotation": ["O",	"O",	"O",	"ORGANIZATION",	"O",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION"],
+            "prediction": ["O",	"O",	"O",	"PERSON",    	"O",	"LOCATION",	"LOCATION",	"O",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"O","LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION",	"PHONE_NUMBER",],
+            "start_indices": [0,	4,	12,	15,	23,	26,	31,	41,	44,	47,	49,	52,	53,	63,	64,	66,	68,	70,	78],
+        }
+    )
+
+    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
+    result = evaluator.calculate_score_on_df(df)
+    print(result)
