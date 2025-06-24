@@ -503,7 +503,7 @@ class SpanEvaluator(BaseEvaluator):
 
             # Update total counts
             evaluation_result.pii_annotated += len(annotation_spans)
-            evaluation_result.pii_predicted += len(prediction_spans)
+            #evaluation_result.pii_predicted += len(prediction_spans)
 
             # Update per-entity type counts
             evaluation_result = self._update_per_type_counts(
@@ -759,6 +759,7 @@ class SpanEvaluator(BaseEvaluator):
             if current_iou_global >= self.iou_threshold and matched_preds_global:
                 # Count as true positive for global PII metrics
                 evaluation_result.pii_true_positives += 1
+                evaluation_result.pii_predicted += 1 # Count this as one prediction, instead of multiple predictions
 
                 # Mark all used predictions as matched for global metrics
                 for pred_span in matched_preds_global:
@@ -829,6 +830,8 @@ class SpanEvaluator(BaseEvaluator):
                         explanation=f"False prediction: {pred_span.entity_type}"
                     )
                 )
+
+                evaluation_result.pii_predicted += 1
             
             # Per-entity metrics - record false positives
             if pred_key not in matched_predictions_per_type:
@@ -849,14 +852,14 @@ class SpanEvaluator(BaseEvaluator):
         
         if self.char_based:
             # Character-based IoU
-            ann_chars = set(range(annotation_span.start_position, annotation_span.end_position))
+            ann_chars = set(range(annotation_span.normalized_start_index, annotation_span.normalized_end_index + 1))
             pred_chars = set()
             for i, pred_span in enumerate(prediction_spans):
                 if i == 0:
-                    pred_chars.update(range(pred_span.start_position, pred_span.end_position))
+                    pred_chars.update(range(pred_span.normalized_start_index, pred_span.normalized_end_index + 1))
                 else:
                     pred_chars.update(
-                        range(pred_span.start_position - 1, pred_span.end_position)
+                        range(pred_span.normalized_start_index - 1, pred_span.normalized_end_index)
                     )
             intersection = len(ann_chars.intersection(pred_chars))
             union = len(ann_chars.union(pred_chars))
