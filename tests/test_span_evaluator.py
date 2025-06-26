@@ -540,8 +540,10 @@ def test_evaluate(
         iou_threshold=0.9,
         char_based=char_based,
     )
-    result = evaluator.calculate_score_on_df(df)
-
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
     # Calculate expected metrics
     expected_recall = TP / num_annotated if num_annotated > 0 else np.nan
     expected_precision = TP / num_predicted if num_predicted > 0 else np.nan
@@ -582,7 +584,10 @@ def test_evaluate_with_custom_skipwords():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.9, skip_words=["bill"])
-    result = evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
 
     # Calculate expected metrics
     expected_recall = 1
@@ -823,7 +828,11 @@ def test_match_predictions_with_annotations(mock_span_evaluator):
 
 def test_calculate_score_on_df_with_perfect_match(mock_span_evaluator, sample_df):
     """Test end-to-end evaluation with perfect prediction-annotation match."""
-    result = mock_span_evaluator.calculate_score_on_df(sample_df)
+    # Run evaluation
+    result = EvaluationResult()
+    result = mock_span_evaluator.calculate_score_on_df(per_type=True, results_df=sample_df, evaluation_result=result)
+    global_pii_df = mock_span_evaluator.create_global_entities_df(results_df=sample_df)
+    result = mock_span_evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
 
     # Check key metrics
     assert result.pii_annotated == 2  # PERSON and LOCATION
@@ -874,7 +883,10 @@ def test_calculate_score_on_df_with_errors():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.4, char_based=True)
-    result = evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
 
     # Check total counts
     assert result.pii_annotated == 2  # PERSON and LOCATION spans
@@ -904,7 +916,10 @@ def test_calculate_score_on_df_per_type_metrics_are_correct(
     mock_span_evaluator, sample_df
 ):
     """Test that per-type metrics are correctly calculated."""
-    result = mock_span_evaluator.calculate_score_on_df(sample_df)
+    result = EvaluationResult()
+    result = mock_span_evaluator.calculate_score_on_df(per_type=True, results_df=sample_df, evaluation_result=result)
+    global_pii_df = mock_span_evaluator.create_global_entities_df(results_df=sample_df)
+    result = mock_span_evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
 
     # Check per-type metrics
     assert "PERSON" in result.per_type
@@ -935,8 +950,11 @@ def test_corner_case_empty_dataset():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = evaluator.calculate_score_on_df(df)
-
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
+        
     # Check that metrics are properly initialized for empty data
     assert result.pii_annotated == 0
     assert result.pii_predicted == 0
@@ -959,7 +977,11 @@ def test_corner_case_unicode_handling():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
+    
 
     # Check Unicode is properly handled
     assert result.pii_annotated == 2  # PERSON and LOCATION
@@ -983,7 +1005,7 @@ def test_span_edge_cases():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-
+    
     # Test span creation with unusual tokens
     spans = evaluator._create_spans(df, "annotation")
     spans = evaluator._merge_adjacent_spans(spans, df)
@@ -993,7 +1015,11 @@ def test_span_edge_cases():
     assert spans[0].normalized_tokens == ["john", "smith"]
 
     # Run full evaluation
-    result = evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
+    
     assert result.pii_annotated == 1
     assert result.pii_predicted == 1
     assert result.pii_true_positives == 1
@@ -1170,8 +1196,10 @@ def test_error_analysis(
     )
 
     # Run evaluation
-    eval_result = mock_span_evaluator.calculate_score_on_df(df)
-
+    eval_result = EvaluationResult()
+    eval_result = mock_span_evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=eval_result)
+    global_pii_df = mock_span_evaluator.create_global_entities_df(results_df=df)
+    eval_result = mock_span_evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=eval_result)
     # Verify expected error types are present (not the exact count)
     error_types = [error.error_type for error in eval_result.model_errors]
     for expected_type in expected_errors_types:
@@ -1232,5 +1260,9 @@ def test_mixture_of_entities():
     )
 
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    global_pii_df = evaluator.create_global_entities_df(results_df=df)
+    result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
+
     print(result)
