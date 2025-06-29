@@ -59,7 +59,7 @@ def mock_span_evaluator():
 
 
 @pytest.mark.parametrize(
-    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, char_based",
+    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, char_based, expected_per_type",
     [
         # BASIC ENTITY MATCHING
         (
@@ -67,20 +67,16 @@ def mock_span_evaluator():
             ["PERSON", "O", "O", "O"],
             ["David", "is", "my", "friend"],
             [0, 6, 9, 12],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["EMAIL", "O", "O", "O"],
             ["EMAIL", "O", "O", "O"],
             ["user@example.com", "sent", "a", "message"],
             [0, 17, 22, 24],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"EMAIL": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         # SKIP WORD HANDLING
         (
@@ -88,30 +84,24 @@ def mock_span_evaluator():
             ["PERSON", "O", "PERSON", "O"],
             ["David", "is", "living", "abroad"],
             [0, 6, 9, 16],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "PERSON", "O"],
             ["PERSON", "O", "PERSON", "O"],
             ["John", "and", "Mary", "came"],
             [0, 5, 9, 14],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "O", "O", "PERSON", "O"],
             ["PERSON", "O", "O", "O", "PERSON", "O"],
             ["John", "and", "the", "other", "Smith", "arrived"],
             [0, 5, 9, 13, 19, 25],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         # PUNCTUATION HANDLING
         (
@@ -119,40 +109,32 @@ def mock_span_evaluator():
             ["PERSON", "PERSON", "PERSON", "PERSON"],
             ["David", ",", "Maxwell", "Morris"],
             [0, 6, 8, 16],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "O", "PERSON"],
             ["PERSON", "O", "O", "PERSON"],
             ["David", "-", "-", "Morris"],
             [0, 6, 8, 10],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "PERSON", "O"],
             ["PERSON", "O", "PERSON", "O"],
             ["Dr.", ",", "Smith", "arrived"],
             [0, 4, 6, 12],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "O", "O", "PERSON"],
             ["PERSON", "O", "O", "O", "PERSON"],
             ["James", ".", "-", "/", "Bond"],
             [0, 6, 8, 10, 12],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         # BOUNDARY MISMATCHES
         (
@@ -160,50 +142,40 @@ def mock_span_evaluator():
             ["O", "LOCATION", "LOCATION", "O"],
             ["New", "York", "City", "is"],
             [0, 4, 9, 14],
-            0,
-            1,
-            1,
-            False,
+            0, 1, 1, False,
+            {"LOCATION": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["O", "O", "PERSON", "PERSON"],
             ["O", "PERSON", "O", "PERSON"],
             ["I", "met", "John", "Doe"],
             [0, 2, 6, 11],
-            0,
-            1,
-            2,
-            False,
+            0, 1, 2, False,
+            {"PERSON": {"tp": 0, "fp": 2, "fn": 1, "num_annotated": 1, "num_predicted": 2, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "PERSON", "PERSON", "PERSON"],
             ["Anna", "Marie", "Smith", "Loves"],
             [0, 5, 11, 17],
-            0,
-            1,
-            1,
-            False,
+            0, 1, 1, False,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON"],
             ["PERSON", "PERSON", "O"],
             ["John", "Doe", "Smith"],
             [0, 5, 9],
-            0,
-            1,
-            1,
-            False,
+            0, 1, 1, False,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["O", "PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "PERSON", "PERSON", "O", "O"],
             ["Mr", "John", "Middle", "Smith", "Jr"],
             [0, 3, 8, 15, 21],
-            0,
-            1,
-            1,
-            False,
+            0, 1, 1, False,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         # ENTITY TYPE MISMATCHES
         (
@@ -211,20 +183,22 @@ def mock_span_evaluator():
             ["LOCATION", "O", "O", "O"],
             ["Paris", "is", "beautiful", "today"],
             [0, 6, 9, 19],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {
+                "PERSON": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0},
+                "LOCATION": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}
+            },
         ),
         (
             ["CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD"],
             ["PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER"],
             ["1234", "5678", "9012", "3456"],
             [0, 5, 10, 15],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {
+                "CREDIT_CARD": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0},
+                "PHONE_NUMBER": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}
+            },
         ),
         # MULTIPLE ENTITY SCENARIOS
         (
@@ -232,60 +206,62 @@ def mock_span_evaluator():
             ["PERSON", "O", "PERSON", "PERSON"],
             ["Alice", "went", "to", "Paris"],
             [0, 6, 11, 14],
-            2,
-            2,
-            2,
-            False,
+            2, 2, 2, False,
+            {
+                "PERSON": {"tp": 1, "fp": 1, "fn": 0, "num_annotated": 1, "num_predicted": 2, "precision": 0.5, "recall": 1.0},
+                "LOCATION": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0}
+            },
         ),
         (
             ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
             ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
             ["Barack", "Obama", "visited", "New", "York"],
             [0, 7, 13, 21, 25],
-            2,
-            2,
-            2,
-            False,
+            2, 2, 2, False,
+            {
+                "PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0},
+                "LOCATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}
+            },
         ),
         (
             ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
             ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
             ["John", "Doe", "and", "Jane", "Smith"],
             [0, 5, 9, 13, 18],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
             ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
             ["John", "Doe", "and", "Jane", "Smith"],
             [0, 5, 9, 13, 18],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "O", "PERSON", "O", "LOCATION"],
             ["PERSON", "O", "PERSON", "O", "LOCATION"],
             ["John", "met", "Jane", "in", "Paris"],
             [0, 5, 9, 14, 17],
-            3,
-            3,
-            3,
-            True,
+            2, 2, 2, True,
+            {
+                "PERSON": {"tp": 2, "fp": 0, "fn": 0, "num_annotated": 2, "num_predicted": 2, "precision": 1.0, "recall": 1.0},
+                "LOCATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}
+            },
         ),
         (
             ["PERSON", "PERSON", "O", "LOCATION", "O", "DATE", "DATE"],
             ["PERSON", "PERSON", "O", "ORGANIZATION", "O", "DATE", "O"],
             ["John", "Smith", "visited", "London", "on", "January", "1st"],
             [0, 5, 11, 19, 26, 29, 37],
-            2,
-            3,
-            3,
-            False,
+            1, 2, 2, False,
+            {
+                "PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0},
+                "LOCATION": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0},
+                "DATE": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0},
+                "ORGANIZATION": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}
+            },
         ),
         # OVERLAPPING/NESTED ENTITIES
         (
@@ -293,20 +269,16 @@ def mock_span_evaluator():
             ["PERSON", "O", "PERSON", "PERSON", "O"],
             ["Sir", "Arthur", "Conan", "Doyle", "wrote"],
             [0, 4, 11, 17, 23],
-            0,
-            1,
-            2,
-            False,
+            0, 1, 2, False,
+            {"PERSON": {"tp": 0, "fp": 2, "fn": 1, "num_annotated": 1, "num_predicted": 2, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "O", "PERSON", "PERSON"],
             ["James", "Robert", "Smith", "III"],
             [0, 6, 13, 19],
-            0,
-            1,
-            2,
-            False,
+            0, 1, 2, False,
+            {"PERSON": {"tp": 0, "fp": 2, "fn": 1, "num_annotated": 1, "num_predicted": 2, "precision": 0.0, "recall": 0.0}},
         ),
         # SPECIAL CHARACTERS AND FORMATTING
         (
@@ -314,101 +286,90 @@ def mock_span_evaluator():
             ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
             ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
             [0, 8, 12, 15, 27, 34],
-            2,
-            2,
-            2,
-            False,
+            1, 1, 1, False,
+            {
+                "PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0},
+                "ORGANIZATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}
+            },
         ),
         (
             ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
             ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
             ["United", "-", "States", "Government"],
             [0, 7, 9, 16],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"ORGANIZATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "O", "O"],
             ["PERSON", "PERSON", "O", "O"],
             ["José", "Martínez", "from", "España"],
             [0, 5, 14, 19],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
             ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
             ["ID", "-", "12345"],
             [0, 3, 5],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"ID_NUMBER": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         # EDGE CASES
         (
             ["O"] * 1000,
             ["O"] * 1000,
             ["word"] * 1000,
-            list(range(0, 5000, 5)),  # Start positions spaced by 5 characters
-            0,
-            0,
-            0,
-            False,
+            list(range(0, 5000, 5)),
+            0, 0, 0, False,
+            {},
         ),
         (
             ["O", "O", "O", "O"],
             ["PERSON", "O", "LOCATION", "O"],
             ["This", "is", "London", "now"],
             [0, 5, 8, 15],
-            0,
-            0,
-            1,
-            False,
+            0, 0, 1, False,
+            {
+                "PERSON": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan},
+                "LOCATION": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}
+            },
         ),
         (
             ["PERSON", "O", "LOCATION", "LOCATION"],
             ["O", "O", "O", "O"],
             ["Emma", "travels", "to", "Berlin"],
             [0, 5, 13, 16],
-            0,
-            2,
-            0,
-            False,
+            0, 2, 0, False,
+            {
+                "PERSON": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0},
+                "LOCATION": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0}
+            },
         ),
         (
             ["PERSON", "PERSON", "O", "O"],
             ["O", "O", "O", "O"],
             ["John", "Smith", "works", "here"],
             [0, 5, 11, 17],
-            0,
-            1,
-            0,
-            True,
+            0, 1, 0, True,
+            {"PERSON": {"tp": 0, "fp": 0, "fn": 1, "num_annotated": 1, "num_predicted": 0, "precision": np.nan, "recall": 0.0}},
         ),
         (
             ["O", "O", "O", "O"],
             ["PERSON", "PERSON", "O", "O"],
             ["John", "Smith", "works", "here"],
             [0, 5, 11, 17],
-            0,
-            0,
-            1,
-            True,
+            0, 0, 1, True,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}},
         ),
         (
             ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
             ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
             ["UK", "and", "US", "and", "EU"],
             [0, 3, 7, 10, 14],
-            1,
-            1,
-            1,
-            False,
+            1, 1, 1, False,
+            {"LOCATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         # CHARACTER-BASED EVALUATION
         (
@@ -416,100 +377,90 @@ def mock_span_evaluator():
             ["PERSON", "PERSON", "O", "O"],
             ["John", "Smith", "works", "here"],
             [0, 5, 11, 17],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
             ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
             ["John", "Smith", "visited", "New", "York"],
             [0, 5, 11, 19, 23],
-            2,
-            2,
-            2,
-            True,
+            2, 2, 2, True,
+            {
+                "PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0},
+                "LOCATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}
+            },
         ),
         (
             ["PERSON", "PERSON", "O", "O"],
             ["PERSON", "O", "O", "O"],
             ["John", "Smith", "is", "here"],
             [0, 5, 11, 14],
-            0,
-            1,
-            1,
-            True,
+            0, 1, 1, True,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "PERSON"],
             ["PERSON", "PERSON", "PERSON", "PERSON"],
             ["John", "F.", "Kennedy", "Jr."],
             [0, 5, 8, 16],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "O", "O"],
             ["PERSON", "PERSON", "PERSON", "O"],
             ["John", "Smith", "Jr.", "arrived"],
             [0, 5, 11, 15],
-            0,
-            1,
-            1,
-            True,
+            0, 1, 1, True,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "PERSON", "O", "O"],
             ["John", "F.", "Kennedy", "arrived"],
             [0, 5, 8, 16],
-            0,
-            1,
-            1,
-            True,
+            0, 1, 1, True,
+            {"PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0}},
         ),
         (
             ["PERSON", "PERSON", "O", "ORGANIZATION"],
             ["PERSON", "O", "PERSON", "ORGANIZATION"],
             ["John", "Smith", "at", "Microsoft"],
             [0, 5, 11, 14],
-            1,
-            2,
-            2,
-            True,
+            1, 2, 2, True,
+            {
+                "PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0},
+                "ORGANIZATION": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}
+            },
         ),
         (
             ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
             ["ADDRESS", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
             ["123", "Main", "Street", "Suite", "100", "is"],
             [0, 4, 9, 16, 22, 26],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"ADDRESS": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
             ["PERSON", "PERSON", "O", "PERSON", "O"],
             ["Dr.", "John", "F.", "Kennedy", "spoke"],
             [0, 4, 9, 12, 20],
-            1,
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {"PERSON": {"tp": 1, "fp": 0, "fn": 0, "num_annotated": 1, "num_predicted": 1, "precision": 1.0, "recall": 1.0}},
         ),
         (
             ["PERSON", "PERSON", "PERSON", "O"],
             ["TITLE", "PERSON", "LOCATION", "O"],
             ["Dr.", "John", "London", "arrived"],
             [0, 4, 9, 15],
-            1,  # Global PII metric counts as TP
-            1,
-            1,
-            True,
+            1, 1, 1, True,
+            {
+                "PERSON": {"tp": 0, "fp": 1, "fn": 1, "num_annotated": 1, "num_predicted": 1, "precision": 0.0, "recall": 0.0},
+                "TITLE": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan},
+                "LOCATION": {"tp": 0, "fp": 1, "fn": 0, "num_annotated": 0, "num_predicted": 1, "precision": 0.0, "recall": np.nan}
+            },
         ),
     ],
 )
@@ -522,6 +473,7 @@ def test_evaluate(
     num_annotated,
     num_predicted,
     char_based,
+    expected_per_type,
 ):
     """Test end-to-end evaluation with various input scenarios."""
     # Build the DataFrame expected by SpanEvaluator
@@ -544,6 +496,7 @@ def test_evaluate(
     result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
     global_pii_df = evaluator.create_global_entities_df(results_df=df)
     result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
+    
     # Calculate expected metrics
     expected_recall = TP / num_annotated if num_annotated > 0 else np.nan
     expected_precision = TP / num_predicted if num_predicted > 0 else np.nan
@@ -570,6 +523,54 @@ def test_evaluate(
         assert result.pii_recall == pytest.approx(
             expected_recall
         ), f"Recall mismatch: expected {expected_recall}, got {result.pii_recall}"
+
+    # NEW: Validate per-type metrics using expected values
+    if expected_per_type:
+        for entity_type, expected_metrics in expected_per_type.items():
+            assert entity_type in result.per_type, f"Entity type {entity_type} missing from per_type results"
+            
+            per_type_metrics = result.per_type[entity_type]
+            
+            # Validate counts
+            if "tp" in expected_metrics:
+                assert per_type_metrics.true_positives == expected_metrics["tp"], \
+                    f"Expected {expected_metrics['tp']} true positives for {entity_type}, got {per_type_metrics.true_positives}"
+            
+            if "fp" in expected_metrics:
+                assert per_type_metrics.false_positives == expected_metrics["fp"], \
+                    f"Expected {expected_metrics['fp']} false positives for {entity_type}, got {per_type_metrics.false_positives}"
+            
+            if "fn" in expected_metrics:
+                assert per_type_metrics.false_negatives == expected_metrics["fn"], \
+                    f"Expected {expected_metrics['fn']} false negatives for {entity_type}, got {per_type_metrics.false_negatives}"
+            
+            if "num_annotated" in expected_metrics:
+                assert per_type_metrics.num_annotated == expected_metrics["num_annotated"], \
+                    f"Expected {expected_metrics['num_annotated']} num_annotated for {entity_type}, got {per_type_metrics.num_annotated}"
+            
+            if "num_predicted" in expected_metrics:
+                assert per_type_metrics.num_predicted == expected_metrics["num_predicted"], \
+                    f"Expected {expected_metrics['num_predicted']} num_predicted for {entity_type}, got {per_type_metrics.num_predicted}"
+            
+            # Validate computed metrics
+            if "precision" in expected_metrics:
+                if np.isnan(expected_metrics["precision"]):
+                    assert np.isnan(per_type_metrics.precision), f"Expected NaN precision for {entity_type}"
+                else:
+                    assert per_type_metrics.precision == pytest.approx(expected_metrics["precision"]), \
+                        f"Expected precision {expected_metrics['precision']} for {entity_type}, got {per_type_metrics.precision}"
+            
+            if "recall" in expected_metrics:
+                if np.isnan(expected_metrics["recall"]):
+                    assert np.isnan(per_type_metrics.recall), f"Expected NaN recall for {entity_type}"
+                else:
+                    assert per_type_metrics.recall == pytest.approx(expected_metrics["recall"]), \
+                        f"Expected recall {expected_metrics['recall']} for {entity_type}, got {per_type_metrics.recall}"
+    
+    # Also validate that we don't have unexpected entity types
+    for entity_type in result.per_type:
+        if expected_per_type:
+            assert entity_type in expected_per_type, f"Unexpected entity type {entity_type} found in results"
 
 
 def test_evaluate_with_custom_skipwords():
@@ -1247,22 +1248,21 @@ def test_error_analysis(
 # fmt: on
 
 
-def test_mixture_of_entities():
+def test_mixture_of_entities_global_metrics_are_high():
     """Test that the evaluator can handle a mixture of entity types."""
     df = pd.DataFrame(
         {
             "sentence_id": [0]*19,
-            "token": ["The","address","of", "Persint", "is", "6750", "Koskikatu", "25",	"Apt", ".",	"864","", "Artilleros","", ",", "CO", "",	"Uruguay", "64677"],
-            "annotation": ["O",	"O",	"O",	"ORGANIZATION",	"O",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION"],
-            "prediction": ["O",	"O",	"O",	"PERSON",    	"O",	"LOCATION",	"LOCATION",	"O",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"O","LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION",	"PHONE_NUMBER",],
-            "start_indices": [0,	4,	12,	15,	23,	26,	31,	41,	44,	47,	49,	52,	53,	63,	64,	66,	68,	70,	78],
+            "token": [     "The","address", "of",    "Persint",      "is",  "6750",     "Koskikatu",    "25",	    "Apt",      ".",	    "864",      "",         "Artilleros","",        ",",        "CO",       "",	        "Uruguay",  "64677"], # noqa: E501
+            "annotation": ["O" , "O",	    "O",	 "ORGANIZATION", "O",	"LOCATION",	"LOCATION",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION"],  # noqa: E501
+            "prediction": ["O" , "O",	    "O",	 "PERSON",    	 "O",	"LOCATION",	"LOCATION",	    "O",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"O",        "LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION",	"PHONE_NUMBER",], # noqa: E501
+            "start_indices": [0,  4,	    12,	     15,	         23,	26,	        31,	            41,	        44,	        47,	        49,	        52,	        53,	        63,	        64,	        66,	        68,	        70,	        78], # noqa: E501
         }
     )
-
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = EvaluationResult()
-    result = evaluator.calculate_score_on_df(per_type=True, results_df=df, evaluation_result=result)
+    result = evaluator.calculate_score_on_df(per_type=True, results_df=df)
     global_pii_df = evaluator.create_global_entities_df(results_df=df)
     result = evaluator.calculate_score_on_df(per_type=False, results_df=global_pii_df, evaluation_result=result)
-
-    print(result)
+    assert result.per_type["LOCATION"].f_beta > 0.5
+    assert result.pii_precision > 0.8
+    assert result.pii_recall > 0.8
