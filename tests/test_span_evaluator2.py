@@ -33,14 +33,26 @@ def assert_confusion_matrix(expected_results, result, scenario):
         )
 
 
-def assert_metric(expected_f1, result, scenario):
-    if np.isnan(expected_f1):
-        assert np.isnan(result.pii_f), (
-            f"In {scenario}, expected F1 score to be None, got {result.pii_f}"
+def assert_metric(expected_pii_metric, metric_name, result, scenario):
+
+    metric = ""
+    match metric_name:
+        case "precision":
+            metric = result.pii_precision
+        case "recall":
+            metric = result.pii_recall
+        case "f":
+            metric = result.pii_f
+        case "_":
+            raise ValueError(f"Unknown metric name: {metric_name}")
+
+    if np.isnan(expected_pii_metric):
+        assert np.isnan(metric), (
+            f"In {scenario}, expected F1 score to be None, got {metric}"
         )
     else:
-        assert result.pii_f == pytest.approx(expected_f1, 3), (
-            f"In {scenario}, expected F1 score {expected_f1}, got {result.pii_f}"
+        assert metric == pytest.approx(expected_pii_metric, 3), (
+            f"In {scenario}, expected {metric_name} score {expected_pii_metric}, got {metric}"
         )
 
 
