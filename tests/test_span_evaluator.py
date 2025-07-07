@@ -262,15 +262,15 @@ def mock_span_evaluator():
             [0, 4, 9, 14],
             0,
             1,
-            1,
+            0, # Not counted as a prediction (Scenario 5A)
             False,
             {
                 "LOCATION": {
                     "tp": 0,
-                    "fp": 1,
+                    "fp": 0, # Not considered FP (Scenario 5A)
                     "fn": 1,
                     "num_annotated": 1,
-                    "num_predicted": 1,
+                    "num_predicted": 0,
                     "precision": 0.0,
                     "recall": 0.0,
                 }
@@ -2072,106 +2072,29 @@ def test_error_analysis(
                     f"Expected {metrics['fn']} false negatives for {entity_type}, "
                     f"got {eval_result.per_type[entity_type].false_negatives}"
                 )
-# fmt: on
+
 
 
 def test_mixture_of_entities_global_metrics_are_high():
     """Test that the evaluator can handle a mixture of entity types."""
     df = pd.DataFrame(
         {
-            "sentence_id": [0] * 19,
-            "token": [
-                "The",
-                "address",
-                "of",
-                "Persint",
-                "is",
-                "6750",
-                "Koskikatu",
-                "25",
-                "Apt",
-                ".",
-                "864",
-                "",
-                "Artilleros",
-                "",
-                ",",
-                "CO",
-                "",
-                "Uruguay",
-                "64677",
-            ],  # noqa: E501
-            "annotation": [
-                "O",
-                "O",
-                "O",
-                "ORGANIZATION",
-                "O",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-            ],  # noqa: E501
-            "prediction": [
-                "O",
-                "O",
-                "O",
-                "PERSON",
-                "O",
-                "LOCATION",
-                "LOCATION",
-                "O",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "O",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "PHONE_NUMBER",
-            ],  # noqa: E501
-            "start_indices": [
-                0,
-                4,
-                12,
-                15,
-                23,
-                26,
-                31,
-                41,
-                44,
-                47,
-                49,
-                52,
-                53,
-                63,
-                64,
-                66,
-                68,
-                70,
-                78,
-            ],  # noqa: E501
+            "sentence_id": [0]*19,
+            "token": [     "The","address", "of",    "Persint",      "is",  "6750",     "Koskikatu",    "25",	    "Apt",      ".",	    "864",      "",         "Artilleros","",        ",",        "CO",       "",	        "Uruguay",  "64677"], # noqa: E501
+            "annotation": ["O" , "O",	    "O",	 "ORGANIZATION", "O",	"LOCATION",	"LOCATION",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION"],  # noqa: E501
+            "prediction": ["O" , "O",	    "O",	 "PERSON",    	 "O",	"LOCATION",	"LOCATION",	    "O",	    "LOCATION",	"LOCATION",	"LOCATION",	"LOCATION",	"O",        "LOCATION",	"LOCATION", "LOCATION",	"LOCATION",	"LOCATION",	"PHONE_NUMBER",], # noqa: E501
+            "start_indices": [0,  4,	    12,	     15,	         23,	26,	        31,	            41,	        44,	        47,	        49,	        52,	        53,	        63,	        64,	        66,	        68,	        70,	        78], # noqa: E501
         }
     )
     evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
     result = evaluator.calculate_score_on_df(per_type=True, results_df=df)
     global_pii_df = evaluator.create_global_entities_df(results_df=df)
     result = evaluator.calculate_score_on_df(
-        per_type=False, results_df=global_pii_df, evaluation_result=result
+        per_type=False,
+        results_df=global_pii_df,
+        evaluation_result=result
     )
     assert result.per_type["LOCATION"].f_beta > 0.5
     assert result.pii_precision > 0.8
     assert result.pii_recall > 0.8
+# fmt: on
