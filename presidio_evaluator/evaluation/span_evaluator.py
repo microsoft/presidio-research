@@ -747,9 +747,8 @@ class SpanEvaluator(BaseEvaluator):
                     evaluation_result.results[(ann_type, "O")] += 1
                 else:
                     evaluation_result.pii_false_negatives += 1
-                    evaluation_result.pii_predicted += 1
 
-            else:  # Scenario 5b (FN and FP)
+            else:  # Scenario 5b - different types (FN and FP)
                 if per_type:
                     evaluation_result.per_type[ann_type].false_negatives += 1
                     evaluation_result.per_type[ann_type].false_positives += 1
@@ -772,13 +771,14 @@ class SpanEvaluator(BaseEvaluator):
                             iou=iou,
                         )
                     )
+
+                    evaluation_result.results[(ann_type, "O")] += 1
+                    evaluation_result.results[("O", pred_type)] += 1
                 else:
                     evaluation_result.pii_false_negatives += 1
                     evaluation_result.pii_false_positives += 1
                     evaluation_result.pii_predicted += 1
 
-                evaluation_result.results[(ann_type, "O")] += 1
-                evaluation_result.results[("O", pred_type)] += 1
 
     def _compare_multiple_overlaps(
         self,
@@ -973,11 +973,14 @@ class SpanEvaluator(BaseEvaluator):
                             f"Entity {ann_span.entity_type} not detected due to low iou={iou:.2f} "
                             f"compared to threshold={self.iou_threshold}"
                         )
-                    else:
+                    elif pred_span and pred_span.entity_type != ann_span.entity_type:
                         return (
-                            f"Entity {ann_span.entity_type} not detected. iou={iou:.2f} "
+                            f"Entity {ann_span.entity_type} not detected. "
+                            f"iou with {pred_span.entity_type}={iou:.2f} "
                             f"compared to threshold={self.iou_threshold}"
                         )
+                    else:
+                        return f"Entity {ann_span.entity_type} not detected."
                 case ErrorType.WrongEntity:
                     return (
                         f"Wrong entity type: {ann_span.entity_type} detected as "
