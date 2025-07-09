@@ -322,7 +322,7 @@ def test_scenario_group2(
 # Test global PII evaluatiom metrics
 
 @pytest.mark.parametrize(
-    "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f1",
+    "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f",
     [
         # Perfect match
         (
@@ -368,7 +368,7 @@ def test_global_metrics(
     start_indices,
     expected_precision,
     expected_recall,
-    expected_f1,
+    expected_f,
 ):
     """Test global PII evaluation metrics."""
     # Build the DataFrame expected by SpanEvaluator
@@ -390,17 +390,156 @@ def test_global_metrics(
     )
 
     # Check global metrics
-    assert_metric(expected_precision, result, scenario)
-    assert_metric(expected_precision, result, scenario)
-    assert_metric(expected_f1, result, scenario)
+    assert_metric(expected_precision, "precision", result, scenario)
+    assert_metric(expected_recall, "recall", result, scenario)
+    assert_metric(expected_f, "f", result, scenario)
 
 
 
-# TODO: Test Both per_type and global metrics together
+# Test Both per_type and global metrics together
+@pytest.mark.parametrize(
+    "scenario, annotation, prediction, tokens, start_indices, expected_per_type_metrics, expected_global_metrics",
+    [
+        # Perfect detection scenario
+        (
+            "Perfect detection: all entities found correctly",
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["John", "Smith", "lives", "in", "Boston", "today"],
+            [0, 5, 11, 17, 20, 27],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+                "LOCATION": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+            },
+            {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+        ),
+        # Address partially detected, with multiple pred spans per annotated span
+        (
+            "Address partially detected: street number found but street name missed",
+            ["PERSON", "O", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["PERSON", "O", "O", "ADDRESS", "O", "ADDRESS", "O"],
+            ["Alice", "lives", "at", "123", "Main", "Street", "downtown"],
+            [0, 6, 12, 15, 19, 24, 31],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+                "ADDRESS": {"precision": 1.0, "recall": 0.3333333333333333, "f1": 0.5},
+            },
+            {"precision": 1.0, "recall": 0.6666666666666666, "f1": 0.8},
+        ),
+        # Mixed entity type confusion
+        (
+            "Entity type confusion: location detected as person",
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["PERSON", "PERSON", "O", "O", "PERSON", "O"],
+            ["Bob", "Davis", "went", "to", "Chicago", "yesterday"],
+            [0, 4, 10, 15, 18, 26],
+            {
+                "PERSON": {"precision": 0.6666666666666666, "recall": 1.0, "f1": 0.8},
+                "LOCATION": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
+            },
+            {"precision": 0.6666666666666666, "recall": 1.0, "f1": 0.8},
+        ),
+        # Complete miss for one entity type
+        (
+            "Complete miss: phone number not detected at all",
+            ["PERSON", "O", "PHONE_NUMBER", "PHONE_NUMBER", "O"],
+            ["PERSON", "O", "O", "O", "O"],
+            ["Sarah", "called", "555", "1234", "today"],
+            [0, 6, 13, 17, 22],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+                "PHONE_NUMBER": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+            },
+            {"precision": 1.0, "recall": 0.5, "f1": 0.6666666666666666},
+        ),
+        # False positive scenario
+        (
+            "False positive: common word detected as entity",
+            ["O", "PERSON", "O", "O", "O", "O"],
+            ["O", "PERSON", "O", "LOCATION", "O", "O"],
+            ["The", "president", "spoke", "about", "security", "issues"],
+            [0, 4, 14, 20, 26, 35],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+                "LOCATION": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
+            },
+            {"precision": 0.5, "recall": 1.0, "f1": 0.6666666666666666},
+        ),
+        # No entities detected
+        (
+            "No detection: all entities missed",
+            ["PERSON", "PERSON", "O", "LOCATION", "O"],
+            ["O", "O", "O", "O", "O"],
+            ["Emma", "Thompson", "visited", "Paris", "today"],
+            [0, 5, 14, 22, 28],
+            {
+                "PERSON": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+            },
+            {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+        ),
+    ],
+)
+def test_combined_per_type_and_global_metrics(
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_per_type_metrics,
+    expected_global_metrics,
+):
+    """Test that per-type and global metrics are calculated correctly together."""
+    # Build the DataFrame expected by SpanEvaluator
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": start_indices,
+        }
+    )
+
+    # Run per-type evaluation
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
+    )
+
+    # Check per-type metrics
+    for entity_type, expected_metrics in expected_per_type_metrics.items():
+        if entity_type in result.per_type:
+            per_type_result = result.per_type[entity_type]
+            if not np.isnan(expected_metrics["precision"]):
+                assert per_type_result.precision == pytest.approx(expected_metrics["precision"], abs=1e-3), (
+                    f"In {scenario}, {entity_type} precision expected {expected_metrics['precision']}, got {per_type_result.precision}"
+                )
+            else:
+                assert np.isnan(per_type_result.precision), f"In {scenario}, {entity_type} precision should be NaN"
+            
+            if not np.isnan(expected_metrics["recall"]):
+                assert per_type_result.recall == pytest.approx(expected_metrics["recall"], abs=1e-3), (
+                    f"In {scenario}, {entity_type} recall expected {expected_metrics['recall']}, got {per_type_result.recall}"
+                )
+            else:
+                assert np.isnan(per_type_result.recall), f"In {scenario}, {entity_type} recall should be NaN"
+
+    # Run global evaluation
+    pii_df = span_evaluator.create_global_entities_df(df)
+    result = span_evaluator.calculate_score_on_df(
+        per_type=False, results_df=pii_df, evaluation_result=result
+    )
+
+    # Check global metrics
+    assert_metric(expected_global_metrics["precision"], "precision", result, scenario)
+    assert_metric(expected_global_metrics["recall"], "recall", result, scenario)
+    assert_metric(expected_global_metrics["f1"], "f", result, scenario)
+
 
 # TODO: Test per-token IoU
 
-# TODO: Text error analysis
+# TODO: Test error analysis
 
-# TODO: Text span creation and skip words handling
-
+# TODO: Test span creation and skip words handling
