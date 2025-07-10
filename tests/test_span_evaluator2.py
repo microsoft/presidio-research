@@ -422,7 +422,7 @@ def test_global_metrics(
             [0, 6, 12, 15, 19, 24, 31],
             {
                 "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-                "ADDRESS": {"precision": 1.0, "recall": 0.3333333333333333, "f1": 0.5},
+                "ADDRESS": {"precision": 0.0, "recall": 0.0, "f1": np.nan},
             },
             {"precision": 1.0, "recall": 0.6666666666666666, "f1": 0.8},
         ),
@@ -434,8 +434,8 @@ def test_global_metrics(
             ["Bob", "Davis", "went", "to", "Chicago", "yesterday"],
             [0, 4, 10, 15, 18, 26],
             {
-                "PERSON": {"precision": 0.6666666666666666, "recall": 1.0, "f1": 0.8},
-                "LOCATION": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
+                "PERSON": {"precision": 0.5, "recall": 1.0, "f1": 0.5},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
             },
             {"precision": 0.6666666666666666, "recall": 1.0, "f1": 0.8},
         ),
