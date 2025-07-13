@@ -38,17 +38,23 @@ def assert_metric(expected_pii_metric, metric_name, result, scenario):
     metric = ""
     match metric_name:
         case "precision":
-            metric = result.pii_precision
+            metric = result.precision
         case "recall":
+            metric = result.recall
+        case "f_beta":
+            metric = result.f_beta
+        case "pii_precision":
+            metric = result.pii_precision
+        case "pii_recall":
             metric = result.pii_recall
-        case "f":
+        case "pii_f":
             metric = result.pii_f
-        case "_":
+        case _:
             raise ValueError(f"Unknown metric name: {metric_name}")
 
     if np.isnan(expected_pii_metric):
         assert np.isnan(metric), (
-            f"In {scenario}, expected F1 score to be None, got {metric}"
+            f"In {scenario}, expected {metric_name} score to be None, got {metric}"
         )
     else:
         assert metric == pytest.approx(expected_pii_metric, 3), (
@@ -408,23 +414,23 @@ def test_global_metrics(
             ["John", "Smith", "lives", "in", "Boston", "today"],
             [0, 5, 11, 17, 20, 27],
             {
-                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-                "LOCATION": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "LOCATION": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
             },
-            {"precision": 1.0, "recall": 1.0, "f1": 1.0},
+            {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
         ),
         # Address partially detected, with multiple pred spans per annotated span
         (
             "Address partially detected: street number found but street name missed",
             ["PERSON", "O", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
             ["PERSON", "O", "O", "ADDRESS", "O", "ADDRESS", "O"],
-            ["Alice", "lives", "at", "123", "Main", "Street", "downtown"],
+            ["Alice", "lives", "at", "123", "Main", "Circle", "downtown"],
             [0, 6, 12, 15, 19, 24, 31],
             {
-                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-                "ADDRESS": {"precision": 0.0, "recall": 0.0, "f1": np.nan},
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "ADDRESS": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
             },
-            {"precision": 1.0, "recall": 0.6666666666666666, "f1": 0.8},
+            {"precision": 1.0, "recall": 0.6666666666666666, "f_beta": 0.8},
         ),
         # Mixed entity type confusion
         (
@@ -434,10 +440,10 @@ def test_global_metrics(
             ["Bob", "Davis", "went", "to", "Chicago", "yesterday"],
             [0, 4, 10, 15, 18, 26],
             {
-                "PERSON": {"precision": 0.5, "recall": 1.0, "f1": 0.5},
-                "LOCATION": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+                "PERSON": {"precision": 0.5, "recall": 1.0, "f_beta": 0.5},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
             },
-            {"precision": 0.6666666666666666, "recall": 1.0, "f1": 0.8},
+            {"precision": 0.6666666666666666, "recall": 1.0, "f_beta": 0.8},
         ),
         # Complete miss for one entity type
         (
@@ -447,10 +453,10 @@ def test_global_metrics(
             ["Sarah", "called", "555", "1234", "today"],
             [0, 6, 13, 17, 22],
             {
-                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-                "PHONE_NUMBER": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "PHONE_NUMBER": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
             },
-            {"precision": 1.0, "recall": 0.5, "f1": 0.6666666666666666},
+            {"precision": 1.0, "recall": 0.5, "f_beta": 0.6666666666666666},
         ),
         # False positive scenario
         (
@@ -460,10 +466,10 @@ def test_global_metrics(
             ["The", "president", "spoke", "about", "security", "issues"],
             [0, 4, 14, 20, 26, 35],
             {
-                "PERSON": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-                "LOCATION": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "LOCATION": {"precision": 0.0, "recall": 0.0, "f_beta": 0.0},
             },
-            {"precision": 0.5, "recall": 1.0, "f1": 0.6666666666666666},
+            {"precision": 0.5, "recall": 1.0, "f_beta": 0.6666666666666666},
         ),
         # No entities detected
         (
@@ -473,10 +479,10 @@ def test_global_metrics(
             ["Emma", "Thompson", "visited", "Paris", "today"],
             [0, 5, 14, 22, 28],
             {
-                "PERSON": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
-                "LOCATION": {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+                "PERSON": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
             },
-            {"precision": np.nan, "recall": 0.0, "f1": np.nan},
+            {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
         ),
     ],
 )
@@ -512,19 +518,10 @@ def test_combined_per_type_and_global_metrics(
     for entity_type, expected_metrics in expected_per_type_metrics.items():
         if entity_type in result.per_type:
             per_type_result = result.per_type[entity_type]
-            if not np.isnan(expected_metrics["precision"]):
-                assert per_type_result.precision == pytest.approx(expected_metrics["precision"], abs=1e-3), (
-                    f"In {scenario}, {entity_type} precision expected {expected_metrics['precision']}, got {per_type_result.precision}"
-                )
-            else:
-                assert np.isnan(per_type_result.precision), f"In {scenario}, {entity_type} precision should be NaN"
-            
-            if not np.isnan(expected_metrics["recall"]):
-                assert per_type_result.recall == pytest.approx(expected_metrics["recall"], abs=1e-3), (
-                    f"In {scenario}, {entity_type} recall expected {expected_metrics['recall']}, got {per_type_result.recall}"
-                )
-            else:
-                assert np.isnan(per_type_result.recall), f"In {scenario}, {entity_type} recall should be NaN"
+            assert_metric(expected_metrics["precision"], "precision", per_type_result, scenario)
+            assert_metric(expected_metrics["recall"], "recall", per_type_result, scenario)
+            assert_metric(expected_metrics["f_beta"], "f_beta", per_type_result, scenario)
+
 
     # Run global evaluation
     pii_df = span_evaluator.create_global_entities_df(df)
@@ -533,9 +530,9 @@ def test_combined_per_type_and_global_metrics(
     )
 
     # Check global metrics
-    assert_metric(expected_global_metrics["precision"], "precision", result, scenario)
-    assert_metric(expected_global_metrics["recall"], "recall", result, scenario)
-    assert_metric(expected_global_metrics["f1"], "f", result, scenario)
+    assert_metric(expected_global_metrics["precision"], "pii_precision", result, scenario)
+    assert_metric(expected_global_metrics["recall"], "pii_recall", result, scenario)
+    assert_metric(expected_global_metrics["f_beta"], "pii_f", result, scenario)
 
 
 # TODO: Test per-token IoU
