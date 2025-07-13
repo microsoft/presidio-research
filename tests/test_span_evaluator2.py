@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from presidio_evaluator.data_objects import Span
 
 from presidio_evaluator.evaluation import EvaluationResult, ErrorType, SpanEvaluator
 from tests.mocks import MockModel
@@ -9,18 +10,22 @@ from tests.mocks import MockModel
 @pytest.fixture
 def span_evaluator():
     """Create a SpanEvaluator instance for testing."""
-    return SpanEvaluator(model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=[])
+    return SpanEvaluator(
+        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=[]
+    )
+
 
 # Test Scenario group 1: single span overlaps
+
 
 def assert_error_types(expected_error_types, result, scenario):
     # Check error types
     if expected_error_types:
         error_types = [error.error_type for error in result.model_errors]
         for expected_type in expected_error_types:
-            assert expected_type in error_types, (
-                f"In {scenario}, expected error type {expected_type} not found in {error_types}"
-            )
+            assert (
+                expected_type in error_types
+            ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
 
 
 def assert_confusion_matrix(expected_results, result, scenario):
@@ -34,7 +39,6 @@ def assert_confusion_matrix(expected_results, result, scenario):
 
 
 def assert_metric(expected_pii_metric, metric_name, result, scenario):
-
     metric = ""
     match metric_name:
         case "precision":
@@ -47,14 +51,13 @@ def assert_metric(expected_pii_metric, metric_name, result, scenario):
             raise ValueError(f"Unknown metric name: {metric_name}")
 
     if np.isnan(expected_pii_metric):
-        assert np.isnan(metric), (
-            f"In {scenario}, expected F1 score to be None, got {metric}"
-        )
+        assert np.isnan(
+            metric
+        ), f"In {scenario}, expected F1 score to be None, got {metric}"
     else:
-        assert metric == pytest.approx(expected_pii_metric, 3), (
-            f"In {scenario}, expected {metric_name} score {expected_pii_metric}, got {metric}"
-        )
-
+        assert (
+            metric == pytest.approx(expected_pii_metric, 3)
+        ), f"In {scenario}, expected {metric_name} score {expected_pii_metric}, got {metric}"
 
 
 @pytest.mark.parametrize(
@@ -62,96 +65,96 @@ def assert_metric(expected_pii_metric, metric_name, result, scenario):
     [
         # Scenario 1: Same type overlap with IoU > threshold
         (
-                "Scenario 1: Same type overlap with IoU > threshold",
-                ["O", "PERSON", "PERSON", "O"],
-                ["O", "PERSON", "PERSON", "O"],
-                ["The", "John", "Smith", "visited"],
-                [0, 4, 9, 15],
-                1,  # true positives
-                0,  # false positives
-                0,  # false negatives
-                {("PERSON", "PERSON"): 1},  # confusion matrix
-                [],  # no errors
+            "Scenario 1: Same type overlap with IoU > threshold",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            {("PERSON", "PERSON"): 1},  # confusion matrix
+            [],  # no errors
         ),
         # Scenario 2: No overlap with annotated
         (
-                "Scenario 2: No overlap with annotated",
-                ["O", "PERSON", "PERSON", "O"],
-                ["O", "O", "O", "O"],
-                ["The", "John", "Smith", "visited"],
-                [0, 4, 9, 15],
-                0,  # true positives
-                0,  # false positives
-                1,  # false negatives
-                {("PERSON", "O"): 1},  # confusion matrix
-                [ErrorType.FN],  # error types
+            "Scenario 2: No overlap with annotated",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "O", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            {("PERSON", "O"): 1},  # confusion matrix
+            [ErrorType.FN],  # error types
         ),
         # Scenario 3: No overlap with predicted
         (
-                "Scenario 3: No overlap with predicted",
-                ["O", "O", "O", "O"],
-                ["O", "PERSON", "PERSON", "O"],
-                ["The", "John", "Smith", "visited"],
-                [0, 4, 9, 15],
-                0,  # true positives
-                1,  # false positives
-                0,  # false negatives
-                {("O", "PERSON"): 1},  # confusion matrix
-                [ErrorType.FP],  # error types
+            "Scenario 3: No overlap with predicted",
+            ["O", "O", "O", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            0,  # true positives
+            1,  # false positives
+            0,  # false negatives
+            {("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FP],  # error types
         ),
         # Scenario 4: Different type overlap with IoU > threshold
         (
-                "Scenario 4: Different type overlap with IoU > threshold",
-                ["O", "LOCATION", "LOCATION", "O"],
-                ["O", "PERSON", "PERSON", "O"],
-                ["The", "New", "York", "visited"],
-                [0, 4, 8, 13],
-                0,  # true positives
-                1,  # false positives
-                1,  # false negatives
-                {("LOCATION", "PERSON"): 1},  # confusion matrix
-                [ErrorType.WrongEntity],  # error types
+            "Scenario 4: Different type overlap with IoU > threshold",
+            ["O", "LOCATION", "LOCATION", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "New", "York", "visited"],
+            [0, 4, 8, 13],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {("LOCATION", "PERSON"): 1},  # confusion matrix
+            [ErrorType.WrongEntity],  # error types
         ),
         # Scenario 5a: Same type overlap with IoU < threshold
         (
-                "Scenario 5a: Same type overlap with IoU < threshold",
-                ["O", "PERSON", "PERSON", "PERSON", "O"],
-                ["O", "PERSON", "O", "O", "O"],
-                ["The", "John", "Smith", "Johnson", "visited"],
-                [0, 4, 9, 15, 23],
-                0,  # true positives
-                0,  # false positives
-                1,  # false negatives
-                {("PERSON", "O"): 1},  # confusion matrix
-                [ErrorType.FN],  # error types
+            "Scenario 5a: Same type overlap with IoU < threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            {("PERSON", "O"): 1},  # confusion matrix
+            [ErrorType.FN],  # error types
         ),
         # Scenario 5b: Different type overlap with IoU < threshold
         (
-                "Scenario 5b: Different type overlap with IoU < threshold",
-                ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
-                ["O", "PERSON", "O", "O", "O"],
-                ["The", "New", "York", "Mets", "visited"],
-                [0, 4, 8, 13, 18],
-                0,  # true positives
-                1,  # false positives
-                1,  # false negatives
-                {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},  # confusion matrix
-                [ErrorType.FN, ErrorType.FP],  # error types
+            "Scenario 5b: Different type overlap with IoU < threshold",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FN, ErrorType.FP],  # error types
         ),
     ],
 )
 def test_scenario_group1(
-        span_evaluator,
-        scenario,
-        annotation,
-        prediction,
-        tokens,
-        start_indices,
-        expected_tp,
-        expected_fp,
-        expected_fn,
-        expected_results,
-        expected_error_types,
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_tp,
+    expected_fp,
+    expected_fn,
+    expected_results,
+    expected_error_types,
 ):
     """Test each scenario in Group 1: single span overlaps."""
     # Build the DataFrame expected by SpanEvaluator
@@ -176,9 +179,15 @@ def test_scenario_group1(
     total_fp = sum(pii_type.false_positives for pii_type in result.per_type.values())
     total_fn = sum(pii_type.false_negatives for pii_type in result.per_type.values())
 
-    assert total_tp == expected_tp, f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
-    assert total_fp == expected_fp, f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
-    assert total_fn == expected_fn, f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
+    assert (
+        total_tp == expected_tp
+    ), f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
+    assert (
+        total_fp == expected_fp
+    ), f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
+    assert (
+        total_fn == expected_fn
+    ), f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
 
     # Check confusion matrix results
     for (ann, pred), expected_count in expected_results.items():
@@ -192,14 +201,15 @@ def test_scenario_group1(
     if expected_error_types:
         error_types = [error.error_type for error in result.model_errors]
         for expected_type in expected_error_types:
-            assert expected_type in error_types, (
-                f"In {scenario}, expected error type {expected_type} not found in {error_types}"
-            )
+            assert (
+                expected_type in error_types
+            ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
 
         assert len(result.model_errors) == len(expected_error_types)
 
 
 # Test Scenario group 2: annotated spans overlapping with multiple prediction spans
+
 
 @pytest.mark.parametrize(
     "scenario, annotation, prediction, tokens, start_indices, expected_tp, expected_fp, expected_fn, expected_results, expected_error_types",
@@ -227,8 +237,9 @@ def test_scenario_group1(
             0,  # true positives
             0,  # false positives (not counted as FP due to being same type)
             1,  # false negatives
-            {("ORGANIZATION", "O"): 1,
-             },  # confusion matrix
+            {
+                ("ORGANIZATION", "O"): 1,
+            },  # confusion matrix
             [ErrorType.FN],  # errors
         ),
         # Scenario 7A: Cumulative IoU with spans of different types > threshold
@@ -254,7 +265,11 @@ def test_scenario_group1(
             0,  # true positives
             2,  # false positives
             1,  # false negatives
-            {("PERSON", "O"): 1, ("O", "LOCATION"): 1, ("O", "PERSON"): 1},  # confusion matrix
+            {
+                ("PERSON", "O"): 1,
+                ("O", "LOCATION"): 1,
+                ("O", "PERSON"): 1,
+            },  # confusion matrix
             [ErrorType.FN, ErrorType.FP, ErrorType.FP],  # errors
         ),
         # Mixed case with both same and different types
@@ -267,8 +282,13 @@ def test_scenario_group1(
             1,  # true positives (the parts that match)
             1,  # false positives (the wrong type)
             0,  # false negatives (since cumulative IoU is good)
-            {("PERSON", "PERSON"): 1, ("O", "LOCATION"): 1},  # confusion matrix. (O, LOCATION) because of low IoU
-            [ErrorType.FP],  # Not WrongEntity since cumulative IoU between Location and Person is low
+            {
+                ("PERSON", "PERSON"): 1,
+                ("O", "LOCATION"): 1,
+            },  # confusion matrix. (O, LOCATION) because of low IoU
+            [
+                ErrorType.FP
+            ],  # Not WrongEntity since cumulative IoU between Location and Person is low
         ),
     ],
 )
@@ -308,18 +328,23 @@ def test_scenario_group2(
     total_fp = sum(pii_type.false_positives for pii_type in result.per_type.values())
     total_fn = sum(pii_type.false_negatives for pii_type in result.per_type.values())
 
-    assert total_tp == expected_tp, f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
-    assert total_fp == expected_fp, f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
-    assert total_fn == expected_fn, f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
+    assert (
+        total_tp == expected_tp
+    ), f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
+    assert (
+        total_fp == expected_fp
+    ), f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
+    assert (
+        total_fn == expected_fn
+    ), f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
 
     assert_confusion_matrix(expected_results, result, scenario)
 
     assert_error_types(expected_error_types, result, scenario)
 
 
-
-
 # Test global PII evaluatiom metrics
+
 
 @pytest.mark.parametrize(
     "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f",
@@ -393,7 +418,6 @@ def test_global_metrics(
     assert_metric(expected_precision, "precision", result, scenario)
     assert_metric(expected_recall, "recall", result, scenario)
     assert_metric(expected_f, "f", result, scenario)
-
 
 
 # Test Both per_type and global metrics together
@@ -513,18 +537,24 @@ def test_combined_per_type_and_global_metrics(
         if entity_type in result.per_type:
             per_type_result = result.per_type[entity_type]
             if not np.isnan(expected_metrics["precision"]):
-                assert per_type_result.precision == pytest.approx(expected_metrics["precision"], abs=1e-3), (
-                    f"In {scenario}, {entity_type} precision expected {expected_metrics['precision']}, got {per_type_result.precision}"
-                )
+                assert (
+                    per_type_result.precision
+                    == pytest.approx(expected_metrics["precision"], abs=1e-3)
+                ), f"In {scenario}, {entity_type} precision expected {expected_metrics['precision']}, got {per_type_result.precision}"
             else:
-                assert np.isnan(per_type_result.precision), f"In {scenario}, {entity_type} precision should be NaN"
-            
+                assert np.isnan(
+                    per_type_result.precision
+                ), f"In {scenario}, {entity_type} precision should be NaN"
+
             if not np.isnan(expected_metrics["recall"]):
-                assert per_type_result.recall == pytest.approx(expected_metrics["recall"], abs=1e-3), (
-                    f"In {scenario}, {entity_type} recall expected {expected_metrics['recall']}, got {per_type_result.recall}"
-                )
+                assert (
+                    per_type_result.recall
+                    == pytest.approx(expected_metrics["recall"], abs=1e-3)
+                ), f"In {scenario}, {entity_type} recall expected {expected_metrics['recall']}, got {per_type_result.recall}"
             else:
-                assert np.isnan(per_type_result.recall), f"In {scenario}, {entity_type} recall should be NaN"
+                assert np.isnan(
+                    per_type_result.recall
+                ), f"In {scenario}, {entity_type} recall should be NaN"
 
     # Run global evaluation
     pii_df = span_evaluator.create_global_entities_df(df)
@@ -538,7 +568,170 @@ def test_combined_per_type_and_global_metrics(
     assert_metric(expected_global_metrics["f1"], "f", result, scenario)
 
 
-# TODO: Test per-token IoU
+# Test per-token IoU
+def test_calculate_iou_token_based():
+    """Test IoU calculation with token-based evaluation."""
+    span1 = Span(
+        entity_type="PERSON",
+        entity_value="John Smith",
+        start_position=0,
+        end_position=10,
+        normalized_tokens=["john", "smith"],
+        normalized_start_index=0,
+        normalized_end_index=10,
+    )
+
+    # Same tokens
+    span2 = Span(
+        entity_type="PERSON",
+        entity_value="John Smith",
+        start_position=0,
+        end_position=10,
+        normalized_tokens=["john", "smith"],
+        normalized_start_index=0,
+        normalized_end_index=10,
+    )
+
+    # Subset of tokens
+    span3 = Span(
+        entity_type="PERSON",
+        entity_value="John",
+        start_position=0,
+        end_position=4,
+        normalized_tokens=["john"],
+        normalized_start_index=0,
+        normalized_end_index=4,
+    )
+
+    # Different tokens
+    span4 = Span(
+        entity_type="PERSON",
+        entity_value="Mary",
+        start_position=15,
+        end_position=19,
+        normalized_tokens=["mary"],
+        normalized_start_index=15,
+        normalized_end_index=19,
+    )
+    span_evaluator = SpanEvaluator(
+        model=MockModel(), iou_threshold=0.75, char_based=False, skip_words=[]
+    )
+    # Test token-based IoU calculations for individual spans
+    iou_exact = span_evaluator.calculate_iou(span1, span2, char_based=False)
+    iou_partial = span_evaluator.calculate_iou(span1, span3, char_based=False)
+    iou_none = span_evaluator.calculate_iou(span1, span4, char_based=False)
+
+    assert iou_exact > 0.5  # Should be high for exact match
+    assert 0 < iou_partial < iou_exact  # Should be lower for partial match
+    assert iou_none == 0.0  # Should be zero for no overlap
+
+    # Test cases for overlapping prediction spans per annotation span
+
+    # Case 1: Multiple prediction spans covering the same annotation (perfect overlap)
+    annotation_full = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New York Mets",
+        start_position=4,
+        end_position=17,
+        normalized_tokens=["new", "york", "mets"],
+        normalized_start_index=4,
+        normalized_end_index=17,
+    )
+
+    pred_span_1 = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New",
+        start_position=4,
+        end_position=7,
+        normalized_tokens=["new"],
+        normalized_start_index=4,
+        normalized_end_index=7,
+    )
+
+    pred_span_2 = Span(
+        entity_type="ORGANIZATION",
+        entity_value="York Mets",
+        start_position=8,
+        end_position=17,
+        normalized_tokens=["york", "mets"],
+        normalized_start_index=8,
+        normalized_end_index=17,
+    )
+
+    # Combined IoU should be 1.0 (perfect coverage)
+    combined_iou_perfect = span_evaluator._calculate_combined_iou(
+        annotation_full, [pred_span_1, pred_span_2]
+    )
+    assert (
+        combined_iou_perfect == 1.0
+    ), f"Expected perfect IoU 1.0, got {combined_iou_perfect}"
+
+    # Case 2: Multiple prediction spans with partial overlap
+    pred_span_partial = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New",
+        start_position=4,
+        end_position=7,
+        normalized_tokens=["new"],
+        normalized_start_index=4,
+        normalized_end_index=7,
+    )
+
+    # Only covers "new" out of "new york mets"
+    combined_iou_partial = span_evaluator._calculate_combined_iou(
+        annotation_full, [pred_span_partial]
+    )
+    expected_partial_iou = 1 / 3  # 1 token intersection / 3 tokens union
+    assert (
+        combined_iou_partial == expected_partial_iou
+    ), f"Expected IoU {expected_partial_iou}, got {combined_iou_partial}"
+
+    # Case 3: Multiple prediction spans with extra tokens (lower IoU)
+    annotation_simple = Span(
+        entity_type="PERSON",
+        entity_value="John Smith",
+        start_position=0,
+        end_position=10,
+        normalized_tokens=["john", "smith"],
+        normalized_start_index=0,
+        normalized_end_index=10,
+    )
+
+    pred_extra_1 = Span(
+        entity_type="PERSON",
+        entity_value="John",
+        start_position=0,
+        end_position=4,
+        normalized_tokens=["john"],
+        normalized_start_index=0,
+        normalized_end_index=4,
+    )
+
+    pred_extra_2 = Span(
+        entity_type="PERSON",
+        entity_value="Smith Jr",
+        start_position=5,
+        end_position=13,
+        normalized_tokens=["smith", "jr"],
+        normalized_start_index=5,
+        normalized_end_index=13,
+    )
+
+    # IoU = 2 (john, smith) / 3 (john, smith, jr) = 2/3
+    combined_iou_extra = span_evaluator._calculate_combined_iou(
+        annotation_simple, [pred_extra_1, pred_extra_2]
+    )
+    expected_extra_iou = 2 / 3
+    assert (
+        abs(combined_iou_extra - expected_extra_iou) < 0.001
+    ), f"Expected IoU {expected_extra_iou}, got {combined_iou_extra}"
+
+    # Case 4: Empty prediction spans list
+    combined_iou_empty = span_evaluator._calculate_combined_iou(annotation_simple, [])
+    assert (
+        combined_iou_empty == 0.0
+    ), f"Expected IoU 0.0 for empty predictions, got {combined_iou_empty}"
+
 
 # TODO: Test error analysis
 
