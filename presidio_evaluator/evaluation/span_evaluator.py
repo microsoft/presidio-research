@@ -726,6 +726,22 @@ class SpanEvaluator(BaseEvaluator):
                             iou=iou,
                         )
                     )
+                    evaluation_result.model_errors.append(
+                        self._get_model_error(
+                            ann_span=ann_span,
+                            pred_span=pred_span,
+                            error_type=ErrorType.FN,
+                            iou=iou,
+                        )
+                    )
+                    evaluation_result.model_errors.append(
+                        self._get_model_error(
+                            ann_span=ann_span,
+                            pred_span=pred_span,
+                            error_type=ErrorType.FP,
+                            iou=iou,
+                        )
+                    )
                     evaluation_result.results[(ann_type, pred_type)] += 1
                 else:
                     evaluation_result.pii_false_negatives += 1
@@ -864,6 +880,22 @@ class SpanEvaluator(BaseEvaluator):
                                 ann_span=ann_span,
                                 pred_span=different_type_spans[0],
                                 error_type=ErrorType.WrongEntity,
+                                iou=iou_per_type,
+                            )
+                        )
+                        evaluation_result.model_errors.append(
+                            self._get_model_error(
+                                ann_span=ann_span,
+                                pred_span=different_type_spans[0],
+                                error_type=ErrorType.FN,
+                                iou=iou_per_type,
+                            )
+                        )
+                        evaluation_result.model_errors.append(
+                            self._get_model_error(
+                                ann_span=ann_span,
+                                pred_span=different_type_spans[0],
+                                error_type=ErrorType.FP,
                                 iou=iou_per_type,
                             )
                         )
