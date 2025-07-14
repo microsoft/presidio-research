@@ -733,6 +733,574 @@ def test_calculate_iou_token_based():
     ), f"Expected IoU 0.0 for empty predictions, got {combined_iou_empty}"
 
 
-# TODO: Test error analysis
+# Test error analysis
 
-# TODO: Test span creation and skip words handling
+@pytest.mark.parametrize(
+    "scenario, annotation, prediction, tokens, start_indices, expected_error_types, expected_error_count, expected_explanations",
+    [
+        # ==== SCENARIO GROUP 1: No overlapping predictions (FN) ====
+        (
+            "No overlap: Single annotation with no predictions",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "O", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            [ErrorType.FN],
+            1,
+            ["Entity PERSON not detected."],
+        ),
+        (
+            "No overlap: Multiple annotations with no predictions",
+            ["PERSON", "PERSON", "O", "LOCATION", "O"],
+            ["O", "O", "O", "O", "O"],
+            ["John", "Smith", "visited", "Boston", "today"],
+            [0, 5, 11, 19, 26],
+            [ErrorType.FN, ErrorType.FN],
+            2,
+            ["Entity PERSON not detected.", "Entity LOCATION not detected."],
+        ),
+        
+        # ==== SCENARIO GROUP 2: Single overlapping prediction ====
+        
+        # 2a: Same type, high IoU → TP (no error)
+        (
+            "Single overlap TP: Same type with high IoU",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            [],  # No errors expected for TP
+            0,
+            [],
+        ),
+        
+        # 2b: Different type, high IoU → WrongEntity
+        (
+            "Single overlap WrongEntity: Different types with high IoU",
+            ["O", "LOCATION", "LOCATION", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "New", "York", "visited"],
+            [0, 4, 8, 13],
+            [ErrorType.FN, ErrorType.FP, ErrorType.WrongEntity],
+            3,
+            ["Wrong entity type: LOCATION detected as PERSON"],
+        ),
+        
+        # 2c: Same type, low IoU → FN
+        (
+            "Single overlap FN: Same type with low IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            [ErrorType.FN],
+            1,
+            ["Entity PERSON not detected due to low iou"],
+        ),
+        
+        # 2d: Different type, low IoU → FN + FP
+        (
+            "Single overlap FN+FP: Different types with low IoU",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity ORGANIZATION not detected. iou with PERSON=", "Entity PERSON falsely detected"],
+        ),
+        
+        # ==== SCENARIO GROUP 3: Multiple overlapping predictions ====
+        
+        # 3a: Same type, high cumulative IoU → TP with FN
+        (
+            "Multiple overlap TP: Same type with high cumulative IoU",
+            ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["ADDRESS", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["123", "Main", "Street", "Suite", "100", "is"],
+            [0, 4, 9, 16, 22, 26],
+            [ErrorType.FN],  # FN because of "Main"
+            1,
+            [],
+        ),
+        # 3b: Same type, low cumulative IoU → FN
+        (
+            "Multiple overlap FN: Same type with low cumulative IoU",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "ORGANIZATION", "O", "ORGANIZATION", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            [ErrorType.FN],
+            1,
+            ["Entity ORGANIZATION not detected due to low iou"],
+        ),
+        
+        # 3c: Different type, high cumulative IoU → WrongEntity
+        (
+            "Multiple overlap WrongEntity: Different types with high cumulative IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "LOCATION", "LOCATION", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 17, 25],
+            [ErrorType.FN, ErrorType.WrongEntity, ErrorType.FN, ErrorType.FP],
+            4,
+            ["Wrong entity type: PERSON detected as LOCATION"],
+        ),
+        
+        # 3d: Different type, low cumulative IoU → FN + FP
+        (
+            "Multiple overlap FN+FP: Different types with low cumulative IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O", "O"],
+            ["O", "O", "LOCATION", "O", "ORGANIZATION", "O"],
+            ["The", "John", "Smith", "Johnson", "works", "hard"],
+            [0, 4, 9, 17, 25, 31],
+            [ErrorType.FN, ErrorType.FP, ErrorType.FP],
+            3,
+            ["Entity PERSON not detected. iou with LOCATION=", "Entity ORGANIZATION falsely detected"],
+        ),
+        
+        # 3e: Mixed types scenario - both same and different types overlapping
+        (
+            "Multiple overlap mixed: Both same and different entity types",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "LOCATION", "PERSON", "O"],
+            ["The", "John", "C", "B", "Johnson", "visited"],
+            [0, 4, 9, 11, 13, 21],
+            [ErrorType.WrongEntity, ErrorType.FN, ErrorType.FP],  # Only FP for LOCATION since cumulative PERSON IoU is good enough
+            1,
+            ["Entity LOCATION falsely detected"],
+        ),
+        
+        # ==== SCENARIO GROUP 4: Standalone false positives ====
+        
+        # 4a: Single standalone FP
+        (
+            "Standalone FP: Single prediction with no annotation overlap",
+            ["O", "O", "O", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "quick", "brown", "fox"],
+            [0, 4, 10, 16],
+            [ErrorType.FP],
+            1,
+            ["False prediction with no overlap: PERSON"],
+        ),
+        
+        # 4b: Multiple standalone FPs
+        (
+            "Multiple standalone FPs: Multiple predictions with no annotation overlap",
+            ["O", "O", "O", "O", "O"],
+            ["PERSON", "O", "LOCATION", "LOCATION", "O"],
+            ["John", "went", "to", "New", "York"],
+            [0, 5, 10, 13, 17],
+            [ErrorType.FP, ErrorType.FP],
+            2,
+            ["False prediction with no overlap: PERSON", "False prediction with no overlap: LOCATION"],
+        ),
+        
+        # ==== SCENARIO GROUP 5: Complex mixed scenarios ====
+        
+        # 5: Combination of all error types
+        
+        (
+            "Complex scenario: Mixed overlaps and standalone predictions",
+            ["PERSON", "O", "LOCATION", "LOCATION", "LOCATION", "O"],
+            ["O", "O", "LOCATION", "PERSON", "PERSON", "PHONE_NUMBER"],
+            ["Alice", "went", "to", "New", "York", "today"],
+            [0, 6, 11, 14, 18, 23],
+            [ErrorType.FN, ErrorType.FN, ErrorType.FP, ErrorType.WrongEntity, ErrorType.FP],
+            5,
+            [
+                "Entity PERSON not detected.",
+                "Entity PERSON falsely detected",
+                "False prediction with no overlap: PHONE_NUMBER"
+            ],
+        ),
+    ],
+)
+def test_match_predictions_with_annotations_error_generation(
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_error_types,
+    expected_error_count,
+    expected_explanations,
+):
+    """
+    Test error generation in _match_predictions_with_annotations method covering all scenarios:
+    
+    1. No overlapping predictions → FN errors
+    2. Single overlapping predictions → TP, WrongEntity, FN, or FN+FP errors
+    3. Multiple overlapping predictions → TP, WrongEntity, FN, or FN+FP errors  
+    4. Standalone predictions → FP errors
+    5. Complex mixed scenarios
+    """
+    # Build the DataFrame expected by SpanEvaluator
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": start_indices,
+        }
+    )
+
+    # Run evaluation
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
+    )
+
+    # Check that expected error types are present
+    error_types = [error.error_type for error in result.model_errors]
+    
+    # Verify each expected error type is present
+    for expected_type in expected_error_types:
+        assert (
+            expected_type in error_types
+        ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
+
+    # Check that we have the expected number of errors
+    assert (
+        len(result.model_errors) == expected_error_count
+    ), f"In {scenario}, expected {expected_error_count} errors, got {len(result.model_errors)}"
+
+    # Count occurrences of each error type
+    error_type_counts = {}
+    for error_type in error_types:
+        error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+    
+    expected_type_counts = {}
+    for expected_type in expected_error_types:
+        expected_type_counts[expected_type] = expected_type_counts.get(expected_type, 0) + 1
+    
+    for expected_type, expected_count in expected_type_counts.items():
+        actual_count = error_type_counts.get(expected_type, 0)
+        assert (
+            actual_count == expected_count
+        ), f"In {scenario}, expected {expected_count} errors of type {expected_type}, got {actual_count}"
+
+    # Check error explanations contain expected text
+    for i, expected_explanation in enumerate(expected_explanations):
+        if i < len(result.model_errors):
+            actual_explanation = result.model_errors[i].explanation
+            assert (
+                expected_explanation in actual_explanation
+            ), f"In {scenario}, expected explanation to contain '{expected_explanation}', got '{actual_explanation}'"
+
+
+# Test span creation and skip words handling
+
+@pytest.mark.parametrize(
+    "scenario, annotation, tokens, start_indices, skip_words, expected_spans_after_processing",
+    [
+        # Adjacent spans that should be merged (same type)
+        (
+            "Adjacent merging: Same type spans separated by skip words",
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Smith", "and", "Jane", "Doe"],
+            [0, 5, 11, 15, 20],
+            ["and"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith Jane Doe",
+                    "start_position": 0,
+                    "end_position": 23,
+                    "normalized_tokens": ["john", "smith", "jane", "doe"],
+                    "token_start": 0,
+                    "token_end": 5,
+                }
+            ],
+        ),
+        
+        # Adjacent spans that should NOT be merged (different types)
+        (
+            "No merging: Different entity types with skip words between",
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["John", "Smith", "visited", "New", "York"],
+            [0, 5, 11, 19, 23],
+            ["visited"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith",
+                    "start_position": 0,
+                    "end_position": 10,
+                    "normalized_tokens": ["john", "smith"],
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York",
+                    "start_position": 19,
+                    "end_position": 27,
+                    "normalized_tokens": ["new", "york"],
+                    "token_start": 3,
+                    "token_end": 5,
+                }
+            ],
+        ),
+        
+        # Adjacent spans separated by non-skip words (no merging)
+        (
+            "No merging: Same type spans separated by non-skip words",
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Smith", "visited", "Jane", "Doe"],
+            [0, 5, 11, 19, 24],
+            [],  # "visited" is not a skip word
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith",
+                    "start_position": 0,
+                    "end_position": 10,
+                    "normalized_tokens": ["john", "smith"],
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Jane Doe",
+                    "start_position": 19,
+                    "end_position": 27,
+                    "normalized_tokens": ["jane", "doe"],
+                    "token_start": 3,
+                    "token_end": 5,
+                }
+            ],
+        ),
+        
+        # Skip words within entities
+        (
+            "Skip words in entity: Entity tokens with skip words removed",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["The", "Mr.", "John", "Smith", "visited"],
+            [0, 4, 8, 13, 19],
+            ["mr."],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Mr. John Smith",
+                    "start_position": 4,
+                    "end_position": 18,
+                    "normalized_tokens": ["john", "smith"],  # "mr." should be skipped
+                    "token_start": 1,
+                    "token_end": 4,
+                }
+            ],
+        ),
+        
+        # Complex merging with multiple skip words
+        (
+            "Complex merging: Multiple spans with various skip word separators",
+            ["ORGANIZATION", "ORGANIZATION", "O", "ORGANIZATION", "ORGANIZATION", "O", "ORGANIZATION"],
+            ["Apple", "Inc.", "Ltd.", "Google", "LLC", "and", "Microsoft"],
+            [0, 6, 11, 16, 24, 29, 33],
+            ["ltd.", "and"],
+            [
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Apple Inc. Google LLC Microsoft",
+                    "start_position": 0,
+                    "end_position": 42,
+                    "normalized_tokens": ["apple", "inc.", "google", "llc", "microsoft"],
+                    "token_start": 0,
+                    "token_end": 7,
+                }
+            ],
+        ),
+        
+        # Entity entirely composed of skip words (should be filtered out)
+        (
+            "Skip words only: Entity entirely of skip words gets filtered",
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "the", "and", "visited"],
+            [0, 4, 8, 12],
+            ["the", "and"],
+            [],  # Should create no spans since all entity tokens are skip words
+        ),
+        
+        # Multiple entities with various skip word scenarios
+        (
+            "Mixed scenarios: Multiple entities with different skip word patterns",
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "LOCATION", "LOCATION", "O", "ORGANIZATION"],
+            ["Dr.", "John", "visited", "the", "New", "York", "City", "and", "Microsoft"],
+            [0, 4, 9, 17, 21, 25, 30, 35, 39],
+            ["dr.", "the", "and"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Dr. John",
+                    "start_position": 0,
+                    "end_position": 8,
+                    "normalized_tokens": ["john"],  # "dr." skipped
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York City",
+                    "start_position": 21,
+                    "end_position": 34,
+                    "normalized_tokens": ["new", "york", "city"],
+                    "token_start": 4,
+                    "token_end": 7,
+                },
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Microsoft",
+                    "start_position": 39,
+                    "end_position": 48,
+                    "normalized_tokens": ["microsoft"],
+                    "token_start": 8,
+                    "token_end": 9,
+                }
+            ],
+        ),
+        
+        # Merging with consecutive skip words
+        (
+            "Consecutive skip words merging: Multiple skip words between spans",
+            ["LOCATION", "LOCATION", "O", "O", "O", "LOCATION", "LOCATION"],
+            ["New", "York", "and", "NY", "and", "United", "States"],
+            [0, 4, 9, 11, 14, 16, 23],
+            ["and", "ny"],
+            [
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York United States",
+                    "start_position": 0,
+                    "end_position": 29,
+                    "normalized_tokens": ["new", "york", "united", "states"],
+                    "token_start": 0,
+                    "token_end": 7,
+                }
+            ],
+        ),
+        
+        # Case sensitivity in skip words
+        (
+            "Case sensitivity: Skip words work with different cases",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
+            ["THE", "John", "Smith", "AND", "Jane", "Doe"],
+            [0, 4, 9, 15, 19, 24],
+            ["the", "and"],  # lowercase skip words should match uppercase tokens
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith AND Jane Doe",
+                    "start_position": 4,
+                    "end_position": 27,
+                    "normalized_tokens": ["john", "smith", "jane", "doe"],  # Skip words removed
+                    "token_start": 1,
+                    "token_end": 6,
+                }
+            ],
+        ),
+        
+        # Empty skip words list (use default list)
+        (
+            "No skip words: All tokens preserved in normalization",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["The", "Dr.", "John", "Smith", "visited"],
+            [0, 4, 8, 13, 19],
+            [],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Dr. John Smith",
+                    "start_position": 4,
+                    "end_position": 18,
+                    "normalized_tokens": ["dr.", "john", "smith"],  # All tokens preserved
+                    "token_start": 1,
+                    "token_end": 4,
+                }
+            ],
+        ),
+    ],
+)
+def test_span_creation_with_skip_words(
+    scenario,
+    annotation,
+    tokens,
+    start_indices,
+    skip_words,
+    expected_spans_after_processing,
+):
+    """
+    Test span creation and adjacent span merging functionality with skip words.
+    
+    This test covers:
+    1. Basic span creation from token sequences
+    2. Skip word normalization within entities
+    3. Adjacent span merging when separated by skip words
+    4. Prevention of merging when spans are different types or separated by non-skip words
+    5. Filtering out entities that are entirely composed of skip words
+    6. Complex scenarios with multiple entities and various skip word patterns
+    """
+    # Create evaluator with specific skip words
+    span_evaluator = SpanEvaluator(
+        model=MockModel(), 
+        iou_threshold=0.75, 
+        char_based=True, 
+        skip_words=skip_words
+    )
+    
+    # Build the DataFrame
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "start_indices": start_indices,
+        }
+    )
+
+    # Process spans (create spans then merge adjacent ones - this is what happens in evaluation)
+    annotation_spans = span_evaluator._create_spans(df=df, column="annotation")
+    annotation_spans = span_evaluator._merge_adjacent_spans(
+            spans=annotation_spans, df=df
+        )
+    # Check number of spans after processing
+    assert (
+        len(annotation_spans) == len(expected_spans_after_processing)
+    ), f"In {scenario}, expected {len(expected_spans_after_processing)} spans after processing, got {len(annotation_spans)}"
+
+    # Check each span's properties after processing
+    for i, expected_span in enumerate(expected_spans_after_processing):
+        actual_span = annotation_spans[i]
+        
+        assert (
+            actual_span.entity_type == expected_span["entity_type"]
+        ), f"In {scenario}, span {i} entity_type expected {expected_span['entity_type']}, got {actual_span.entity_type}"
+        
+        assert (
+            actual_span.entity_value == expected_span["entity_value"]
+        ), f"In {scenario}, span {i} entity_value expected {expected_span['entity_value']}, got {actual_span.entity_value}"
+        
+        assert (
+            actual_span.start_position == expected_span["start_position"]
+        ), f"In {scenario}, span {i} start_position expected {expected_span['start_position']}, got {actual_span.start_position}"
+        
+        assert (
+            actual_span.end_position == expected_span["end_position"]
+        ), f"In {scenario}, span {i} end_position expected {expected_span['end_position']}, got {actual_span.end_position}"
+        
+        assert (
+            actual_span.normalized_tokens == expected_span["normalized_tokens"]
+        ), f"In {scenario}, span {i} normalized_tokens expected {expected_span['normalized_tokens']}, got {actual_span.normalized_tokens}"
+        
+        assert (
+            actual_span.token_start == expected_span["token_start"]
+        ), f"In {scenario}, span {i} token_start expected {expected_span['token_start']}, got {actual_span.token_start}"
+        
+        assert (
+            actual_span.token_end == expected_span["token_end"]
+        ), f"In {scenario}, span {i} token_end expected {expected_span['token_end']}, got {actual_span.token_end}"
+
+
