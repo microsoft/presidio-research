@@ -320,7 +320,6 @@ class SpanEvaluator(BaseEvaluator):
         evaluation_result.pii_recall = recall
         evaluation_result.pii_precision = precision
         evaluation_result.pii_f = f_beta
-        self._update_per_type_metrics(evaluation_result, beta)
 
     def _update_per_type_metrics(
         self,
@@ -459,11 +458,14 @@ class SpanEvaluator(BaseEvaluator):
                 evaluation_result=evaluation_result,
             )
         # Create and return the final evaluation result
-        if not per_type:
+        if per_type:
+            self._update_per_type_metrics(evaluation_result, beta)
+        else:
             self._update_result_with_overall_metrics(
                 evaluation_result,
                 beta,
             )
+
         return evaluation_result
 
     def _compare_one_sentence(
