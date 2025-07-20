@@ -877,11 +877,10 @@ def test_calculate_iou_token_based():
             [0, 4, 9, 11, 13, 21],
             [
                 ErrorType.FP,
-                ErrorType.FN,
             ],  # Only FP for LOCATION since cumulative PERSON IoU is good enough
             1,
             ["Entity LOCATION falsely detected"],
-            {("PERSON", "PERSON"): 1, ("O", "LOCATION"): 1, ("PERSON", "O"): 1},
+            {("PERSON", "PERSON"): 1, ("O", "LOCATION"): 1},
         ),
         # Standalone false positives: Single standalone FP
         (
