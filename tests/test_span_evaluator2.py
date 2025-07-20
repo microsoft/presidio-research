@@ -11,7 +11,7 @@ from tests.mocks import MockModel
 def span_evaluator():
     """Create a SpanEvaluator instance for testing."""
     return SpanEvaluator(
-        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=[]
+        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=None
     )
 
 
@@ -811,7 +811,7 @@ def test_calculate_iou_token_based():
             ],
             {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},
         ),
-        # Multiple overlapping predictions: Same type, high cumulative IoU → TP with FN
+        # Multiple overlapping predictions: Same type, low cumulative IoU due to skip words → FN
         (
             "Multiple overlap TP: Same type with high cumulative IoU",
             ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
