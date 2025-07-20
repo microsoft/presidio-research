@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from collections import Counter
 from typing import List, Optional, Dict, Union, Tuple
@@ -5,6 +6,7 @@ from typing import List, Optional, Dict, Union, Tuple
 import numpy as np
 import pandas as pd
 from presidio_analyzer import AnalyzerEngine
+from spacy.tokens import Token
 
 from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import EvaluationResult, ModelError, ErrorType
@@ -17,7 +19,7 @@ GENERIC_ENTITIES = ("PII", "ID", "PII", "PHI", "ID_NUM", "NUMBER", "NUM", "GENER
 class BaseEvaluator(ABC):
     def __init__(
         self,
-        model: Union[BaseModel, AnalyzerEngine],
+        model: Optional[Union[BaseModel, AnalyzerEngine]],
         verbose: bool = False,
         compare_by_io: bool = True,
         entities_to_keep: Optional[List[str]] = None,
@@ -38,26 +40,46 @@ class BaseEvaluator(ABC):
         detected instead of something other entity. For example: PII, ID, number
         :param skip_words: List of words to skip. If None, the default list would be used.
         """
-        if isinstance(model, AnalyzerEngine):
-            self.model = PresidioAnalyzerWrapper(analyzer_engine=model)
+
+        if model is None:
+            warnings.warn("Using the evaluator without a model only supports comparing actual vs. existing "
+                          "predicted tags. It will not run the model to generate predictions.")
+            self.model = None
+
+        elif isinstance(model, AnalyzerEngine):
+
+            num_languages = len(model.supported_languages)
+            if num_languages > 1:
+                warnings.warn(
+                    f"Presidio Analyzer supports multiple languages ({num_languages}). "
+                    "Using the first language in the list for evaluation."
+                )
+
+            self.model = PresidioAnalyzerWrapper(
+                analyzer_engine=model,
+                entities_to_keep=entities_to_keep,
+                score_threshold=model.default_score_threshold,
+                language=model.supported_languages[0],
+            )
+
         elif isinstance(model, BaseModel):
             self.model = model
         else:
             raise ValueError(
-                "Model should be an instance of BaseModel or Presidio Analyzer"
+                "Model should be an instance of BaseModel or Presidio Analyzer, or None."
             )
 
         self.verbose = verbose
         self.compare_by_io = compare_by_io
         self.entities_to_keep = entities_to_keep
-        if self.entities_to_keep is None and self.model.entities:
+        if self.entities_to_keep is None and self.model and self.model.entities:
             self.entities_to_keep = self.model.entities
 
         self.generic_entities = (
             generic_entities if generic_entities else GENERIC_ENTITIES
         )
 
-        self.skip_words = skip_words if skip_words else get_skip_words()
+        self.skip_words = skip_words if skip_words is not None else get_skip_words()
 
     def compare(
         self, input_sample: InputSample, prediction: List[str]
@@ -156,7 +178,7 @@ class BaseEvaluator(ABC):
         self,
         current_annotation: str,
         current_prediction: str,
-        current_token: str,
+        current_token: str | Token,
         results: Counter[Tuple[str, str]],
     ) -> bool:
         reverted = False
@@ -209,6 +231,11 @@ class BaseEvaluator(ABC):
         if self.verbose:
             print("Input sentence: {}".format(sample.full_text))
 
+        if not self.model:
+            raise ValueError(
+                "Model is not set. Please instantiate the evaluator with a model to evaluate the dataset."
+            )
+
         results, model_errors = self.compare(input_sample=sample, prediction=prediction)
 
         return EvaluationResult(
@@ -229,6 +256,11 @@ class BaseEvaluator(ABC):
         :param dataset: A list of InputSample samples, containing the ground truth tags
         :param kwargs: Additional arguments for the model's predict method
         """
+
+        if not self.model:
+            raise ValueError(
+                "Model is not set. Please instantiate the evaluator with a model to evaluate the dataset."
+            )
 
         evaluation_results = []
         if self.model.entity_mapping:

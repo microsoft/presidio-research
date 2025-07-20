@@ -1,11 +1,11 @@
 from collections import defaultdict
-from typing import List, Optional, Union, Set, Tuple, Dict
+from typing import List, Optional, Union, Set, Tuple, Dict, Counter
 import pandas as pd
 
 from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator.evaluation import BaseEvaluator, ModelError, ErrorType
-from presidio_evaluator.data_objects import Span
+from presidio_evaluator.data_objects import Span, InputSample
 from presidio_evaluator.evaluation.evaluation_result import (
     EvaluationResult,
 )
@@ -19,7 +19,7 @@ class SpanEvaluator(BaseEvaluator):
 
     def __init__(
         self,
-        model: Union[BaseModel, AnalyzerEngine],
+        model: Optional[Union[BaseModel, AnalyzerEngine]],
         verbose: bool = False,
         compare_by_io: bool = True,
         entities_to_keep: Optional[List[str]] = None,
@@ -395,6 +395,34 @@ class SpanEvaluator(BaseEvaluator):
         )
         return evaluation_result
 
+    def compare(
+        self, input_sample: InputSample, prediction: List[str]
+    ) -> Tuple[Counter, List[ModelError]]:
+        """
+        Compares ground truth tags (annotation) and predicted (prediction)
+        :param input_sample: input sample containing list of tags with scheme
+        :param prediction: predicted value for each token
+        self.labeling_scheme
+
+        """
+
+        data_for_df = {
+            "sentence_id": [input_sample.sample_id] * len(input_sample.tokens),
+            "token": [str(tok) for tok in input_sample.tokens],
+            "start_indices": input_sample.start_indices,
+            "annotation": input_sample.tags,
+            "prediction": prediction,
+        }
+        df = pd.DataFrame(data_for_df)
+        # Calculate score on the DataFrame
+        evaluation_result = self._compare_one_sentence(sentence_df=df, per_type=True)
+        # Calculate global metrics (PII vs non-PII)
+        pii_df = self.create_global_entities_df(results_df=df)
+        evaluation_result = self._compare_one_sentence(
+            sentence_df=pii_df, per_type=False, evaluation_result=evaluation_result
+        )
+        return evaluation_result.results, evaluation_result.model_errors
+
     def calculate_score_on_df(
         self,
         per_type: bool,
@@ -425,17 +453,43 @@ class SpanEvaluator(BaseEvaluator):
         # Process each sentence
         for _, sentence_df in results_df.groupby("sentence_id"):
             # Get and process spans for the sentence
-            annotation_spans, prediction_spans = self._process_sentence_spans(
-                sentence_df
-            )
-            # Match predictions with annotations and update metrics
-            evaluation_result = self._match_predictions_with_annotations(
-                annotation_spans, prediction_spans, evaluation_result, per_type
+            evaluation_result = self._compare_one_sentence(
+                sentence_df=sentence_df,
+                per_type=per_type,
+                evaluation_result=evaluation_result,
             )
         # Create and return the final evaluation result
-        self._update_result_with_overall_metrics(
-            evaluation_result,
-            beta,
+        if not per_type:
+            self._update_result_with_overall_metrics(
+                evaluation_result,
+                beta,
+            )
+        return evaluation_result
+
+    def _compare_one_sentence(
+        self,
+        sentence_df: pd.DataFrame,
+        per_type: bool,
+        evaluation_result: Optional[EvaluationResult] = None,
+    ) -> EvaluationResult:
+        """
+        Compare one sentence's annotations and predictions, updating the evaluation result.
+
+        :param per_type: If True, performs per-entity type evaluation; if False, performs
+                global PII vs non-PII evaluation
+        :param sentence_df: DataFrame containing sentence_id, tokens, token start indices,
+                annotations and predictions columns
+        :param evaluation_result: Optional existing EvaluationResult to update. If None,
+                creates a new one.
+
+        """
+        if not evaluation_result:
+            evaluation_result = EvaluationResult()
+
+        annotation_spans, prediction_spans = self._process_sentence_spans(sentence_df)
+        # Match predictions with annotations and update metrics
+        evaluation_result = self._match_predictions_with_annotations(
+            annotation_spans, prediction_spans, evaluation_result, per_type
         )
         return evaluation_result
 
@@ -458,7 +512,10 @@ class SpanEvaluator(BaseEvaluator):
         token_position = 0  # Add token position counter
 
         for idx, (_, row) in enumerate(df.iterrows()):
+
             entity_type = row[column]
+            if self.compare_by_io:
+                entity_type = self._to_io([entity_type])[0]
             token = row["token"]
             token_start = row["start_indices"]
             token_length = len(token)
@@ -622,7 +679,7 @@ class SpanEvaluator(BaseEvaluator):
                 overlapping_preds,
             )
 
-            if not overlapping_preds:  # scenario 2
+            if not overlapping_preds:  # scenario 2- there is no prediction
                 if per_type:
                     evaluation_result.per_type[ann_type].false_negatives += 1
                     evaluation_result.results[(ann_type, "O")] += 1
@@ -633,7 +690,6 @@ class SpanEvaluator(BaseEvaluator):
                     )
                 else:
                     evaluation_result.pii_false_negatives += 1
-                    evaluation_result.pii_predicted = len(prediction_spans)
 
             elif (
                 len(overlapping_preds) == 1
@@ -778,7 +834,6 @@ class SpanEvaluator(BaseEvaluator):
                     evaluation_result.pii_false_negatives += 1
                     evaluation_result.pii_false_positives += 1
                     evaluation_result.pii_predicted += 1
-
 
     def _compare_multiple_overlaps(
         self,
@@ -1069,7 +1124,8 @@ class SpanEvaluator(BaseEvaluator):
 
         return evaluation_result
 
-    def _add_to_annotated(self, evaluation_result, per_type, entity_type):
+    @staticmethod
+    def _add_to_annotated(evaluation_result, per_type, entity_type):
         if per_type:
             evaluation_result.per_type[entity_type].num_annotated += 1
         else:
