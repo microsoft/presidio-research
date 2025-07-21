@@ -178,7 +178,7 @@ class BaseEvaluator(ABC):
         self,
         current_annotation: str,
         current_prediction: str,
-        current_token: str | Token,
+        current_token: Union[str, Token],
         results: Counter[Tuple[str, str]],
     ) -> bool:
         reverted = False
