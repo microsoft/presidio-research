@@ -1,5 +1,5 @@
-from collections import defaultdict
-from typing import List, Optional, Union, Set, Tuple, Dict, Counter
+from collections import defaultdict, Counter
+from typing import List, Optional, Union, Set, Tuple, Dict
 import pandas as pd
 
 from presidio_analyzer import AnalyzerEngine
