@@ -99,14 +99,14 @@ from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import SpanEvaluator, Plotter
 
 dataset: List[InputSample] = [...]  # Load your dataset here
-
+f_beta = 2
 analyzer = AnalyzerEngine(default_score_threshold=0.3)
 
 evaluator = SpanEvaluator(model=analyzer)
 
 # 2. Evaluate on a dataset
 evaluation_results = evaluator.evaluate_all(dataset)
-results = evaluator.calculate_score(evaluation_results, beta=2)
+results = evaluator.calculate_score(evaluation_results, beta=f_beta)
 
 # 3. Extract confusion matrix and entities
 entities, confmatrix = results.to_confusion_matrix()
@@ -114,7 +114,7 @@ entities, confmatrix = results.to_confusion_matrix()
 # 4. Visualize results
 plotter = Plotter(results=results,
                   model_name=evaluator.model.name,
-                  beta=2)
+                  beta=f_beta)
 
 plotter.plot_scores()
 plotter.plot_confusion_matrix(entities=entities, confmatrix=confmatrix)
@@ -162,6 +162,7 @@ Using the `nervaluate` package which implements SemEval 2013 evaluation metrics:
 source: https://github.com/MantisAI/nervaluate
 
 ```python
+#pip install nervaluate
 from nervaluate.evaluator import Evaluator
 
 tokens = ["United", "States", "of", "America"]
@@ -170,7 +171,7 @@ pred = [['B-LOC', 'I-LOC', 'I-LOC', 'I-LOC']]
 
 evaluator = Evaluator(true, pred, tags=['PER', 'ORG', 'LOC', 'DATE'], loader="list")
 results = evaluator.evaluate()
-results["overall"]
+print(results["overall"])
 ```
 
 **Strict Evaluation (exact boundary match):**
@@ -227,25 +228,19 @@ accuracy:  75.00%; precision:   0.00%; recall:   0.00%; FB1:   0.00
 Using Presidio's token evaluator without skip words configuration:
 
 ```python
-from presidio_evaluator.evaluation import TokenEvaluator
-from presidio_evaluator import InputSample
-from tests.mocks import MockModel
+from presidio_evaluator.evaluation import EvaluationResult, TokenEvaluator
 
 # Create a sample
-sample = InputSample(
-    full_text="United States of America",
+evaluation_result = EvaluationResult(
     tokens=["United", "States", "of", "America"],
-    tags=["B-LOC", "I-LOC", "O", "B-LOC"],
+    actual_tags=["B-LOC", "I-LOC", "O", "B-LOC"],
+    predicted_tags=["I-LOC", "I-LOC", "I-LOC", "I-LOC"],
     start_indices=[0, 7, 14, 17]
 )
 
-# Setup a mock model that returns our prediction
-model = MockModel(tags_to_return=["B-LOC", "I-LOC", "I-LOC", "I-LOC"])
-
 # Initialize evaluator and evaluate
-evaluator = TokenEvaluator(model=model)
-result = evaluator.evaluate_sample(sample, prediction=["B-LOC", "I-LOC", "I-LOC", "I-LOC"])
-final_result = evaluator.calculate_score([result])
+evaluator = TokenEvaluator(model=None, skip_words=[])
+final_result = evaluator.calculate_score([evaluation_result])
 
 print(f"Precision: {final_result.pii_precision:.4f}")
 print(f"Recall: {final_result.pii_recall:.4f}")
@@ -266,9 +261,19 @@ Using Presidio's token evaluator with "of" configured as a skip word:
 
 ```python
 # Initialize token evaluator with "of" as a skip word
-evaluator = TokenEvaluator(model=model, skip_words=["of"])
-result = evaluator.evaluate_sample(sample, prediction=["B-LOC", "I-LOC", "I-LOC", "I-LOC"])
-final_result = evaluator.calculate_score([result])
+from presidio_evaluator.evaluation import EvaluationResult, TokenEvaluator
+
+# Create a sample
+evaluation_result = EvaluationResult(
+    tokens=["United", "States", "of", "America"],
+    actual_tags=["B-LOC", "I-LOC", "O", "B-LOC"],
+    predicted_tags=["I-LOC", "I-LOC", "I-LOC", "I-LOC"],
+    start_indices=[0, 7, 14, 17]
+)
+
+# Initialize evaluator and evaluate
+evaluator = TokenEvaluator(model=None)
+final_result = evaluator.calculate_score([evaluation_result])
 
 print(f"Precision: {final_result.pii_precision:.4f}")
 print(f"Recall: {final_result.pii_recall:.4f}")

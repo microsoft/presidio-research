@@ -79,8 +79,12 @@ class BaseEvaluator(ABC):
             generic_entities if generic_entities else GENERIC_ENTITIES
         )
 
-        self.skip_words = skip_words if skip_words is not None else get_skip_words()
-
+        if skip_words is None:
+            warnings.warn("skip words not provided, using default skip words. "
+                          "If you want the evaluation to not use skip words, pass skip_words=[]")
+            self.skip_words = get_skip_words()
+        else:
+            self.skip_words = skip_words
     def compare(
         self, input_sample: InputSample, prediction: List[str]
     ) -> Tuple[Counter, List[ModelError]]:
