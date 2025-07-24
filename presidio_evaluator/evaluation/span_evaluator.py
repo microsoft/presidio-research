@@ -1,11 +1,11 @@
-from collections import defaultdict, Counter
+from collections import defaultdict
 from typing import List, Optional, Union, Set, Tuple, Dict
 import pandas as pd
 
 from presidio_analyzer import AnalyzerEngine
 
 from presidio_evaluator.evaluation import BaseEvaluator, ModelError, ErrorType
-from presidio_evaluator.data_objects import Span, InputSample
+from presidio_evaluator.data_objects import Span
 from presidio_evaluator.evaluation.evaluation_result import (
     EvaluationResult,
 )
@@ -320,6 +320,7 @@ class SpanEvaluator(BaseEvaluator):
         evaluation_result.pii_recall = recall
         evaluation_result.pii_precision = precision
         evaluation_result.pii_f = f_beta
+        self._update_per_type_metrics(evaluation_result, beta)
 
     def _update_per_type_metrics(
         self,
@@ -393,34 +394,6 @@ class SpanEvaluator(BaseEvaluator):
             evaluation_result=evaluation_result,
         )
         return evaluation_result
-
-    def compare(
-        self, input_sample: InputSample, prediction: List[str]
-    ) -> Tuple[Counter, List[ModelError]]:
-        """
-        Compares ground truth tags (annotation) and predicted (prediction)
-        :param input_sample: input sample containing list of tags with scheme
-        :param prediction: predicted value for each token
-        self.labeling_scheme
-
-        """
-
-        data_for_df = {
-            "sentence_id": [input_sample.sample_id] * len(input_sample.tokens),
-            "token": [str(tok) for tok in input_sample.tokens],
-            "start_indices": input_sample.start_indices,
-            "annotation": input_sample.tags,
-            "prediction": prediction,
-        }
-        df = pd.DataFrame(data_for_df)
-        # Calculate score on the DataFrame
-        evaluation_result = self._compare_one_sentence(sentence_df=df, per_type=True)
-        # Calculate global metrics (PII vs non-PII)
-        pii_df = self.create_global_entities_df(results_df=df)
-        evaluation_result = self._compare_one_sentence(
-            sentence_df=pii_df, per_type=False, evaluation_result=evaluation_result
-        )
-        return evaluation_result.results, evaluation_result.model_errors
 
     def calculate_score_on_df(
         self,
@@ -514,7 +487,6 @@ class SpanEvaluator(BaseEvaluator):
         token_position = 0  # Add token position counter
 
         for idx, (_, row) in enumerate(df.iterrows()):
-
             entity_type = row[column]
             if self.compare_by_io:
                 entity_type = self._to_io([entity_type])[0]
@@ -889,9 +861,7 @@ class SpanEvaluator(BaseEvaluator):
                         evaluation_result.per_type[
                             ann_span.entity_type
                         ].true_positives += 1
-                        evaluation_result.per_type[
-                            cumulative_type
-                        ].num_predicted += 1
+                        evaluation_result.per_type[cumulative_type].num_predicted += 1
                         evaluation_result.results[(ann_type, ann_type)] += 1
                     else:
                         evaluation_result.pii_true_positives += 1
@@ -979,9 +949,7 @@ class SpanEvaluator(BaseEvaluator):
                             )
                             annotation_was_counted = True
 
-                        evaluation_result.per_type[
-                            cumulative_type
-                        ].false_positives += 1
+                        evaluation_result.per_type[cumulative_type].false_positives += 1
                         evaluation_result.per_type[cumulative_type].num_predicted += 1
 
                         # Add two errors, one as FP and the other as FN (not WrongEntity due to low IoU)
@@ -1158,8 +1126,7 @@ class SpanEvaluator(BaseEvaluator):
 
         return evaluation_result
 
-    @staticmethod
-    def _add_to_annotated(evaluation_result, per_type, entity_type):
+    def _add_to_annotated(self, evaluation_result, per_type, entity_type):
         if per_type:
             evaluation_result.per_type[entity_type].num_annotated += 1
         else:
