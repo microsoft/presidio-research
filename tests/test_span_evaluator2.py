@@ -353,11 +353,11 @@ def test_scenario_group2(
 
 
 @pytest.mark.parametrize(
-    "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f",
+    "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f, expected_tp, expected_fp, expected_fn, expected_annotated, expected_predicted",
     [
         # Perfect match
         (
-            "Scenario 8: Perfect match",
+            "Scenario 1: Perfect match",
             ["O", "PERSON", "PERSON", "O"],
             ["O", "LOCATION", "PERSON", "O"],
             ["The", "John", "Smith", "visited"],
@@ -365,21 +365,31 @@ def test_scenario_group2(
             1.0,  # precision
             1.0,  # recall
             1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans
         ),
         # No matches
         (
-            "Scenario 9: No matches",
-            ["O", "PERSON", "ORG", "O"],
+            "Scenario 2: No matches",
+            ["O", "PERSON", "ORGANIZATION", "O"],
             ["O", "O", "O", "O"],
             ["The", "John", "Smith", "visited"],
             [0, 4, 9, 15],
             np.nan,  # precision
             0.0,  # recall
             np.nan,  # F1 score
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            1,  # annotated PII spans
+            0,  # predicted PII spans
         ),
         # One match out of two
         (
-            "Scenario 10: Partial match",
+            "Scenario 3: Partial match",
             ["O", "PERSON", "O", "CAT"],
             ["O", "PERSON", "O", "O"],
             ["The", "John", "Smith", "visited"],
@@ -387,6 +397,59 @@ def test_scenario_group2(
             1.0,  # precision
             0.5,  # recall
             0.5555,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            2,  # annotated PII spans
+            1,  # predicted PII spans
+        ),
+        # Global entities with overlap but IoU below threshold - results in FN count update
+        (
+            "Scenario 4: Global entities with overlap below IoU threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            0.0,  # precision (0 TP out of 1 predicted)
+            0.0,  # recall (0 TP out of 1 annotated)
+            0.0,  # F1 score
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans
+        ),
+        # Global entities with multiple overlaps and IoU above threshold - results in TP
+        (
+            "Scenario 5: Global entities with multiple overlaps above IoU threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "LOCATION", "ORGANIZATION", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            1.0,  # precision (1 TP out of 1 predicted - all predictions are treated as single PII)
+            1.0,  # recall (1 TP out of 1 annotated)
+            1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans (multiple entity types become single PII span)
+        ),
+        # Global entities with multiple prediction spans overlapping one annotation - updates TP and pred count
+        (
+            "Scenario 6: Global entities with multiple prediction spans overlapping annotation",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "ORGANIZATION", "O", "PERSON", "O"],
+            ["The", "John", "Smith", "Jr", "Doe", "visited"],
+            [0, 4, 9, 15, 18, 22],
+            1.0,  # precision (1 TP out of 1 predicted PII span)
+            1.0,  # recall (1 TP out of 1 annotated PII span)
+            1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans (one PERSON span)
+            1,  # predicted PII spans (multiple entity types become single PII span)
         ),
     ],
 )
@@ -400,6 +463,11 @@ def test_global_metrics(
     expected_precision,
     expected_recall,
     expected_f,
+    expected_tp,
+    expected_fp,
+    expected_fn,
+    expected_annotated,
+    expected_predicted,
 ):
     """Test global PII evaluation metrics."""
     # Build the DataFrame expected by SpanEvaluator
@@ -419,6 +487,27 @@ def test_global_metrics(
     result = span_evaluator.calculate_score_on_df(
         per_type=False, results_df=pii_df, evaluation_result=result
     )
+
+    # Check global counts
+    assert (
+        result.pii_annotated == expected_annotated
+    ), f"In {scenario}, expected {expected_annotated} annotated PII spans, got {result.pii_annotated}"
+
+    assert (
+        result.pii_predicted == expected_predicted
+    ), f"In {scenario}, expected {expected_predicted} predicted PII spans, got {result.pii_predicted}"
+
+    assert (
+        result.pii_true_positives == expected_tp
+    ), f"In {scenario}, expected {expected_tp} true positives, got {result.pii_true_positives}"
+
+    assert (
+        result.pii_false_positives == expected_fp
+    ), f"In {scenario}, expected {expected_fp} false positives, got {result.pii_false_positives}"
+
+    assert (
+        result.pii_false_negatives == expected_fn
+    ), f"In {scenario}, expected {expected_fn} false negatives, got {result.pii_false_negatives}"
 
     # Check global metrics
     assert_metric(expected_precision, "pii_precision", result, scenario)
