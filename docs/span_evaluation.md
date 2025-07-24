@@ -57,7 +57,7 @@ Union (IoU) approach. This can be either character-based or token-based, control
 
 IoU = (Intersection) / (Union)
 
-An IoU threshold (default: 0.75) determines whether spans match sufficiently.
+An IoU threshold determines whether spans match sufficiently.
 
 ### Matching Annotations to Predictions
 
@@ -77,29 +77,31 @@ The evaluator calculates both per-entity-type metrics and global PII metrics:
 
 ### Per-Entity-Type Metrics
 
-- **Precision**: TP / (TP + FP)
-- **Recall**: TP / (TP + FN)
+- **Precision**: TP / num_predicted
+- **Recall**: TP / num_annotated
 - **F-beta**: (1 + beta²) * (precision * recall) / (beta² * precision + recall)
 
 ### Global PII Metrics
 
-- **PII Precision**: Total TP / Total predicted spans
-- **PII Recall**: Total TP / Total annotated spans
-- **PII F-score**: Combined F-score for all entity types
+- Treat every entity type as if it were a single PII type
+- Calculate global precision, recall, and F-score on PII/not PII values
 
-## Comparison with Other Evaluation Paradigms
 
-### Token-level Evaluation vs. Span Evaluation
+## Evaluation Process
 
-Token-level evaluation:
+1. For each annotation, find all overlapping prediction spans
+2. Group overlapping spans by entity type
+3. Calculate combined IoU for each group
+4. Determine match status based on IoU and entity type
+5. Mark remaining predictions (with no overlap) as FPs
 
-- Evaluates each token individually
-- Can't capture entity boundaries correctly
-- May artificially inflate metrics for multi-token entities
+See more info on the [Span Matching Strategies](span_matching_strategies.md) document.
 
-Span evaluation:
+## Counting Strategy
 
-- Evaluates complete named entities
-- Captures entity boundaries
-- More accurately reflects real-world information extraction performance
+- Multiple predictions of the same type overlapping with one annotation count as a single prediction
+- Different entity types are counted separately
+- An annotation is only counted once as annotated (denominator for precision and recall),
+  regardless of how many types intersect with it
+
 

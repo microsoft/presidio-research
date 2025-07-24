@@ -3,11 +3,16 @@
 This document explains how the span evaluation works in Presidio Evaluator, focusing on different overlap scenarios
 between annotated and predicted spans.
 
+With span evaluation, there could be multiple different scenarios of span overlaps: Overlap with zero spans, overlap
+with one span, overlap with multiple spans. In addition, overlaps could occur with spans of the same entity type, spans
+of different types, or one span overlapping with multiple spans from multiple types. This document will break down the
+different overlap scenarios, and the expected aggregations on each scenario.
+
 ## Key Concepts
 
 - **Span**: A continuous sequence of tokens representing an entity
 - **IoU (Intersection over Union)**: Measures the overlap between spans
-- **Threshold**: Minimum IoU value to consider a match (typically 0.75)
+- **Threshold**: Minimum IoU value to consider a match
 
 ## Basic Overlap Scenarios
 
@@ -92,7 +97,7 @@ Each entity type is evaluated separately against the annotation:
     - Prediction: [PERSON, LOCATION, PERSON]
     - PERSON IoU = 0.67, LOCATION IoU = 0.33
     - If threshold = 0.5: PERSON is a match but wrong type for LOCATION portion
-    - Result: Both type mismatch and partial match errors
+    - Result: TP for PERSON, FP for LOCATION
 
 ## Real-world Examples
 
@@ -112,20 +117,5 @@ Each entity type is evaluated separately against the annotation:
 - **Annotation**: [ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS]
 - **Prediction**: [ADDRESS, ADDRESS, ADDRESS, LOCATION, LOCATION, LOCATION, ADDRESS]
 - **Result**:
-    - Type mismatch for the middle portion
-    - ADDRESS has partial match (not all parts identified correctly)
-    - LOCATION is counted as a wrong entity type
-
-## Evaluation Process
-
-1. For each annotation, find all overlapping prediction spans
-2. Group overlapping spans by entity type
-3. Calculate combined IoU for each group
-4. Determine match status based on IoU and entity type
-5. Mark remaining predictions (with no overlap) as FPs
-
-## Counting Strategy
-
-- Multiple predictions of the same type overlapping with one annotation count as a single prediction
-- Different entity types are counted separately
-- An annotation is only counted once, regardless of how many types intersect with it
+    - If the combined IoU for ADDRESS is above threshold, it counts as TP, else FN
+    - LOCATION is counted as a FP
