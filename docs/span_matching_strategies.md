@@ -109,7 +109,7 @@ Each entity type is evaluated separately against the annotation:
 - **Result**:
     - TP for TITLE "Dr."
     - TP for PERSON parts "Jane Smith" (combined IoU > threshold)
-    - FN for "-Johnson, PhD." parts
+    - FN for "PhD." part
 
 ### Example 2: Address with Mixed Types
 
