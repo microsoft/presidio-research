@@ -320,7 +320,6 @@ class SpanEvaluator(BaseEvaluator):
         evaluation_result.pii_recall = recall
         evaluation_result.pii_precision = precision
         evaluation_result.pii_f = f_beta
-        self._update_per_type_metrics(evaluation_result, beta)
 
     def _update_per_type_metrics(
         self,

@@ -410,14 +410,14 @@ def test_scenario_group2(
             ["O", "LOCATION", "O", "O", "O"],
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 15, 23],
-            0.0,  # precision (0 TP out of 1 predicted)
+            np.nan,  # precision (0 TP out of 1 predicted)
             0.0,  # recall (0 TP out of 1 annotated)
-            0.0,  # F1 score
+            np.nan,  # F1 score
             0,  # true positives
             0,  # false positives
             1,  # false negatives
             1,  # annotated PII spans
-            1,  # predicted PII spans
+            0,  # predicted PII spans. 0 in the global scenario, 1 in the per_type scenario.
         ),
         # Global entities with multiple overlaps and IoU above threshold - results in TP
         (
