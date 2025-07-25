@@ -19,7 +19,7 @@ class SpanEvaluator(BaseEvaluator):
 
     def __init__(
         self,
-        model: Union[BaseModel, AnalyzerEngine],
+        model: Optional[Union[BaseModel, AnalyzerEngine]],
         verbose: bool = False,
         compare_by_io: bool = True,
         entities_to_keep: Optional[List[str]] = None,
@@ -195,6 +195,110 @@ class SpanEvaluator(BaseEvaluator):
 
         return annotation_spans, prediction_spans
 
+    @staticmethod
+    def _handle_unmatched_predictions(
+        prediction_spans: List[Span],
+        matched_preds: Set[Tuple[str, int, int]],
+        evaluation_result: EvaluationResult,
+    ) -> EvaluationResult:
+        """
+        Handle predictions that weren't matched to any annotation.
+
+        :param prediction_spans: List of prediction Span objects
+        :param matched_preds: Set of already matched prediction spans
+        :param evaluation_result: EvaluationResult object to update
+
+        """
+        if not evaluation_result.model_errors:
+            evaluation_result.model_errors = []
+
+        for pred_span in prediction_spans:
+            pred_span_key = (
+                pred_span.entity_type,
+                pred_span.start_position,
+                pred_span.end_position,
+            )
+            if pred_span_key not in matched_preds:
+                evaluation_result.results[("O", pred_span.entity_type)] += 1
+                evaluation_result.pii_false_positives += 1
+                evaluation_result.per_type[pred_span.entity_type].false_positives += 1
+                model_error = ModelError(
+                    error_type=ErrorType.FP,
+                    annotation="O",
+                    prediction=pred_span.entity_type,
+                    full_text=pred_span.entity_value,
+                    token=" ".join(pred_span.normalized_tokens),
+                    explanation=f"False positive for {pred_span}",
+                )
+                evaluation_result.model_errors.append(model_error)
+
+        return evaluation_result
+
+    @staticmethod
+    def _check_if_matched_already(
+        pred_span: Span, ann_span: Span, matched_preds: set
+    ) -> bool:
+        """
+        Check if a prediction span is valid for matching with an annotation span.
+
+        A prediction is valid if:
+        1. It hasn't already been matched to another annotation
+        2. Its entity type matches the annotation's entity type
+
+        Args:
+            pred_span: The prediction Span to check
+            ann_span: The annotation Span being matched against
+            matched_preds: Set of already matched prediction spans
+
+        Returns:
+            bool: True if the prediction is valid for matching, False otherwise
+        """
+        # Create unique key for the prediction span
+        pred_span_key = (
+            pred_span.entity_type,
+            pred_span.start_position,
+            pred_span.end_position,
+        )
+
+        # Check if prediction is already matched
+        if pred_span_key in matched_preds:
+            return False
+
+        return True
+
+    def _find_best_match(
+        self,
+        ann_span: Span,
+        prediction_spans: List[Span],
+        matched_preds: Set[Tuple[str, int, int]],
+    ) -> Tuple[Optional[Span], float]:
+        """
+        Find the best matching prediction span for a given annotation span.
+
+        :param ann_span: The annotation Span to match against
+        :param prediction_spans: List of prediction Span objects
+        :param matched_preds: Set of already matched prediction spans to avoid duplicates
+        """
+        best_match = None
+        best_iou = 0.0
+
+        for pred_span in prediction_spans:
+            if self._check_if_matched_already(
+                pred_span=pred_span, ann_span=ann_span, matched_preds=matched_preds
+            ):
+                iou = self.calculate_iou(
+                    span1=ann_span,
+                    span2=pred_span,
+                    ignore_entity_type=True,
+                    use_normalized_indices=True,
+                    char_based=self.char_based,
+                )
+                if iou > best_iou:
+                    best_iou = iou
+                    best_match = pred_span
+
+        return best_match, best_iou
+
     def _update_result_with_overall_metrics(
         self,
         evaluation_result: EvaluationResult,
@@ -216,7 +320,6 @@ class SpanEvaluator(BaseEvaluator):
         evaluation_result.pii_recall = recall
         evaluation_result.pii_precision = precision
         evaluation_result.pii_f = f_beta
-        self._update_per_type_metrics(evaluation_result, beta)
 
     def _update_per_type_metrics(
         self,
@@ -321,17 +424,46 @@ class SpanEvaluator(BaseEvaluator):
         # Process each sentence
         for _, sentence_df in results_df.groupby("sentence_id"):
             # Get and process spans for the sentence
-            annotation_spans, prediction_spans = self._process_sentence_spans(
-                sentence_df
-            )
-            # Match predictions with annotations and update metrics
-            evaluation_result = self._match_predictions_with_annotations(
-                annotation_spans, prediction_spans, evaluation_result, per_type
+            evaluation_result = self._compare_one_sentence(
+                sentence_df=sentence_df,
+                per_type=per_type,
+                evaluation_result=evaluation_result,
             )
         # Create and return the final evaluation result
-        self._update_result_with_overall_metrics(
-            evaluation_result,
-            beta,
+        if per_type:
+            self._update_per_type_metrics(evaluation_result, beta)
+        else:
+            self._update_result_with_overall_metrics(
+                evaluation_result,
+                beta,
+            )
+
+        return evaluation_result
+
+    def _compare_one_sentence(
+        self,
+        sentence_df: pd.DataFrame,
+        per_type: bool,
+        evaluation_result: Optional[EvaluationResult] = None,
+    ) -> EvaluationResult:
+        """
+        Compare one sentence's annotations and predictions, updating the evaluation result.
+
+        :param per_type: If True, performs per-entity type evaluation; if False, performs
+                global PII vs non-PII evaluation
+        :param sentence_df: DataFrame containing sentence_id, tokens, token start indices,
+                annotations and predictions columns
+        :param evaluation_result: Optional existing EvaluationResult to update. If None,
+                creates a new one.
+
+        """
+        if not evaluation_result:
+            evaluation_result = EvaluationResult()
+
+        annotation_spans, prediction_spans = self._process_sentence_spans(sentence_df)
+        # Match predictions with annotations and update metrics
+        evaluation_result = self._match_predictions_with_annotations(
+            annotation_spans, prediction_spans, evaluation_result, per_type
         )
         return evaluation_result
 
@@ -355,6 +487,8 @@ class SpanEvaluator(BaseEvaluator):
 
         for idx, (_, row) in enumerate(df.iterrows()):
             entity_type = row[column]
+            if self.compare_by_io:
+                entity_type = self._to_io([entity_type])[0]
             token = row["token"]
             token_start = row["start_indices"]
             token_length = len(token)
@@ -518,7 +652,7 @@ class SpanEvaluator(BaseEvaluator):
                 overlapping_preds,
             )
 
-            if not overlapping_preds:  # scenario 2
+            if not overlapping_preds:  # scenario 2- there is no prediction
                 if per_type:
                     evaluation_result.per_type[ann_type].false_negatives += 1
                     evaluation_result.results[(ann_type, "O")] += 1
@@ -529,7 +663,6 @@ class SpanEvaluator(BaseEvaluator):
                     )
                 else:
                     evaluation_result.pii_false_negatives += 1
-                    evaluation_result.pii_predicted = len(prediction_spans)
 
             elif (
                 len(overlapping_preds) == 1
@@ -951,6 +1084,46 @@ class SpanEvaluator(BaseEvaluator):
         overlapping_preds.sort(key=lambda x: x[0].start_position)
 
         return overlapping_preds
+
+    @staticmethod
+    def _update_wrong_entities(
+        overlapping_preds,
+        annotated_entity_type,
+        matched_predictions,
+        ann_span,
+        evaluation_result,
+    ) -> EvaluationResult:
+        non_type_matching_preds = [
+            (p, iou)
+            for p, iou in overlapping_preds
+            if p.entity_type != annotated_entity_type
+            and (p.entity_type, p.start_position, p.end_position)
+            not in matched_predictions
+        ]
+
+        for non_matching_pred, iou in non_type_matching_preds:
+            # Record entity type mismatches in error analysis
+            if non_matching_pred.entity_type != ann_span.entity_type:
+                evaluation_result.model_errors.append(
+                    ModelError(
+                        error_type=ErrorType.WrongEntity,
+                        annotation=ann_span.entity_type,
+                        prediction=non_matching_pred.entity_type,
+                        full_text=ann_span.entity_value,
+                        token=" ".join(ann_span.normalized_tokens),
+                        explanation=f"Wrong entity type: {ann_span.entity_type} detected as {non_matching_pred.entity_type}, iou={iou:.2f}",
+                    )
+                )
+            evaluation_result.results[
+                (ann_span.entity_type, non_matching_pred.entity_type)
+            ] = (
+                evaluation_result.results.get(
+                    (ann_span.entity_type, non_matching_pred.entity_type), 0
+                )
+                + 1
+            )
+
+        return evaluation_result
 
     def _add_to_annotated(self, evaluation_result, per_type, entity_type):
         if per_type:
