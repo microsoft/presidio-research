@@ -451,6 +451,22 @@ def test_scenario_group2(
             1,  # annotated PII spans (one PERSON span)
             1,  # predicted PII spans (multiple entity types become single PII span)
         ),
+        # Global entities with standalone predictions (no annotation overlap) - results in FP count update
+        (
+            "Scenario 7: Global entities with standalone predictions (no annotation overlap)",
+            ["O", "O", "O", "O", "O"],
+            ["O", "PERSON", "LOCATION", "O", "O"],
+            ["The", "quick", "brown", "fox", "jumped"],
+            [0, 4, 10, 16, 20],
+            0.0,  # precision (0 TP out of 1 predicted PII)
+            np.nan,  # recall (0 TP out of 0 annotated)
+            np.nan,  # F1 score
+            0,  # true positives
+            1,  # false positives (standalone predictions become one PII span)
+            0,  # false negatives
+            0,  # annotated PII spans
+            1,  # predicted PII spans (multiple entity types become single PII span)
+        ),
     ],
 )
 def test_global_metrics(
