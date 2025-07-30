@@ -11,7 +11,7 @@ from tests.mocks import MockModel
 def span_evaluator():
     """Create a SpanEvaluator instance for testing."""
     return SpanEvaluator(
-        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=[]
+        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=None
     )
 
 
@@ -410,14 +410,14 @@ def test_scenario_group2(
             ["O", "LOCATION", "O", "O", "O"],
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 15, 23],
-            0.0,  # precision (0 TP out of 1 predicted)
+            np.nan,  # precision (0 TP out of 1 predicted)
             0.0,  # recall (0 TP out of 1 annotated)
-            0.0,  # F1 score
+            np.nan,  # F1 score
             0,  # true positives
             0,  # false positives
             1,  # false negatives
             1,  # annotated PII spans
-            1,  # predicted PII spans
+            0,  # predicted PII spans. 0 in the global scenario, 1 in the per_type scenario.
         ),
         # Global entities with multiple overlaps and IoU above threshold - results in TP
         (
@@ -916,7 +916,7 @@ def test_calculate_iou_token_based():
             ],
             {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},
         ),
-        # Multiple overlapping predictions: Same type, high cumulative IoU → TP with FN
+        # Multiple overlapping predictions: Same type, low cumulative IoU due to skip words → FN
         (
             "Multiple overlap TP: Same type with high cumulative IoU",
             ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
