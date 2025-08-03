@@ -958,7 +958,6 @@ def test_calculate_iou_token_based():
                 "Entity PERSON falsely detected",
                 "Wrong entity type: PERSON detected as LOCATION",
                 "Entity LOCATION falsely detected",
-
             ],
             {("PERSON", "LOCATION"): 1, ("O", "PERSON"): 1, ("PERSON", "O"): 1},
         ),
