@@ -331,7 +331,7 @@ class Plotter:
         """
         if not output_folder:
             raise ValueError("output_folder is missing, cannot save figure."
-                             "If you do not wish to save figurse, "
+                             "If you do not wish to save figures, "
                              "configure the Plotter with `save_as = None`")
 
         output_folder = Path(output_folder)
