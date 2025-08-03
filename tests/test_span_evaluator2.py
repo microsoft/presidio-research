@@ -129,10 +129,10 @@ def assert_metric(expected_pii_metric, metric_name, result, scenario):
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 15, 23],
             0,  # true positives
-            0,  # false positives
+            1,  # false positives
             1,  # false negatives
-            {("PERSON", "O"): 1},  # confusion matrix
-            [ErrorType.FN],  # error types
+            {("PERSON", "O"): 1, ("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FN, ErrorType.FP],  # error types
         ),
         # Scenario 5b: Different type overlap with IoU < threshold
         (
@@ -241,12 +241,13 @@ def test_scenario_group1(
             ["The", "New", "York", "Mets", "visited"],
             [0, 4, 8, 13, 18],
             0,  # true positives
-            0,  # false positives (not counted as FP due to being same type)
+            1,  # false positives
             1,  # false negatives
             {
                 ("ORGANIZATION", "O"): 1,
+                ("O", "ORGANIZATION"): 1,
             },  # confusion matrix
-            [ErrorType.FN],  # errors
+            [ErrorType.FN, ErrorType.FP],  # errors
         ),
         # Scenario 7A: Cumulative IoU with spans of different types > threshold
         (
@@ -256,10 +257,10 @@ def test_scenario_group1(
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 17, 25],
             0,  # true positives
-            1,  # false positives (for the wrong type)
+            2,  # false positives
             1,  # false negatives
-            {("PERSON", "LOCATION"): 1},  # confusion matrix
-            [ErrorType.WrongEntity],  # errors
+            {("PERSON", "LOCATION"): 1, ("O", "PERSON"): 1},
+            [ErrorType.WrongEntity, ErrorType.FP],  # errors
         ),
         # Scenario 7B: Cumulative IoU with spans of different types < threshold
         (
@@ -410,14 +411,14 @@ def test_scenario_group2(
             ["O", "LOCATION", "O", "O", "O"],
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 15, 23],
-            np.nan,  # precision (0 TP out of 1 predicted)
+            0.0,  # precision (0 TP out of 1 predicted)
             0.0,  # recall (0 TP out of 1 annotated)
             np.nan,  # F1 score
             0,  # true positives
-            0,  # false positives
+            1,  # false positives
             1,  # false negatives
             1,  # annotated PII spans
-            0,  # predicted PII spans. 0 in the global scenario, 1 in the per_type scenario.
+            1,  # predicted PII spans
         ),
         # Global entities with multiple overlaps and IoU above threshold - results in TP
         (
@@ -557,7 +558,7 @@ def test_global_metrics(
             [0, 6, 12, 15, 19, 24, 31],
             {
                 "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
-                "ADDRESS": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+                "ADDRESS": {"precision": 0.0, "recall": 0.0, "f_beta": np.nan},
             },
             {"precision": 1.0, "recall": 0.6666666666666666, "f_beta": 0.8},
         ),
@@ -891,15 +892,16 @@ def test_calculate_iou_token_based():
         ),
         # Single overlapping prediction: Same type, low IoU → FN
         (
-            "Single overlap FN: Same type with low IoU",
+            "Single overlap FN+FP: Same type with low IoU",
             ["O", "PERSON", "PERSON", "PERSON", "O"],
             ["O", "PERSON", "O", "O", "O"],
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 15, 23],
-            [ErrorType.FN],
-            1,
-            ["Entity PERSON not detected due to low iou"],
-            {("PERSON", "O"): 1},
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity PERSON not detected due to low iou",
+             "Entity PERSON falsely detected"],
+            {("PERSON", "O"): 1, ("O", "PERSON"): 1},
         ),
         # Single overlapping prediction: Different type, low IoU → FN + FP
         (
@@ -923,10 +925,11 @@ def test_calculate_iou_token_based():
             ["ADDRESS", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
             ["123", "Main", "Street", "Suite", "100", "is"],
             [0, 4, 9, 16, 22, 26],
-            [ErrorType.FN],  # FN because of "Main"
-            1,
-            ["Entity ADDRESS not detected due to low iou="],
-            {("ADDRESS", "O"): 1},
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity ADDRESS not detected due to low iou=",
+             "Entity ADDRESS falsely detected"],
+            {("ADDRESS", "O"): 1, ("O", "ADDRESS"): 1},
         ),
         # Multiple overlapping predictions: Same type, low cumulative IoU → FN
         (
@@ -935,10 +938,11 @@ def test_calculate_iou_token_based():
             ["O", "ORGANIZATION", "O", "ORGANIZATION", "O"],
             ["The", "New", "York", "Mets", "visited"],
             [0, 4, 8, 13, 18],
-            [ErrorType.FN],
-            1,
-            ["Entity ORGANIZATION not detected due to low iou"],
-            {("ORGANIZATION", "O"): 1},
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity ORGANIZATION not detected due to low iou",
+             "Entity ORGANIZATION falsely detected"],
+            {("ORGANIZATION", "O"): 1, ("O", "ORGANIZATION"): 1},
         ),
         # Multiple overlapping predictions: Different type, high cumulative IoU → WrongEntity
         (
@@ -947,15 +951,16 @@ def test_calculate_iou_token_based():
             ["O", "PERSON", "LOCATION", "LOCATION", "O"],
             ["The", "John", "Smith", "Johnson", "visited"],
             [0, 4, 9, 17, 25],
-            [ErrorType.FN, ErrorType.WrongEntity, ErrorType.FN, ErrorType.FP],
+            [ErrorType.FN, ErrorType.WrongEntity, ErrorType.FP, ErrorType.FP],
             4,
             [
                 "Entity PERSON not detected due to low iou",
+                "Entity PERSON falsely detected",
                 "Wrong entity type: PERSON detected as LOCATION",
-                "Entity PERSON not detected. iou with LOCATION",
-                "Entity LOCATION falsely detected, iou",
+                "Entity LOCATION falsely detected",
+
             ],
-            {("PERSON", "LOCATION"): 1},
+            {("PERSON", "LOCATION"): 1, ("O", "PERSON"): 1, ("PERSON", "O"): 1},
         ),
         # Multiple overlapping predictions: Different type, low cumulative IoU → FN + FP
         (
