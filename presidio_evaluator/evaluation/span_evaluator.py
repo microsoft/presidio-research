@@ -778,9 +778,13 @@ class SpanEvaluator(BaseEvaluator):
                     evaluation_result.pii_predicted += 1
 
         else:  # Scenario 5 (low IoU overlap)
-            if ann_type == pred_type:  # Scenario 5a (FN but not FP)
+            if (
+                ann_type == pred_type
+            ):  # Scenario 5a (FN and FP - treat as separate entities)
                 if per_type:
                     evaluation_result.per_type[ann_type].false_negatives += 1
+                    evaluation_result.per_type[pred_type].false_positives += 1
+                    evaluation_result.per_type[pred_type].num_predicted += 1
                     evaluation_result.model_errors.append(
                         self._get_model_error(
                             ann_span=ann_span,
@@ -789,9 +793,20 @@ class SpanEvaluator(BaseEvaluator):
                             iou=iou,
                         )
                     )
+                    evaluation_result.model_errors.append(
+                        self._get_model_error(
+                            ann_span=ann_span,
+                            pred_span=pred_span,
+                            error_type=ErrorType.FP,
+                            iou=iou,
+                        )
+                    )
                     evaluation_result.results[(ann_type, "O")] += 1
+                    evaluation_result.results[("O", pred_type)] += 1
                 else:
                     evaluation_result.pii_false_negatives += 1
+                    evaluation_result.pii_false_positives += 1
+                    evaluation_result.pii_predicted += 1
 
             else:  # Scenario 5b - different types (FN and FP)
                 if per_type:
@@ -882,11 +897,24 @@ class SpanEvaluator(BaseEvaluator):
                             )
                             evaluation_result.results[(ann_type, "O")] += 1
                             annotation_was_counted = True
+                        # For low IoU same-type cases, treat predictions as false positives
+                        evaluation_result.per_type[cumulative_type].false_positives += 1
+                        evaluation_result.per_type[cumulative_type].num_predicted += 1
+                        evaluation_result.model_errors.append(
+                            self._get_model_error(
+                                ann_span=ann_span,
+                                pred_span=same_type_spans[0],
+                                error_type=ErrorType.FP,
+                                iou=iou_per_type,
+                            )
+                        )
+                        evaluation_result.results[("O", cumulative_type)] += 1
 
                     else:
                         if not annotation_was_counted:
                             evaluation_result.pii_false_negatives += 1
                             annotation_was_counted = True
+                        evaluation_result.pii_false_positives += 1
                         evaluation_result.pii_predicted += 1
 
             else:
@@ -898,7 +926,16 @@ class SpanEvaluator(BaseEvaluator):
                     if per_type:
                         if not annotation_was_counted:
                             evaluation_result.per_type[ann_type].false_negatives += 1
+                            evaluation_result.model_errors.append(
+                                self._get_model_error(
+                                    ann_span=ann_span,
+                                    pred_span=different_type_spans[0],
+                                    error_type=ErrorType.FN,
+                                    iou=iou_per_type,
+                                )
+                            )
                             annotation_was_counted = True
+
                         evaluation_result.per_type[cumulative_type].false_positives += 1
                         evaluation_result.per_type[cumulative_type].num_predicted += 1
                         evaluation_result.model_errors.append(
@@ -909,14 +946,7 @@ class SpanEvaluator(BaseEvaluator):
                                 iou=iou_per_type,
                             )
                         )
-                        evaluation_result.model_errors.append(
-                            self._get_model_error(
-                                ann_span=ann_span,
-                                pred_span=different_type_spans[0],
-                                error_type=ErrorType.FN,
-                                iou=iou_per_type,
-                            )
-                        )
+
                         evaluation_result.model_errors.append(
                             self._get_model_error(
                                 ann_span=ann_span,
@@ -928,7 +958,7 @@ class SpanEvaluator(BaseEvaluator):
                         evaluation_result.results[(ann_type, cumulative_type)] += 1
                     else:
                         if not annotation_was_counted:
-                            evaluation_result.per_type[ann_type].false_negatives += 1
+                            evaluation_result.pii_false_negatives += 1
                             annotation_was_counted = True
                         evaluation_result.pii_false_positives += 1
                         evaluation_result.pii_predicted += 1
@@ -965,7 +995,7 @@ class SpanEvaluator(BaseEvaluator):
                         evaluation_result.results[("O", cumulative_type)] += 1
                     else:
                         if not annotation_was_counted:
-                            evaluation_result.per_type[ann_type].false_negatives += 1
+                            evaluation_result.pii_false_negatives += 1
                             annotation_was_counted = True
                         evaluation_result.pii_false_positives += 1
                         evaluation_result.pii_predicted += 1

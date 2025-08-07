@@ -1,4 +1,4 @@
-# Span Evaluation Strategy Overview
+# Span Matching Strategies in Presidio Evaluator
 
 This document explains how the span evaluation works in Presidio Evaluator, focusing on different overlap scenarios
 between annotated and predicted spans.
@@ -13,6 +13,18 @@ different overlap scenarios, and the expected aggregations on each scenario.
 - **Span**: A continuous sequence of tokens representing an entity
 - **IoU (Intersection over Union)**: Measures the overlap between spans
 - **Threshold**: Minimum IoU value to consider a match
+
+## General Cases:
+
+When comparing spans, the following general cases are considered:
+
+1. ** High IoU, same type**: If the IoU is above a certain threshold (e.g., 0.75), the spans are considered a match.
+2. ** High IoU, different type**: If the IoU is above the threshold but the types differ, it counts as a false positive
+   for the predicted type and a false negative for the annotated type.
+3. ** Low IoU**: If the IoU is below the threshold, it counts as *both* a false positive and a false negative,
+   regardless of type.
+4. **No Overlap**: If there is no overlap with a given annotation, it counts as a false negative for the annotation. If
+   there is no overlap with a prediction, it counts as a false positive for the prediction.
 
 ## Basic Overlap Scenarios
 
@@ -58,18 +70,25 @@ When there's significant overlap but entity types differ:
 
 ### 5. Partial Match (Low IoU)
 
-When there's insufficient overlap between spans:
+When there's insufficient overlap between spans, they are treated as both false negatives and false positives:
 
-- **Same Type Example**:
+- **Same Type Example (Scenario 5a)**:
     - Text: "John Smith Johnson visited"
     - Annotation: [PERSON, PERSON, PERSON, O]
     - Prediction: [PERSON, O, O, O]
-    - Result: FN (IoU = 0.33, below threshold)
-- **Different Type Example**:
+    - IoU: 0.33 (below threshold of 0.75)
+    - Result: Both FN (annotation not detected) and FP (prediction counted as separate entity)
+    - num_predicted: +1 (prediction is counted)
+    - Confusion matrix: (PERSON, O) and (O, PERSON)
+
+- **Different Type Example (Scenario 5b)**:
     - Text: "New York Mets won"
     - Annotation: [ORGANIZATION, ORGANIZATION, ORGANIZATION, O]
     - Prediction: [LOCATION, O, O, O]
+    - IoU: 0.2 (below threshold)
     - Result: FN for ORGANIZATION and FP for LOCATION
+    - num_predicted: +1 (prediction is counted)
+    - Confusion matrix: (ORGANIZATION, O) and (O, LOCATION)
 
 ## Multiple Span Scenarios
 
