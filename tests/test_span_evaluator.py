@@ -1,499 +1,168 @@
-"""
-Test cases for SpanEvaluator to verify correct operation of the entity evaluation pipeline.
-Tests focus on:
-1. Span creation and normalization
-2. Merging of adjacent spans
-3. IoU calculation
-4. Matching logic
-5. Error analysis and result population
-6. Integration with visualization components
-"""
 import numpy as np
-import pytest
 import pandas as pd
+import pytest
 from presidio_evaluator.data_objects import Span
-from presidio_evaluator.evaluation.span_evaluator import SpanEvaluator
-from presidio_evaluator.evaluation.evaluation_result import EvaluationResult
-from presidio_evaluator.evaluation import ErrorType
+
+from presidio_evaluator.evaluation import EvaluationResult, ErrorType, SpanEvaluator
 from tests.mocks import MockModel
 
 
-# ===== Fixtures =====
-
-
 @pytest.fixture
-def sample_df():
-    """Create a sample DataFrame for testing span creation and normalization."""
-    return pd.DataFrame(
-        {
-            "sentence_id": [0, 0, 0, 0, 0],
-            "token": ["John", "Smith", "lives", "in", "London"],
-            "annotation": ["PERSON", "PERSON", "O", "O", "LOCATION"],
-            "prediction": ["PERSON", "PERSON", "O", "O", "LOCATION"],
-            "start_indices": [0, 5, 11, 17, 20],
-        }
-    )
-
-
-@pytest.fixture
-def sample_df_with_skipwords():
-    """Create a sample DataFrame with skip words for testing adjacency and merging."""
-    return pd.DataFrame(
-        {
-            "sentence_id": [5, 5, 5, 5, 5, 5, 5],
-            "token": ["Dr", ",", "Jane", "Smith", "-", "MD", "arrived"],
-            "annotation": ["PERSON", "O", "PERSON", "PERSON", "O", "PERSON", "O"],
-            "prediction": ["PERSON", "O", "PERSON", "PERSON", "O", "PERSON", "O"],
-            "start_indices": [0, 4, 6, 11, 16, 18, 21],
-        }
-    )
-
-
-@pytest.fixture
-def mock_span_evaluator():
+def span_evaluator():
     """Create a SpanEvaluator instance for testing."""
-    return SpanEvaluator(model=MockModel(), iou_threshold=0.5, char_based=True)
+    return SpanEvaluator(
+        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=None
+    )
 
 
-# ===== Core End-to-End Evaluation Tests =====
+# Test Scenario group 1: single span overlaps
+
+
+def assert_error_types(expected_error_types, result, scenario):
+    # Check error types
+    if expected_error_types:
+        error_types = [error.error_type for error in result.model_errors]
+        for expected_type in expected_error_types:
+            assert (
+                expected_type in error_types
+            ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
+
+
+def assert_confusion_matrix(expected_results, result, scenario):
+    # Check confusion matrix results
+    for (ann, pred), expected_count in expected_results.items():
+        actual_count = result.results.get((ann, pred), 0)
+        assert actual_count == expected_count, (
+            f"In {scenario}, confusion matrix entry ({ann}, {pred}) "
+            f"expected to be {expected_count}, got {actual_count}"
+        )
+
+
+def assert_metric(expected_pii_metric, metric_name, result, scenario):
+    metric = ""
+    match metric_name:
+        case "precision":
+            metric = result.precision
+        case "recall":
+            metric = result.recall
+        case "f_beta":
+            metric = result.f_beta
+        case "pii_precision":
+            metric = result.pii_precision
+        case "pii_recall":
+            metric = result.pii_recall
+        case "pii_f":
+            metric = result.pii_f
+        case _:
+            raise ValueError(f"Unknown metric name: {metric_name}")
+
+    if np.isnan(expected_pii_metric):
+        assert np.isnan(
+            metric
+        ), f"In {scenario}, expected {metric_name} score to be None, got {metric}"
+    else:
+        assert (
+            metric == pytest.approx(expected_pii_metric, 3)
+        ), f"In {scenario}, expected {metric_name} score {expected_pii_metric}, got {metric}"
 
 
 @pytest.mark.parametrize(
-    "annotation, prediction, tokens, start_indices, TP, num_annotated, num_predicted, char_based",
+    "scenario, annotation, prediction, tokens, start_indices, expected_tp, expected_fp, expected_fn, expected_results, expected_error_types",
     [
-        # BASIC ENTITY MATCHING
+        # Scenario 1: Same type overlap with IoU > threshold
         (
-            ["PERSON", "O", "O", "O"],
-            ["PERSON", "O", "O", "O"],
-            ["David", "is", "my", "friend"],
-            [0, 6, 9, 12],
-            1,
-            1,
-            1,
-            False,
+            "Scenario 1: Same type overlap with IoU > threshold",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            {("PERSON", "PERSON"): 1},  # confusion matrix
+            [],  # no errors
         ),
+        # Scenario 2: No overlap with annotated
         (
-            ["EMAIL", "O", "O", "O"],
-            ["EMAIL", "O", "O", "O"],
-            ["user@example.com", "sent", "a", "message"],
-            [0, 17, 22, 24],
-            1,
-            1,
-            1,
-            False,
+            "Scenario 2: No overlap with annotated",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "O", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            {("PERSON", "O"): 1},  # confusion matrix
+            [ErrorType.FN],  # error types
         ),
-        # SKIP WORD HANDLING
+        # Scenario 3: No overlap with predicted
         (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["David", "is", "living", "abroad"],
-            [0, 6, 9, 16],
-            1,
-            1,
-            1,
-            False,
+            "Scenario 3: No overlap with predicted",
+            ["O", "O", "O", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            0,  # true positives
+            1,  # false positives
+            0,  # false negatives
+            {("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FP],  # error types
         ),
+        # Scenario 4: Different type overlap with IoU > threshold
         (
-            ["PERSON", "O", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["John", "and", "Mary", "came"],
-            [0, 5, 9, 14],
-            1,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "O", "O", "O", "PERSON", "O"],
-            ["PERSON", "O", "O", "O", "PERSON", "O"],
-            ["John", "and", "the", "other", "Smith", "arrived"],
-            [0, 5, 9, 13, 19, 25],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # PUNCTUATION HANDLING
-        (
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["David", ",", "Maxwell", "Morris"],
-            [0, 6, 8, 16],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "O", "O", "PERSON"],
-            ["PERSON", "O", "O", "PERSON"],
-            ["David", "-", "-", "Morris"],
-            [0, 6, 8, 10],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "O", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "O"],
-            ["Dr.", ",", "Smith", "arrived"],
-            [0, 4, 6, 12],
-            1,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "O", "O", "O", "PERSON"],
-            ["PERSON", "O", "O", "O", "PERSON"],
-            ["James", ".", "-", "/", "Bond"],
-            [0, 6, 8, 10, 12],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # BOUNDARY MISMATCHES
-        (
-            ["LOCATION", "LOCATION", "LOCATION", "O"],
+            "Scenario 4: Different type overlap with IoU > threshold",
             ["O", "LOCATION", "LOCATION", "O"],
-            ["New", "York", "City", "is"],
-            [0, 4, 9, 14],
-            0,
-            1,
-            1,
-            False,
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "New", "York", "visited"],
+            [0, 4, 8, 13],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {("LOCATION", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FP, ErrorType.FN, ErrorType.WrongEntity],  # error types
         ),
+        # Scenario 5a: Same type overlap with IoU < threshold
         (
-            ["O", "O", "PERSON", "PERSON"],
-            ["O", "PERSON", "O", "PERSON"],
-            ["I", "met", "John", "Doe"],
-            [0, 2, 6, 11],
-            0,
-            1,
-            2,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["Anna", "Marie", "Smith", "Loves"],
-            [0, 5, 11, 17],
-            0,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "O"],
-            ["John", "Doe", "Smith"],
-            [0, 5, 9],
-            0,
-            1,
-            1,
-            False,
-        ),
-        (
+            "Scenario 5a: Same type overlap with IoU < threshold",
             ["O", "PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "PERSON", "O", "O"],
-            ["Mr", "John", "Middle", "Smith", "Jr"],
-            [0, 3, 8, 15, 21],
-            0,
-            1,
-            1,
-            False,
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {("PERSON", "O"): 1, ("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FN, ErrorType.FP],  # error types
         ),
-        # ENTITY TYPE MISMATCHES
+        # Scenario 5b: Different type overlap with IoU < threshold
         (
-            ["PERSON", "O", "O", "O"],
-            ["LOCATION", "O", "O", "O"],
-            ["Paris", "is", "beautiful", "today"],
-            [0, 6, 9, 19],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD", "CREDIT_CARD"],
-            ["PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER", "PHONE_NUMBER"],
-            ["1234", "5678", "9012", "3456"],
-            [0, 5, 10, 15],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # MULTIPLE ENTITY SCENARIOS
-        (
-            ["PERSON", "O", "O", "LOCATION"],
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["Alice", "went", "to", "Paris"],
-            [0, 6, 11, 14],
-            2,
-            2,
-            2,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["Barack", "Obama", "visited", "New", "York"],
-            [0, 7, 13, 21, 25],
-            2,
-            2,
-            2,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["John", "Doe", "and", "Jane", "Smith"],
-            [0, 5, 9, 13, 18],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "Doe", "and", "Jane", "Smith"],
-            [0, 5, 9, 13, 18],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "O", "PERSON", "O", "LOCATION"],
-            ["PERSON", "O", "PERSON", "O", "LOCATION"],
-            ["John", "met", "Jane", "in", "Paris"],
-            [0, 5, 9, 14, 17],
-            3,
-            3,
-            3,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "O", "DATE", "DATE"],
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "O", "DATE", "O"],
-            ["John", "Smith", "visited", "London", "on", "January", "1st"],
-            [0, 5, 11, 19, 26, 29, 37],
-            2,
-            3,
-            3,
-            False,
-        ),
-        # OVERLAPPING/NESTED ENTITIES
-        (
-            ["PERSON", "PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "PERSON", "O"],
-            ["Sir", "Arthur", "Conan", "Doyle", "wrote"],
-            [0, 4, 11, 17, 23],
-            0,
-            1,
-            2,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "O", "PERSON", "PERSON"],
-            ["James", "Robert", "Smith", "III"],
-            [0, 6, 13, 19],
-            0,
-            1,
-            2,
-            False,
-        ),
-        # SPECIAL CHARACTERS AND FORMATTING
-        (
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["O'Brien", "Jr.", "at", "McDonald's", "Corp.", "Inc."],
-            [0, 8, 12, 15, 27, 34],
-            2,
-            2,
-            2,
-            False,
-        ),
-        (
-            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION"],
-            ["United", "-", "States", "Government"],
-            [0, 7, 9, 16],
-            1,
-            1,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["José", "Martínez", "from", "España"],
-            [0, 5, 14, 19],
-            1,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
-            ["ID_NUMBER", "ID_NUMBER", "ID_NUMBER"],
-            ["ID", "-", "12345"],
-            [0, 3, 5],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # EDGE CASES
-        (
-            ["O"] * 1000,
-            ["O"] * 1000,
-            ["word"] * 1000,
-            list(range(0, 5000, 5)),  # Start positions spaced by 5 characters
-            0,
-            0,
-            0,
-            False,
-        ),
-        (
-            ["O", "O", "O", "O"],
-            ["PERSON", "O", "LOCATION", "O"],
-            ["This", "is", "London", "now"],
-            [0, 5, 8, 15],
-            0,
-            0,
-            1,
-            False,
-        ),
-        (
-            ["PERSON", "O", "LOCATION", "LOCATION"],
-            ["O", "O", "O", "O"],
-            ["Emma", "travels", "to", "Berlin"],
-            [0, 5, 13, 16],
-            0,
-            2,
-            0,
-            False,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["O", "O", "O", "O"],
-            ["John", "Smith", "works", "here"],
-            [0, 5, 11, 17],
-            0,
-            1,
-            0,
-            True,
-        ),
-        (
-            ["O", "O", "O", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["John", "Smith", "works", "here"],
-            [0, 5, 11, 17],
-            0,
-            0,
-            1,
-            True,
-        ),
-        (
-            ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
-            ["LOCATION", "O", "LOCATION", "O", "LOCATION"],
-            ["UK", "and", "US", "and", "EU"],
-            [0, 3, 7, 10, 14],
-            1,
-            1,
-            1,
-            False,
-        ),
-        # CHARACTER-BASED EVALUATION
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["John", "Smith", "works", "here"],
-            [0, 5, 11, 17],
-            1,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["John", "Smith", "visited", "New", "York"],
-            [0, 5, 11, 19, 23],
-            2,
-            2,
-            2,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "O", "O", "O"],
-            ["John", "Smith", "is", "here"],
-            [0, 5, 11, 14],
-            0,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["John", "F.", "Kennedy", "Jr."],
-            [0, 5, 8, 16],
-            1,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "O"],
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["John", "Smith", "Jr.", "arrived"],
-            [0, 5, 11, 15],
-            0,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["John", "F.", "Kennedy", "arrived"],
-            [0, 5, 8, 16],
-            0,
-            1,
-            1,
-            True,
-        ),
-        (
-            ["PERSON", "PERSON", "O", "ORGANIZATION"],
-            ["PERSON", "O", "PERSON", "ORGANIZATION"],
-            ["John", "Smith", "at", "Microsoft"],
-            [0, 5, 11, 14],
-            1,
-            2,
-            2,
-            True,
+            "Scenario 5b: Different type overlap with IoU < threshold",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},  # confusion matrix
+            [ErrorType.FN, ErrorType.FP],  # error types
         ),
     ],
 )
-def test_evaluate(
+def test_scenario_group1(
+    span_evaluator,
+    scenario,
     annotation,
     prediction,
     tokens,
     start_indices,
-    TP,
-    num_annotated,
-    num_predicted,
-    char_based,
+    expected_tp,
+    expected_fp,
+    expected_fn,
+    expected_results,
+    expected_error_types,
 ):
-    """Test end-to-end evaluation with various input scenarios."""
+    """Test each scenario in Group 1: single span overlaps."""
     # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame(
         {
@@ -505,159 +174,505 @@ def test_evaluate(
         }
     )
 
-    evaluator = SpanEvaluator(
-        model=MockModel(),
-        iou_threshold=0.9,
-        char_based=char_based,
+    # Run evaluation
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
     )
-    result = evaluator.calculate_score_on_df(df)
 
-    # Calculate expected metrics
-    expected_recall = TP / num_annotated if num_annotated > 0 else np.nan
-    expected_precision = TP / num_predicted if num_predicted > 0 else np.nan
+    # Check true positives, false positives, and false negatives
+    total_tp = sum(pii_type.true_positives for pii_type in result.per_type.values())
+    total_fp = sum(pii_type.false_positives for pii_type in result.per_type.values())
+    total_fn = sum(pii_type.false_negatives for pii_type in result.per_type.values())
 
-    # Assert that the result is an EvaluationResult instance
-    assert isinstance(result, EvaluationResult)
+    assert (
+        total_tp == expected_tp
+    ), f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
+    assert (
+        total_fp == expected_fp
+    ), f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
+    assert (
+        total_fn == expected_fn
+    ), f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
 
-    # Check counts
-    assert result.pii_predicted == num_predicted
-    assert result.pii_annotated == num_annotated
-    assert result.pii_true_positives == TP
+    # Check confusion matrix results
+    for (ann, pred), expected_count in expected_results.items():
+        actual_count = result.results.get((ann, pred), 0)
+        assert actual_count == expected_count, (
+            f"In {scenario}, confusion matrix entry ({ann}, {pred}) "
+            f"expected to be {expected_count}, got {actual_count}"
+        )
 
-    # Handle nan values separately from numeric values
-    if np.isnan(expected_precision):
-        assert np.isnan(result.pii_precision), f"Expected NaN precision, got {result.pii_precision}"
-    else:
-        assert result.pii_precision == pytest.approx(
-            expected_precision
-        ), f"Precision mismatch: expected {expected_precision}, got {result.pii_precision}"
+    # Check error types
+    if expected_error_types:
+        error_types = [error.error_type for error in result.model_errors]
+        for expected_type in expected_error_types:
+            assert (
+                expected_type in error_types
+            ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
 
-    if np.isnan(expected_recall):
-        assert np.isnan(result.pii_recall), f"Expected NaN recall, got {result.pii_recall}"
-    else:
-        assert result.pii_recall == pytest.approx(
-            expected_recall
-        ), f"Recall mismatch: expected {expected_recall}, got {result.pii_recall}"
+        assert len(result.model_errors) == len(expected_error_types)
 
 
-def test_evaluate_with_custom_skipwords():
+# Test Scenario group 2: annotated spans overlapping with multiple prediction spans
+
+
+@pytest.mark.parametrize(
+    "scenario, annotation, prediction, tokens, start_indices, expected_tp, expected_fp, expected_fn, expected_results, expected_error_types",
+    [
+        # Scenario 6A: Cumulative IoU with spans of the same type > threshold
+        (
+            "Scenario 6A: Cumulative IoU with spans of the same type > threshold",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            1,  # true positives (combined spans make a good match)
+            0,  # false positives
+            0,  # false negatives
+            {("ORGANIZATION", "ORGANIZATION"): 1},  # confusion matrix
+            [],  # no errors
+        ),
+        # Scenario 6B: Cumulative IoU with spans of the same type < threshold
+        (
+            "Scenario 6B: Cumulative IoU with spans of the same type < threshold",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "ORGANIZATION", "O", "ORGANIZATION", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            {
+                ("ORGANIZATION", "O"): 1,
+                ("O", "ORGANIZATION"): 1,
+            },  # confusion matrix
+            [ErrorType.FN, ErrorType.FP],  # errors
+        ),
+        # Scenario 7A: Cumulative IoU with spans of different types > threshold
+        (
+            "Scenario 7A: Cumulative IoU with spans of different types > threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "LOCATION", "LOCATION", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 17, 25],
+            0,  # true positives
+            2,  # false positives
+            1,  # false negatives
+            {("PERSON", "LOCATION"): 1, ("O", "PERSON"): 1},
+            [ErrorType.WrongEntity, ErrorType.FP],  # errors
+        ),
+        # Scenario 7B: Cumulative IoU with spans of different types < threshold
+        (
+            "Scenario 7B: Cumulative IoU with spans of different types < threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "O", "LOCATION", "O", "PERSON"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 17, 25],
+            0,  # true positives
+            2,  # false positives
+            1,  # false negatives
+            {
+                ("PERSON", "O"): 1,
+                ("O", "LOCATION"): 1,
+                ("O", "PERSON"): 1,
+            },  # confusion matrix
+            [ErrorType.FN, ErrorType.FP, ErrorType.FP],  # errors
+        ),
+        # Mixed case with both same and different types
+        (
+            "Mixed case: overlapping with both same and different entity types",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "LOCATION", "PERSON", "O"],
+            ["The", "John", "C", "B", "Johnson", "visited"],
+            [0, 4, 9, 11, 13, 21],
+            1,  # true positives (the parts that match)
+            1,  # false positives (the wrong type)
+            0,  # false negatives (since cumulative IoU is good)
+            {
+                ("PERSON", "PERSON"): 1,
+                ("O", "LOCATION"): 1,
+            },  # confusion matrix. (O, LOCATION) because of low IoU
+            [
+                ErrorType.FP
+            ],  # Not WrongEntity since cumulative IoU between Location and Person is low
+        ),
+    ],
+)
+def test_scenario_group2(
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_tp,
+    expected_fp,
+    expected_fn,
+    expected_results,
+    expected_error_types,
+):
+    """Test each scenario in Group 2: annotated spans overlapping with multiple prediction spans."""
+    # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame(
         {
-            "sentence_id": [0] * 5,
-            "token": ["David", "paid", "the", "bill", "today"],
-            "annotation": ["PERSON", "O", "O", "O", "O"],
-            "prediction": ["PERSON", "O", "O", "PERSON", "O"],
-            "start_indices": [0, 6, 11, 15, 20],
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": start_indices,
         }
     )
 
-    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.9, skip_words=["bill"])
-    result = evaluator.calculate_score_on_df(df)
-
-    # Calculate expected metrics
-    expected_recall = 1
-    expected_precision = 1
-
-    # Assert that the result is an EvaluationResult instance
-    assert isinstance(result, EvaluationResult)
-
-    assert result.pii_recall == pytest.approx(
-        expected_recall
-    ), f"Recall mismatch: expected {expected_recall}, got {result.pii_recall}"
-    assert result.pii_precision == pytest.approx(
-        expected_precision
-    ), f"Precision mismatch: expected {expected_precision}, got {result.pii_precision}"
-
-
-# ===== Component-Level Unit Tests =====
-
-
-def test_normalize_tokens(mock_span_evaluator):
-    """Test that token normalization correctly handles skip words."""
-
-    tokens = ["Dr", ",", "Jane", "Smith", "-", "MD"]
-    start_indices = [0, 4, 6, 11, 16, 18]
-
-    normalized_tokens, normalized_indices = mock_span_evaluator._normalize_tokens(
-        tokens, start_indices
+    # Run evaluation
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
     )
 
-    # Skip words should be removed
-    assert normalized_tokens == ["dr", "jane", "smith", "md"]
-    assert normalized_indices == [0, 6, 11, 18]
+    # Check true positives, false positives, and false negatives
+    total_tp = sum(pii_type.true_positives for pii_type in result.per_type.values())
+    total_fp = sum(pii_type.false_positives for pii_type in result.per_type.values())
+    total_fn = sum(pii_type.false_negatives for pii_type in result.per_type.values())
+
+    assert (
+        total_tp == expected_tp
+    ), f"In {scenario}, expected {expected_tp} TPs, got {total_tp}"
+    assert (
+        total_fp == expected_fp
+    ), f"In {scenario}, expected {expected_fp} FPs, got {total_fp}"
+    assert (
+        total_fn == expected_fn
+    ), f"In {scenario}, expected {expected_fn} FNs, got {total_fn}"
+
+    assert_confusion_matrix(expected_results, result, scenario)
+
+    assert_error_types(expected_error_types, result, scenario)
 
 
-def test_create_spans(mock_span_evaluator, sample_df):
-    """Test that spans are correctly created from tokens with proper normalization indices."""
-    spans = mock_span_evaluator._create_spans(sample_df, "annotation")
-
-    # Should create two spans: PERSON and LOCATION
-    assert len(spans) == 2
-
-    # Check the PERSON span details
-    person_span = spans[0]
-    assert person_span.entity_type == "PERSON"
-    assert person_span.entity_value == "John Smith"
-    assert person_span.start_position == 0
-    assert person_span.end_position == 10  # 5 (start of Smith) + 5 (length of Smith)
-    assert person_span.normalized_tokens == ["john", "smith"]
-    assert person_span.normalized_start_index == 0
-    assert person_span.normalized_end_index == 10
-
-    # Check the LOCATION span details
-    location_span = spans[1]
-    assert location_span.entity_type == "LOCATION"
-    assert location_span.entity_value == "London"
-    assert location_span.start_position == 20
-    assert location_span.end_position == 26  # 20 + 6
-    assert location_span.normalized_start_index == 20
-    assert location_span.normalized_end_index == 26
+# Test global PII evaluatiom metrics
 
 
-def test_are_spans_adjacent(mock_span_evaluator, sample_df_with_skipwords):
-    """Test that span adjacency is correctly identified when separated by skip words."""
-    spans = mock_span_evaluator._create_spans(sample_df_with_skipwords, "annotation")
-
-    # Get the spans representing "Dr." and "Jane Smith"
-    dr_span = spans[0]
-    jane_smith_span = spans[1]
-
-    # Test that spans separated by a comma (skip word) are adjacent
-    assert mock_span_evaluator._are_spans_adjacent(
-        dr_span, jane_smith_span, sample_df_with_skipwords
+@pytest.mark.parametrize(
+    "scenario, annotation, prediction, tokens, start_indices, expected_precision, expected_recall, expected_f, expected_tp, expected_fp, expected_fn, expected_annotated, expected_predicted",
+    [
+        # Perfect match
+        (
+            "Scenario 1: Perfect match",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            1.0,  # precision
+            1.0,  # recall
+            1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans
+        ),
+        # No matches
+        (
+            "Scenario 2: No matches",
+            ["O", "PERSON", "ORGANIZATION", "O"],
+            ["O", "O", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            np.nan,  # precision
+            0.0,  # recall
+            np.nan,  # F1 score
+            0,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            1,  # annotated PII spans
+            0,  # predicted PII spans
+        ),
+        # One match out of two
+        (
+            "Scenario 3: Partial match",
+            ["O", "PERSON", "O", "CAT"],
+            ["O", "PERSON", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            1.0,  # precision
+            0.5,  # recall
+            0.5555,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            1,  # false negatives
+            2,  # annotated PII spans
+            1,  # predicted PII spans
+        ),
+        # Global entities with overlap but IoU below threshold - results in FN count update
+        (
+            "Scenario 4: Global entities with overlap below IoU threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            0.0,  # precision (0 TP out of 1 predicted)
+            0.0,  # recall (0 TP out of 1 annotated)
+            np.nan,  # F1 score
+            0,  # true positives
+            1,  # false positives
+            1,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans
+        ),
+        # Global entities with multiple overlaps and IoU above threshold - results in TP
+        (
+            "Scenario 5: Global entities with multiple overlaps above IoU threshold",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "LOCATION", "ORGANIZATION", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            1.0,  # precision (1 TP out of 1 predicted - all predictions are treated as single PII)
+            1.0,  # recall (1 TP out of 1 annotated)
+            1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans
+            1,  # predicted PII spans (multiple entity types become single PII span)
+        ),
+        # Global entities with multiple prediction spans overlapping one annotation - updates TP and pred count
+        (
+            "Scenario 6: Global entities with multiple prediction spans overlapping annotation",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "LOCATION", "ORGANIZATION", "O", "PERSON", "O"],
+            ["The", "John", "Smith", "Jr", "Doe", "visited"],
+            [0, 4, 9, 15, 18, 22],
+            1.0,  # precision (1 TP out of 1 predicted PII span)
+            1.0,  # recall (1 TP out of 1 annotated PII span)
+            1.0,  # F1 score
+            1,  # true positives
+            0,  # false positives
+            0,  # false negatives
+            1,  # annotated PII spans (one PERSON span)
+            1,  # predicted PII spans (multiple entity types become single PII span)
+        ),
+        # Global entities with standalone predictions (no annotation overlap) - results in FP count update
+        (
+            "Scenario 7: Global entities with standalone predictions (no annotation overlap)",
+            ["O", "O", "O", "O", "O"],
+            ["O", "PERSON", "LOCATION", "O", "O"],
+            ["The", "quick", "brown", "fox", "jumped"],
+            [0, 4, 10, 16, 20],
+            0.0,  # precision (0 TP out of 1 predicted PII)
+            np.nan,  # recall (0 TP out of 0 annotated)
+            np.nan,  # F1 score
+            0,  # true positives
+            1,  # false positives (standalone predictions become one PII span)
+            0,  # false negatives
+            0,  # annotated PII spans
+            1,  # predicted PII spans (multiple entity types become single PII span)
+        ),
+    ],
+)
+def test_global_metrics(
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_precision,
+    expected_recall,
+    expected_f,
+    expected_tp,
+    expected_fp,
+    expected_fn,
+    expected_annotated,
+    expected_predicted,
+):
+    """Test global PII evaluation metrics."""
+    # Build the DataFrame expected by SpanEvaluator
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": start_indices,
+        }
     )
 
-
-def test_merge_adjacent_spans(mock_span_evaluator, sample_df_with_skipwords):
-    """Test that adjacent spans of the same entity type are merged correctly."""
-
-    spans = mock_span_evaluator._create_spans(sample_df_with_skipwords, "annotation")
-
-    # Before merging, we should have 1 PERSON spans, the others are only skip words
-    assert len(spans) == 3
-    assert [span.entity_type for span in spans] == ["PERSON", "PERSON", "PERSON"]
-
-    # Merge adjacent spans
-    merged_spans = mock_span_evaluator._merge_adjacent_spans(
-        spans, sample_df_with_skipwords
+    # Run evaluation
+    result = EvaluationResult()
+    pii_df = span_evaluator.create_global_entities_df(df)
+    result = span_evaluator.calculate_score_on_df(
+        per_type=False, results_df=pii_df, evaluation_result=result
     )
 
-    # After merging, we should have 1 PERSON spans: Dr. Jane Smith MD
-    assert len(merged_spans) == 1
-    merged_span = merged_spans[0]
-    assert merged_span.entity_type == "PERSON"
-    assert merged_span.entity_value == "Dr Jane Smith MD"
+    # Check global counts
+    assert (
+        result.pii_annotated == expected_annotated
+    ), f"In {scenario}, expected {expected_annotated} annotated PII spans, got {result.pii_annotated}"
+
+    assert (
+        result.pii_predicted == expected_predicted
+    ), f"In {scenario}, expected {expected_predicted} predicted PII spans, got {result.pii_predicted}"
+
+    assert (
+        result.pii_true_positives == expected_tp
+    ), f"In {scenario}, expected {expected_tp} true positives, got {result.pii_true_positives}"
+
+    assert (
+        result.pii_false_positives == expected_fp
+    ), f"In {scenario}, expected {expected_fp} false positives, got {result.pii_false_positives}"
+
+    assert (
+        result.pii_false_negatives == expected_fn
+    ), f"In {scenario}, expected {expected_fn} false negatives, got {result.pii_false_negatives}"
+
+    # Check global metrics
+    assert_metric(expected_precision, "pii_precision", result, scenario)
+    assert_metric(expected_recall, "pii_recall", result, scenario)
+    assert_metric(expected_f, "pii_f", result, scenario)
 
 
-    # Check normalized indices are updated correctly after merging
-    assert merged_span.normalized_start_index == min(
-        [span.normalized_start_index for span in spans]
+# Test Both per_type and global metrics together
+@pytest.mark.parametrize(
+    "scenario, annotation, prediction, tokens, start_indices, expected_per_type_metrics, expected_global_metrics",
+    [
+        # Perfect detection scenario
+        (
+            "Perfect detection: all entities found correctly",
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["John", "Smith", "lives", "in", "Boston", "today"],
+            [0, 5, 11, 17, 20, 27],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "LOCATION": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+            },
+            {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+        ),
+        # Address partially detected, with multiple pred spans per annotated span
+        (
+            "Address partially detected: street number found but street name missed",
+            ["PERSON", "O", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["PERSON", "O", "O", "ADDRESS", "O", "ADDRESS", "O"],
+            ["Alice", "lives", "at", "123", "Main", "Circle", "downtown"],
+            [0, 6, 12, 15, 19, 24, 31],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "ADDRESS": {"precision": 0.0, "recall": 0.0, "f_beta": np.nan},
+            },
+            {"precision": 1.0, "recall": 0.6666666666666666, "f_beta": 0.8},
+        ),
+        # Mixed entity type confusion
+        (
+            "Entity type confusion: location detected as person",
+            ["PERSON", "PERSON", "O", "O", "LOCATION", "O"],
+            ["PERSON", "PERSON", "O", "O", "PERSON", "O"],
+            ["Bob", "Davis", "went", "to", "Chicago", "yesterday"],
+            [0, 4, 10, 15, 18, 26],
+            {
+                "PERSON": {"precision": 0.5, "recall": 1.0, "f_beta": 0.5},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+            },
+            {"precision": 0.6666666666666666, "recall": 1.0, "f_beta": 0.8},
+        ),
+        # Complete miss for one entity type
+        (
+            "Complete miss: phone number not detected at all",
+            ["PERSON", "O", "PHONE_NUMBER", "PHONE_NUMBER", "O"],
+            ["PERSON", "O", "O", "O", "O"],
+            ["Sarah", "called", "555", "1234", "today"],
+            [0, 6, 13, 17, 22],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "PHONE_NUMBER": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+            },
+            {"precision": 1.0, "recall": 0.5, "f_beta": 0.6666666666666666},
+        ),
+        # False positive scenario
+        (
+            "False positive: common word detected as entity",
+            ["O", "PERSON", "O", "O", "O", "O"],
+            ["O", "PERSON", "O", "LOCATION", "O", "O"],
+            ["The", "president", "spoke", "about", "security", "issues"],
+            [0, 4, 14, 20, 26, 35],
+            {
+                "PERSON": {"precision": 1.0, "recall": 1.0, "f_beta": 1.0},
+                "LOCATION": {"precision": 0.0, "recall": 0.0, "f_beta": 0.0},
+            },
+            {"precision": 0.5, "recall": 1.0, "f_beta": 0.6666666666666666},
+        ),
+        # No entities detected
+        (
+            "No detection: all entities missed",
+            ["PERSON", "PERSON", "O", "LOCATION", "O"],
+            ["O", "O", "O", "O", "O"],
+            ["Emma", "Thompson", "visited", "Paris", "today"],
+            [0, 5, 14, 22, 28],
+            {
+                "PERSON": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+                "LOCATION": {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+            },
+            {"precision": np.nan, "recall": 0.0, "f_beta": np.nan},
+        ),
+    ],
+)
+def test_combined_per_type_and_global_metrics(
+    span_evaluator,
+    scenario,
+    annotation,
+    prediction,
+    tokens,
+    start_indices,
+    expected_per_type_metrics,
+    expected_global_metrics,
+):
+    """Test that per-type and global metrics are calculated correctly together."""
+    # Build the DataFrame expected by SpanEvaluator
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": start_indices,
+        }
     )
-    assert merged_span.normalized_end_index == max(
-        [span.normalized_end_index for span in spans]
+
+    # Run per-type evaluation
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
     )
 
+    # Check per-type metrics
+    for entity_type, expected_metrics in expected_per_type_metrics.items():
+        if entity_type in result.per_type:
+            per_type_result = result.per_type[entity_type]
+            assert_metric(
+                expected_metrics["precision"], "precision", per_type_result, scenario
+            )
+            assert_metric(
+                expected_metrics["recall"], "recall", per_type_result, scenario
+            )
+            assert_metric(
+                expected_metrics["f_beta"], "f_beta", per_type_result, scenario
+            )
 
+    # Run global evaluation
+    pii_df = span_evaluator.create_global_entities_df(df)
+    result = span_evaluator.calculate_score_on_df(
+        per_type=False, results_df=pii_df, evaluation_result=result
+    )
+
+    # Check global metrics
+    assert_metric(
+        expected_global_metrics["precision"], "pii_precision", result, scenario
+    )
+    assert_metric(expected_global_metrics["recall"], "pii_recall", result, scenario)
+    assert_metric(expected_global_metrics["f_beta"], "pii_f", result, scenario)
+
+
+# Test per-token IoU
 def test_calculate_iou_token_based():
     """Test IoU calculation with token-based evaluation."""
     span1 = Span(
@@ -702,433 +717,355 @@ def test_calculate_iou_token_based():
         normalized_start_index=15,
         normalized_end_index=19,
     )
-
-    # Test token-based IoU calculations
-    iou_exact = SpanEvaluator.calculate_iou(span1, span2, char_based=False)
-    iou_partial = SpanEvaluator.calculate_iou(span1, span3, char_based=False)
-    iou_none = SpanEvaluator.calculate_iou(span1, span4, char_based=False)
+    span_evaluator = SpanEvaluator(
+        model=MockModel(), iou_threshold=0.75, char_based=False, skip_words=[]
+    )
+    # Test token-based IoU calculations for individual spans
+    iou_exact = span_evaluator.calculate_iou(span1, span2, char_based=False)
+    iou_partial = span_evaluator.calculate_iou(span1, span3, char_based=False)
+    iou_none = span_evaluator.calculate_iou(span1, span4, char_based=False)
 
     assert iou_exact > 0.5  # Should be high for exact match
     assert 0 < iou_partial < iou_exact  # Should be lower for partial match
     assert iou_none == 0.0  # Should be zero for no overlap
 
+    # Test cases for overlapping prediction spans per annotation span
 
-def test_match_predictions_with_annotations(mock_span_evaluator):
-    """Test the core matching logic between annotations and predictions."""
-
-    # Create annotation spans
-    ann_spans = [
-        Span(
-            entity_type="PERSON",
-            entity_value="John Smith",
-            start_position=0,
-            end_position=10,
-            normalized_tokens=["john", "smith"],
-            normalized_start_index=0,
-            normalized_end_index=10,
-        ),
-        Span(
-            entity_type="LOCATION",
-            entity_value="London",
-            start_position=20,
-            end_position=26,
-            normalized_tokens=["london"],
-            normalized_start_index=20,
-            normalized_end_index=26,
-        ),
-    ]
-
-    # Create prediction spans - one exact match, one type mismatch, one missing
-    pred_spans = [
-        Span(
-            entity_type="PERSON",
-            entity_value="John Smith",
-            start_position=0,
-            end_position=10,
-            normalized_tokens=["john", "smith"],
-            normalized_start_index=0,
-            normalized_end_index=10,
-        ),
-        Span(
-            entity_type="ORGANIZATION",
-            entity_value="London",
-            start_position=20,
-            end_position=26,
-            normalized_tokens=["london"],
-            normalized_start_index=20,
-            normalized_end_index=26,
-        ),
-        Span(
-            entity_type="DATE",
-            entity_value="2023",
-            start_position=30,
-            end_position=34,
-            normalized_tokens=["2023"],
-            normalized_start_index=30,
-            normalized_end_index=34,
-        ),
-    ]
-
-    result = EvaluationResult()
-    result = mock_span_evaluator._match_predictions_with_annotations(
-        ann_spans, pred_spans, result
+    # Case 1: Multiple prediction spans covering the same annotation (perfect overlap)
+    annotation_full = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New York Mets",
+        start_position=4,
+        end_position=17,
+        normalized_tokens=["new", "york", "mets"],
+        normalized_start_index=4,
+        normalized_end_index=17,
     )
 
-    # Check true positives, entity mismatches, and false positives
-    assert result.pii_true_positives == 2  # Only PERSON was matched
-    assert result.results[("PERSON", "PERSON")] == 1  # Correct entity match
-    assert result.results[("LOCATION", "ORGANIZATION")] == 1  # Entity type mismatch
-    assert result.results[("O", "DATE")] == 1  # False positive
-
-    # Check error analysis population
-    assert len(result.model_errors) == 2  # One entity mismatch and one false positive
-    assert any(
-        error.error_type == ErrorType.WrongEntity for error in result.model_errors
-    )
-    assert any(error.error_type == ErrorType.FP for error in result.model_errors)
-
-
-# ===== Integration Tests =====
-
-
-def test_calculate_score_on_df_with_perfect_match(mock_span_evaluator, sample_df):
-    """Test end-to-end evaluation with perfect prediction-annotation match."""
-    result = mock_span_evaluator.calculate_score_on_df(sample_df)
-
-    # Check key metrics
-    assert result.pii_annotated == 2  # PERSON and LOCATION
-    assert result.pii_predicted == 2
-    assert result.pii_true_positives == 2
-    assert result.pii_precision == 1.0
-    assert result.pii_recall == 1.0
-    assert result.pii_f == 1.0
-
-    # Check per-type metrics
-    assert "PERSON" in result.per_type
-    assert "LOCATION" in result.per_type
-    assert result.per_type["PERSON"].precision == 1.0
-    assert result.per_type["PERSON"].recall == 1.0
-    assert result.per_type["LOCATION"].precision == 1.0
-    assert result.per_type["LOCATION"].recall == 1.0
-
-
-def test_calculate_score_on_df_with_errors():
-    """Test end-to-end evaluation with various error types."""
-    # Create a DataFrame with different types of errors
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0] * 8,
-            "token": ["John", "Smith", "lives", "in", "New", "York", "City", "!"],
-            "annotation": [
-                "PERSON",
-                "PERSON",
-                "O",
-                "O",
-                "LOCATION",
-                "LOCATION",
-                "LOCATION",
-                "O",
-            ],
-            "prediction": [
-                "PERSON",
-                "O",
-                "O",
-                "O",
-                "ORGANIZATION",
-                "ORGANIZATION",
-                "ORGANIZATION",
-                "DATE",
-            ],
-            "start_indices": [0, 5, 11, 17, 20, 24, 29, 34],
-        }
+    pred_span_1 = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New",
+        start_position=4,
+        end_position=7,
+        normalized_tokens=["new"],
+        normalized_start_index=4,
+        normalized_end_index=7,
     )
 
-    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.4, char_based=True)
-    result = evaluator.calculate_score_on_df(df)
+    pred_span_2 = Span(
+        entity_type="ORGANIZATION",
+        entity_value="York Mets",
+        start_position=8,
+        end_position=17,
+        normalized_tokens=["york", "mets"],
+        normalized_start_index=8,
+        normalized_end_index=17,
+    )
 
-    # Check total counts
-    assert result.pii_annotated == 2  # PERSON and LOCATION spans
+    # Combined IoU should be 1.0 (perfect coverage)
+    combined_iou_perfect = span_evaluator._calculate_combined_iou(
+        annotation_full, [pred_span_1, pred_span_2]
+    )
     assert (
-        result.pii_predicted == 2
-    )  # PERSON, ORGANIZATION. ! is a skip word so DATE is ignored
+        combined_iou_perfect == 1.0
+    ), f"Expected perfect IoU 1.0, got {combined_iou_perfect}"
+
+    # Case 2: Multiple prediction spans with partial overlap
+    pred_span_partial = Span(
+        entity_type="ORGANIZATION",
+        entity_value="New",
+        start_position=4,
+        end_position=7,
+        normalized_tokens=["new"],
+        normalized_start_index=4,
+        normalized_end_index=7,
+    )
+
+    # Only covers "new" out of "new york mets"
+    combined_iou_partial = span_evaluator._calculate_combined_iou(
+        annotation_full, [pred_span_partial]
+    )
+    expected_partial_iou = 1 / 3  # 1 token intersection / 3 tokens union
     assert (
-        result.pii_true_positives == 2
-    )  # Total true positives is regardless of type (PII yes/no)
+        combined_iou_partial == expected_partial_iou
+    ), f"Expected IoU {expected_partial_iou}, got {combined_iou_partial}"
 
-    # Check specific errors
-    assert result.results[("PERSON", "PERSON")] == 1
-    assert result.results[("LOCATION", "ORGANIZATION")] == 1  # Entity type mismatch
+    # Case 3: Multiple prediction spans with extra tokens (lower IoU)
+    annotation_simple = Span(
+        entity_type="PERSON",
+        entity_value="John Smith",
+        start_position=0,
+        end_position=10,
+        normalized_tokens=["john", "smith"],
+        normalized_start_index=0,
+        normalized_end_index=10,
+    )
+
+    pred_extra_1 = Span(
+        entity_type="PERSON",
+        entity_value="John",
+        start_position=0,
+        end_position=4,
+        normalized_tokens=["john"],
+        normalized_start_index=0,
+        normalized_end_index=4,
+    )
+
+    pred_extra_2 = Span(
+        entity_type="PERSON",
+        entity_value="Smith Jr",
+        start_position=5,
+        end_position=13,
+        normalized_tokens=["smith", "jr"],
+        normalized_start_index=5,
+        normalized_end_index=13,
+    )
+
+    # IoU = 2 (john, smith) / 3 (john, smith, jr) = 2/3
+    combined_iou_extra = span_evaluator._calculate_combined_iou(
+        annotation_simple, [pred_extra_1, pred_extra_2]
+    )
+    expected_extra_iou = 2 / 3
     assert (
-        "O",
-        "DATE",
-    ) not in result.results  # DATE is a skip word, so it should not be counted
+        abs(combined_iou_extra - expected_extra_iou) < 0.001
+    ), f"Expected IoU {expected_extra_iou}, got {combined_iou_extra}"
 
-    # Check error analysis
-    assert len(result.model_errors) == 1  # Location/Organization mismatch
-    # Check metrics
-    assert result.pii_precision == 1.0  # PII was fully predicted
-    assert result.pii_recall == 1.0  # Pii was fully covered
-
-
-def test_calculate_score_on_df_per_type_metrics_are_correct(
-    mock_span_evaluator, sample_df
-):
-    """Test that per-type metrics are correctly calculated."""
-    result = mock_span_evaluator.calculate_score_on_df(sample_df)
-
-    # Check per-type metrics
-    assert "PERSON" in result.per_type
-    assert "LOCATION" in result.per_type
-
-    person_metrics = result.per_type["PERSON"]
-    location_metrics = result.per_type["LOCATION"]
-
-    assert person_metrics.precision == 1.0
-    assert person_metrics.recall == 1.0
-    assert person_metrics.f_beta == 1.0
-
-    assert location_metrics.precision == 1.0
-    assert location_metrics.recall == 1.0
-    assert location_metrics.f_beta == 1.0
+    # Case 4: Empty prediction spans list
+    combined_iou_empty = span_evaluator._calculate_combined_iou(annotation_simple, [])
+    assert (
+        combined_iou_empty == 0.0
+    ), f"Expected IoU 0.0 for empty predictions, got {combined_iou_empty}"
 
 
-def test_corner_case_empty_dataset():
-    """Test behavior when processing an empty dataset."""
-    df = pd.DataFrame(
-        {
-            "sentence_id": [],
-            "token": [],
-            "annotation": [],
-            "prediction": [],
-            "start_indices": [],
-        }
-    )
-
-    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = evaluator.calculate_score_on_df(df)
-
-    # Check that metrics are properly initialized for empty data
-    assert result.pii_annotated == 0
-    assert result.pii_predicted == 0
-    assert result.pii_true_positives == 0
-    assert np.isnan(result.pii_precision)
-    assert np.isnan(result.pii_recall)
-    assert isinstance(result.pii_f, float)  # Should be NaN or 0.0
+# Test error analysis
 
 
-def test_corner_case_unicode_handling():
-    """Test handling of Unicode characters in text."""
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0, 0, 0],
-            "token": ["José", "Martínez", "España"],
-            "annotation": ["PERSON", "PERSON", "LOCATION"],
-            "prediction": ["PERSON", "PERSON", "LOCATION"],
-            "start_indices": [0, 5, 14],
-        }
-    )
-
-    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-    result = evaluator.calculate_score_on_df(df)
-
-    # Check Unicode is properly handled
-    assert result.pii_annotated == 2  # PERSON and LOCATION
-    assert result.pii_predicted == 2
-    assert result.pii_true_positives == 2
-    assert result.pii_precision == 1.0
-    assert result.pii_recall == 1.0
-
-
-def test_span_edge_cases():
-    """Test edge cases in span creation and matching."""
-    # Create a DataFrame with unusual token patterns
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0] * 7,
-            "token": ["", "John", " ", "-", "", "Smith", ""],  # Empty tokens, spaces
-            "annotation": ["O", "PERSON", "O", "O", "O", "PERSON", "O"],
-            "prediction": ["O", "PERSON", "O", "O", "O", "PERSON", "O"],
-            "start_indices": [0, 0, 4, 5, 6, 6, 11],
-        }
-    )
-
-    evaluator = SpanEvaluator(model=MockModel(), iou_threshold=0.5)
-
-    # Test span creation with unusual tokens
-    spans = evaluator._create_spans(df, "annotation")
-    spans = evaluator._merge_adjacent_spans(spans, df)
-
-    # Check that empty tokens are handled properly
-    assert len(spans) == 1
-    assert spans[0].normalized_tokens == ["john", "smith"]
-
-    # Run full evaluation
-    result = evaluator.calculate_score_on_df(df)
-    assert result.pii_annotated == 1
-    assert result.pii_predicted == 1
-    assert result.pii_true_positives == 1
-
-
-# ===== Error Analysis Tests =====
-
-
-# fmt: off
 @pytest.mark.parametrize(
-    "annotation, "
-    "prediction, "
-    "tokens, "
-    "start_indices, "
-    "expected_errors_types, "
-    "expected_results, "
-    "expected_per_type",
+    "scenario, annotation, prediction, tokens, start_indices, expected_error_types, expected_error_count, expected_explanations, expected_confusion_matrix",
     [
-        # FALSE POSITIVE TEST CASE
+        # No overlapping predictions (FN)
         (
-            ["PERSON", "PERSON", "O", "O", "O"],
-            ["PERSON", "PERSON", "O", "O", "LOCATION"],
-            ["John", "Smith", "went", "to", "school"],
-            [0, 5, 11, 16, 19],
-            [ErrorType.FP],
-            {
-                ("PERSON", "PERSON"): 1,
-                ("O", "LOCATION"): 1},
-            {
-                "PERSON": {"tp": 1, "fp": 0, "fn": 0},
-                "LOCATION": {"tp": 0, "fp": 1, "fn": 0},
-            },
-        ),
-        # FALSE NEGATIVE TEST CASE
-        (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "O", "O"],
-            ["John", "Smith", "went", "to", "Paris"],
-            [0, 5, 11, 16, 19],
+            "No overlap: Single annotation with no predictions",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "O", "O", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
             [ErrorType.FN],
-            {
-                ("PERSON", "PERSON"): 1,
-                ("LOCATION", "O"): 1
-            },
-            {
-                "PERSON": {"tp": 1, "fp": 0, "fn": 0},
-                "LOCATION": {"tp": 0, "fp": 0, "fn": 1},
-            },
+            1,
+            ["Entity PERSON not detected."],
+            {("PERSON", "O"): 1},
         ),
-        # WRONG ENTITY TYPE TEST CASE
         (
-            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
-            ["PERSON", "PERSON", "O", "ORGANIZATION", "ORGANIZATION"],
-            ["John", "Smith", "works", "at", "Microsoft"],
-            [0, 5, 11, 17, 20],
-            [
-                ErrorType.WrongEntity
-            ],  # Only check error types, not the full error objects
-            {
-                ("PERSON", "PERSON"): 1,
-                ("LOCATION", "ORGANIZATION"): 1
-            },
-            {
-                "PERSON": {"tp": 1, "fp": 0, "fn": 0},
-                "LOCATION": {"tp": 0, "fp": 0, "fn": 1},
-                "ORGANIZATION": {"tp": 0, "fp": 1, "fn": 0},
-            },
+            "No overlap: Multiple annotations with no predictions",
+            ["PERSON", "PERSON", "O", "LOCATION", "O"],
+            ["O", "O", "O", "O", "O"],
+            ["John", "Smith", "visited", "Boston", "today"],
+            [0, 5, 11, 19, 26],
+            [ErrorType.FN, ErrorType.FN],
+            2,
+            ["Entity PERSON not detected.", "Entity LOCATION not detected."],
+            {("PERSON", "O"): 1, ("LOCATION", "O"): 1},
         ),
-        # MULTIPLE ERROR TYPES COMBINED
+        # Single overlapping prediction: Same type, high IoU → TP (no error)
         (
-            ["PERSON", "PERSON", "O", "DATE", "DATE", "O", "LOCATION", "O"],
-            ["PERSON", "PERSON", "O", "PHONE", "PHONE", "EMAIL", "O", "LOCATION"],
-            ["John", "Smith", "born", "May", "1980", "visited", "Paris", "recently"],
-            [0, 5, 11, 16, 20, 25, 33, 39],
+            "Single overlap TP: Same type with high IoU",
+            ["O", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "John", "Smith", "visited"],
+            [0, 4, 9, 15],
+            [],  # No errors expected for TP
+            0,
+            [],
+            {("PERSON", "PERSON"): 1},
+        ),
+        # Single overlapping prediction: Different type, high IoU → WrongEntity
+        (
+            "Single overlap WrongEntity: Different types with high IoU",
+            ["O", "LOCATION", "LOCATION", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "New", "York", "visited"],
+            [0, 4, 8, 13],
+            [ErrorType.FN, ErrorType.FP, ErrorType.WrongEntity],
+            3,
+            ["Wrong entity type: LOCATION detected as PERSON"],
+            {("LOCATION", "PERSON"): 1},
+        ),
+        # Single overlapping prediction: Same type, low IoU → FN
+        (
+            "Single overlap FN+FP: Same type with low IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 15, 23],
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity PERSON not detected due to low iou",
+             "Entity PERSON falsely detected"],
+            {("PERSON", "O"): 1, ("O", "PERSON"): 1},
+        ),
+        # Single overlapping prediction: Different type, low IoU → FN + FP
+        (
+            "Single overlap FN+FP: Different types with low IoU",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "PERSON", "O", "O", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            [ErrorType.FN, ErrorType.FP],
+            2,
             [
+                "Entity ORGANIZATION not detected. iou with PERSON=",
+                "Entity PERSON falsely detected",
+            ],
+            {("ORGANIZATION", "O"): 1, ("O", "PERSON"): 1},
+        ),
+        # Multiple overlapping predictions: Same type, low cumulative IoU due to skip words → FN
+        (
+            "Multiple overlap TP: Same type with high cumulative IoU",
+            ["ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["ADDRESS", "O", "ADDRESS", "ADDRESS", "ADDRESS", "O"],
+            ["123", "Main", "Street", "Suite", "100", "is"],
+            [0, 4, 9, 16, 22, 26],
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity ADDRESS not detected due to low iou=",
+             "Entity ADDRESS falsely detected"],
+            {("ADDRESS", "O"): 1, ("O", "ADDRESS"): 1},
+        ),
+        # Multiple overlapping predictions: Same type, low cumulative IoU → FN
+        (
+            "Multiple overlap FN: Same type with low cumulative IoU",
+            ["O", "ORGANIZATION", "ORGANIZATION", "ORGANIZATION", "O"],
+            ["O", "ORGANIZATION", "O", "ORGANIZATION", "O"],
+            ["The", "New", "York", "Mets", "visited"],
+            [0, 4, 8, 13, 18],
+            [ErrorType.FN, ErrorType.FP],
+            2,
+            ["Entity ORGANIZATION not detected due to low iou",
+             "Entity ORGANIZATION falsely detected"],
+            {("ORGANIZATION", "O"): 1, ("O", "ORGANIZATION"): 1},
+        ),
+        # Multiple overlapping predictions: Different type, high cumulative IoU → WrongEntity
+        (
+            "Multiple overlap WrongEntity: Different types with high cumulative IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "LOCATION", "LOCATION", "O"],
+            ["The", "John", "Smith", "Johnson", "visited"],
+            [0, 4, 9, 17, 25],
+            [ErrorType.FN, ErrorType.WrongEntity, ErrorType.FP, ErrorType.FP],
+            4,
+            [
+                "Entity PERSON not detected due to low iou",
+                "Entity PERSON falsely detected",
+                "Wrong entity type: PERSON detected as LOCATION",
+                "Entity LOCATION falsely detected",
+            ],
+            {("PERSON", "LOCATION"): 1, ("O", "PERSON"): 1, ("PERSON", "O"): 1},
+        ),
+        # Multiple overlapping predictions: Different type, low cumulative IoU → FN + FP
+        (
+            "Multiple overlap FN+FP: Different types with low cumulative IoU",
+            ["O", "PERSON", "PERSON", "PERSON", "O", "O"],
+            ["O", "O", "LOCATION", "O", "ORGANIZATION", "O"],
+            ["The", "John", "Smith", "Johnson", "works", "hard"],
+            [0, 4, 9, 17, 25, 31],
+            [ErrorType.FN, ErrorType.FP, ErrorType.FP],
+            3,
+            [
+                "Entity PERSON not detected. iou with LOCATION=",
+                "Entity LOCATION falsely detected",
+                "False prediction with no overlap: ORGANIZATION",
+            ],
+            {("PERSON", "O"): 1, ("O", "LOCATION"): 1, ("O", "ORGANIZATION"): 1},
+        ),
+        # Multiple overlapping predictions: Mixed types scenario - both same and different types overlapping
+        (
+            "Multiple overlap mixed: Both same and different entity types",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "O"],
+            ["O", "PERSON", "O", "LOCATION", "PERSON", "O"],
+            ["The", "John", "C", "B", "Johnson", "visited"],
+            [0, 4, 9, 11, 13, 21],
+            [
+                ErrorType.FP,
+            ],  # Only FP for LOCATION since cumulative PERSON IoU is good enough
+            1,
+            ["Entity LOCATION falsely detected"],
+            {("PERSON", "PERSON"): 1, ("O", "LOCATION"): 1},
+        ),
+        # Standalone false positives: Single standalone FP
+        (
+            "Standalone FP: Single prediction with no annotation overlap",
+            ["O", "O", "O", "O"],
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "quick", "brown", "fox"],
+            [0, 4, 10, 16],
+            [ErrorType.FP],
+            1,
+            ["False prediction with no overlap: PERSON"],
+            {("O", "PERSON"): 1},
+        ),
+        # Standalone false positives: Multiple standalone FPs
+        (
+            "Multiple standalone FPs: Multiple predictions with no annotation overlap",
+            ["O", "O", "O", "O", "O"],
+            ["PERSON", "O", "LOCATION", "LOCATION", "O"],
+            ["John", "went", "to", "New", "York"],
+            [0, 5, 10, 13, 17],
+            [ErrorType.FP, ErrorType.FP],
+            2,
+            [
+                "False prediction with no overlap: PERSON",
+                "False prediction with no overlap: LOCATION",
+            ],
+            {("O", "PERSON"): 1, ("O", "LOCATION"): 1},
+        ),
+        # Complex mixed scenarios: Combination of all error types
+        (
+            "Complex scenario: Mixed overlaps and standalone predictions",
+            ["PERSON", "O", "LOCATION", "LOCATION", "LOCATION", "O"],
+            ["O", "O", "LOCATION", "PERSON", "PERSON", "PHONE_NUMBER"],
+            ["Alice", "went", "to", "New", "York", "today"],
+            [0, 6, 11, 14, 18, 23],
+            [
+                ErrorType.FN,
+                ErrorType.FN,
+                ErrorType.FP,
                 ErrorType.WrongEntity,
                 ErrorType.FP,
-                ErrorType.FN,
             ],
-            {
-                ("PERSON", "PERSON"): 1,
-                ("DATE", "PHONE"): 1,
-                ("O", "EMAIL"): 1,
-                ("LOCATION", "O"): 1,
-                ("O", "LOCATION"): 1,
-            },
-            {
-                "PERSON": {"tp": 1, "fp": 0, "fn": 0},
-                "DATE": {"tp": 0, "fp": 0, "fn": 1},
-                "PHONE": {"tp": 0, "fp": 1, "fn": 0},
-                "EMAIL": {"tp": 0, "fp": 1, "fn": 0},
-                "LOCATION": {"tp": 0, "fp": 1, "fn": 1},
-            },
-        ),
-        # LOW IoU cases - special case that behaves differently
-        # The implementation handles this case specially - we only get PERSON match
-        (
-            ["PERSON", "PERSON", "PERSON", "O"],
-            ["O", "PERSON", "PERSON", "O"],
-            ["John", "Robert", "Smith", "here"],
-            [0, 5, 12, 18],
-            [],  # No errors in this case - IoU is sufficient for match
-            None,  # Skip exact counts check - implementation behavior may change
-            {
-                "PERSON": {"tp": 1, "fp": 0, "fn": 0}  # IoU threshold allows the match
-            },
-        ),
-        # LOW IoU FALSE POSITIVE TEST CASE - simplified
-        (
-            ["O", "PERSON", "PERSON", "O"],
-            ["PERSON", "PERSON", "O", "O"],
-            ["Mr.", "John", "Smith", "here"],
-            [0, 4, 9, 15],
-            [ErrorType.FN, ErrorType.FP],
-            {
-                ("O", "PERSON"): 1,
-                ("PERSON", "O"): 1,
-            },
-            {
-                "PERSON": {"tp": 0, "fp": 1, "fn": 1},
-            },
-        ),
-        # COMBINED LOW IoU CASE - Both FP and FN due to boundary mismatches - simplified
-        (
-            ["DATE", "DATE", "DATE", "O", "O", "PERSON", "PERSON", "O"],
-            ["O", "DATE", "DATE", "DATE", "O", "O", "PERSON", "PERSON"],
-            ["January", "15", "2023", "is", "when", "John", "Smith", "arrived"],
-            [0, 8, 11, 16, 19, 24, 29, 35],
-            [ErrorType.FN, ErrorType.FP],
-            {
-                ("DATE", "O"): 1,
-                ("O", "DATE"): 1,
-                ("PERSON", "O"): 1,
-                ("O", "PERSON"): 1,
-            },
-            {
-                "DATE": {"tp": 0, "fp": 1, "fn": 1},
-                "PERSON": {"tp": 0, "fp": 1, "fn": 1},
-            },
+            5,
+            [
+                "Entity PERSON not detected.",
+                "Wrong entity type: LOCATION detected as PERSON",
+                "Entity LOCATION not detected. iou with PERSON=1.00",
+                "Entity PERSON falsely detected",
+                "False prediction with no overlap: PHONE_NUMBER",
+            ],
+            {("PERSON", "O"): 1, ("LOCATION", "PERSON"): 1, ("O", "PHONE_NUMBER"): 1},
         ),
     ],
 )
-def test_error_analysis(
-    mock_span_evaluator,
+def test_match_predictions_with_annotations_error_generation(
+    span_evaluator,
+    scenario,
     annotation,
     prediction,
     tokens,
     start_indices,
-    expected_errors_types,
-    expected_results,
-    expected_per_type,
+    expected_error_types,
+    expected_error_count,
+    expected_explanations,
+    expected_confusion_matrix,
 ):
     """
-    Test that error analysis correctly identifies and records all three types of errors:
+    Test error generation in _match_predictions_with_annotations method covering all scenarios:
 
-    1. False Positives (FP): Predicted entities that don't exist in annotations
-    2. False Negatives (FN): Annotated entities that weren't predicted
-    3. Wrong Entity Type (WrongEntity): Entity boundaries match but types differ
-
-    Focuses specifically on verifying:
-    - Error analysis records contain expected error types
-    - Confusion matrix (results dictionary) when applicable
-    - Per-entity type metric population when applicable
+    1. No overlapping predictions → FN errors
+    2. Single overlapping predictions → TP, WrongEntity, FN, or FN+FP errors
+    3. Multiple overlapping predictions → TP, WrongEntity, FN, or FN+FP errors
+    4. Standalone predictions → FP errors
+    5. Complex mixed scenarios
     """
-    # Create the test dataframe
+    # Build the DataFrame expected by SpanEvaluator
     df = pd.DataFrame(
         {
             "sentence_id": [0] * len(tokens),
@@ -1140,50 +1077,400 @@ def test_error_analysis(
     )
 
     # Run evaluation
-    eval_result = mock_span_evaluator.calculate_score_on_df(df)
+    result = EvaluationResult()
+    result = span_evaluator.calculate_score_on_df(
+        per_type=True, results_df=df, evaluation_result=result
+    )
 
-    # Verify expected error types are present (not the exact count)
-    error_types = [error.error_type for error in eval_result.model_errors]
-    for expected_type in expected_errors_types:
+    # Check that expected error types are present
+    error_types = [error.error_type for error in result.model_errors]
+
+    # Verify each expected error type is present
+    for expected_type in expected_error_types:
         assert (
             expected_type in error_types
-        ), f"Expected error type {expected_type} not found in results"
+        ), f"In {scenario}, expected error type {expected_type} not found in {error_types}"
 
-    # Verify confusion matrix entries (if specified)
-    if expected_results:
-        for (ann, pred), count in expected_results.items():
+    # Check that we have the expected number of errors
+    assert (
+        len(result.model_errors) == expected_error_count
+    ), f"In {scenario}, expected {expected_error_count} errors, got {len(result.model_errors)}"
+
+    # Count occurrences of each error type
+    error_type_counts = {}
+    for error_type in error_types:
+        error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+
+    expected_type_counts = {}
+    for expected_type in expected_error_types:
+        expected_type_counts[expected_type] = (
+            expected_type_counts.get(expected_type, 0) + 1
+        )
+
+    for expected_type, expected_count in expected_type_counts.items():
+        actual_count = error_type_counts.get(expected_type, 0)
+        assert (
+            actual_count == expected_count
+        ), f"In {scenario}, expected {expected_count} errors of type {expected_type}, got {actual_count}"
+
+    # Check error explanations contain expected text
+    for i, expected_explanation in enumerate(expected_explanations):
+        if i < len(result.model_errors):
+            actual_explanation = result.model_errors[i].explanation
             assert (
-                eval_result.results.get((ann, pred), 0) == count
-            ), f"Expected {count} for ({ann}, {pred}), got {eval_result.results.get((ann, pred), 0)}"
+                expected_explanation in actual_explanation
+            ), f"In {scenario}, expected explanation to contain '{expected_explanation}', got '{actual_explanation}'"
 
-    # Verify per-type metrics (if specified)
-    if expected_per_type:
-        for entity_type, metrics in expected_per_type.items():
-            assert (
-                entity_type in eval_result.per_type
-            ), f"Entity type {entity_type} not found in results"
+    # Validate confusion matrix entries
+    for (
+        expected_ann,
+        expected_pred,
+    ), expected_count in expected_confusion_matrix.items():
+        actual_count = result.results.get((expected_ann, expected_pred), 0)
+        assert (
+            actual_count == expected_count
+        ), f"In {scenario}, confusion matrix entry ({expected_ann}, {expected_pred}) expected {expected_count}, got {actual_count}"
 
-            if "tp" in metrics:
-                assert (
-                    eval_result.per_type[entity_type].true_positives == metrics["tp"]
-                ), (
-                    f"Expected {metrics['tp']} true positives for {entity_type}, "
-                    f"got {eval_result.per_type[entity_type].true_positives}"
-                )
 
-            if "fp" in metrics:
-                assert (
-                    eval_result.per_type[entity_type].false_positives == metrics["fp"]
-                ), (
-                    f"Expected {metrics['fp']} false positives for {entity_type}, "
-                    f"got {eval_result.per_type[entity_type].false_positives}"
-                )
+# Test span creation and skip words handling
 
-            if "fn" in metrics:
-                assert (
-                    eval_result.per_type[entity_type].false_negatives == metrics["fn"]
-                ), (
-                    f"Expected {metrics['fn']} false negatives for {entity_type}, "
-                    f"got {eval_result.per_type[entity_type].false_negatives}"
-                )
-# fmt: on
+
+@pytest.mark.parametrize(
+    "scenario, annotation, tokens, start_indices, skip_words, expected_spans_after_processing",
+    [
+        # Adjacent spans that should be merged (same type)
+        (
+            "Adjacent merging: Same type spans separated by skip words",
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Smith", "and", "Jane", "Doe"],
+            [0, 5, 11, 15, 20],
+            ["and"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith Jane Doe",
+                    "start_position": 0,
+                    "end_position": 23,
+                    "normalized_tokens": ["john", "smith", "jane", "doe"],
+                    "token_start": 0,
+                    "token_end": 5,
+                }
+            ],
+        ),
+        # Adjacent spans that should NOT be merged (different types)
+        (
+            "No merging: Different entity types with skip words between",
+            ["PERSON", "PERSON", "O", "LOCATION", "LOCATION"],
+            ["John", "Smith", "visited", "New", "York"],
+            [0, 5, 11, 19, 23],
+            ["visited"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith",
+                    "start_position": 0,
+                    "end_position": 10,
+                    "normalized_tokens": ["john", "smith"],
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York",
+                    "start_position": 19,
+                    "end_position": 27,
+                    "normalized_tokens": ["new", "york"],
+                    "token_start": 3,
+                    "token_end": 5,
+                },
+            ],
+        ),
+        # Adjacent spans separated by non-skip words (no merging)
+        (
+            "No merging: Same type spans separated by non-skip words",
+            ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
+            ["John", "Smith", "visited", "Jane", "Doe"],
+            [0, 5, 11, 19, 24],
+            [],  # "visited" is not a skip word
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith",
+                    "start_position": 0,
+                    "end_position": 10,
+                    "normalized_tokens": ["john", "smith"],
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Jane Doe",
+                    "start_position": 19,
+                    "end_position": 27,
+                    "normalized_tokens": ["jane", "doe"],
+                    "token_start": 3,
+                    "token_end": 5,
+                },
+            ],
+        ),
+        # Skip words within entities
+        (
+            "Skip words in entity: Entity tokens with skip words removed",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["The", "Mr.", "John", "Smith", "visited"],
+            [0, 4, 8, 13, 19],
+            ["mr."],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Mr. John Smith",
+                    "start_position": 4,
+                    "end_position": 18,
+                    "normalized_tokens": ["john", "smith"],  # "mr." should be skipped
+                    "token_start": 1,
+                    "token_end": 4,
+                }
+            ],
+        ),
+        # Complex merging with multiple skip words
+        (
+            "Complex merging: Multiple spans with various skip word separators",
+            [
+                "ORGANIZATION",
+                "ORGANIZATION",
+                "O",
+                "ORGANIZATION",
+                "ORGANIZATION",
+                "O",
+                "ORGANIZATION",
+            ],
+            ["Apple", "Inc.", "Ltd.", "Google", "LLC", "and", "Microsoft"],
+            [0, 6, 11, 16, 24, 29, 33],
+            ["ltd.", "and"],
+            [
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Apple Inc. Google LLC Microsoft",
+                    "start_position": 0,
+                    "end_position": 42,
+                    "normalized_tokens": [
+                        "apple",
+                        "inc.",
+                        "google",
+                        "llc",
+                        "microsoft",
+                    ],
+                    "token_start": 0,
+                    "token_end": 7,
+                }
+            ],
+        ),
+        # Entity entirely composed of skip words (should be filtered out)
+        (
+            "Skip words only: Entity entirely of skip words gets filtered",
+            ["O", "PERSON", "PERSON", "O"],
+            ["The", "the", "and", "visited"],
+            [0, 4, 8, 12],
+            ["the", "and"],
+            [],  # Should create no spans since all entity tokens are skip words
+        ),
+        # Multiple entities with various skip word scenarios
+        (
+            "Mixed scenarios: Multiple entities with different skip word patterns",
+            [
+                "PERSON",
+                "PERSON",
+                "O",
+                "O",
+                "LOCATION",
+                "LOCATION",
+                "LOCATION",
+                "O",
+                "ORGANIZATION",
+            ],
+            [
+                "Dr.",
+                "John",
+                "visited",
+                "the",
+                "New",
+                "York",
+                "City",
+                "and",
+                "Microsoft",
+            ],
+            [0, 4, 9, 17, 21, 25, 30, 35, 39],
+            ["dr.", "the", "and"],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Dr. John",
+                    "start_position": 0,
+                    "end_position": 8,
+                    "normalized_tokens": ["john"],  # "dr." skipped
+                    "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York City",
+                    "start_position": 21,
+                    "end_position": 34,
+                    "normalized_tokens": ["new", "york", "city"],
+                    "token_start": 4,
+                    "token_end": 7,
+                },
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Microsoft",
+                    "start_position": 39,
+                    "end_position": 48,
+                    "normalized_tokens": ["microsoft"],
+                    "token_start": 8,
+                    "token_end": 9,
+                },
+            ],
+        ),
+        # Merging with consecutive skip words
+        (
+            "Consecutive skip words merging: Multiple skip words between spans",
+            ["LOCATION", "LOCATION", "O", "O", "O", "LOCATION", "LOCATION"],
+            ["New", "York", "and", "NY", "and", "United", "States"],
+            [0, 4, 9, 11, 14, 16, 23],
+            ["and", "ny"],
+            [
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "New York United States",
+                    "start_position": 0,
+                    "end_position": 29,
+                    "normalized_tokens": ["new", "york", "united", "states"],
+                    "token_start": 0,
+                    "token_end": 7,
+                }
+            ],
+        ),
+        # Case sensitivity in skip words
+        (
+            "Case sensitivity: Skip words work with different cases",
+            ["O", "PERSON", "PERSON", "PERSON", "PERSON", "PERSON"],
+            ["THE", "John", "Smith", "AND", "Jane", "Doe"],
+            [0, 4, 9, 15, 19, 24],
+            ["the", "and"],  # lowercase skip words should match uppercase tokens
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "John Smith AND Jane Doe",
+                    "start_position": 4,
+                    "end_position": 27,
+                    "normalized_tokens": [
+                        "john",
+                        "smith",
+                        "jane",
+                        "doe",
+                    ],  # Skip words removed
+                    "token_start": 1,
+                    "token_end": 6,
+                }
+            ],
+        ),
+        # Empty skip words list (use default list)
+        (
+            "No skip words: All tokens preserved in normalization",
+            ["O", "PERSON", "PERSON", "PERSON", "O"],
+            ["The", "Dr.", "John", "Smith", "visited"],
+            [0, 4, 8, 13, 19],
+            [],
+            [
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Dr. John Smith",
+                    "start_position": 4,
+                    "end_position": 18,
+                    "normalized_tokens": [
+                        "dr.",
+                        "john",
+                        "smith",
+                    ],  # All tokens preserved
+                    "token_start": 1,
+                    "token_end": 4,
+                }
+            ],
+        ),
+    ],
+)
+def test_span_creation_with_skip_words(
+    scenario,
+    annotation,
+    tokens,
+    start_indices,
+    skip_words,
+    expected_spans_after_processing,
+):
+    """
+    Test span creation and adjacent span merging functionality with skip words.
+
+    This test covers:
+    1. Basic span creation from token sequences
+    2. Skip word normalization within entities
+    3. Adjacent span merging when separated by skip words
+    4. Prevention of merging when spans are different types or separated by non-skip words
+    5. Filtering out entities that are entirely composed of skip words
+    6. Complex scenarios with multiple entities and various skip word patterns
+    """
+    # Create evaluator with specific skip words
+    span_evaluator = SpanEvaluator(
+        model=MockModel(), iou_threshold=0.75, char_based=True, skip_words=skip_words
+    )
+
+    # Build the DataFrame
+    df = pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "start_indices": start_indices,
+        }
+    )
+
+    # Process spans (create spans then merge adjacent ones - this is what happens in evaluation)
+    annotation_spans = span_evaluator._create_spans(df=df, column="annotation")
+    annotation_spans = span_evaluator._merge_adjacent_spans(
+        spans=annotation_spans, df=df
+    )
+    # Check number of spans after processing
+    assert (
+        len(annotation_spans) == len(expected_spans_after_processing)
+    ), f"In {scenario}, expected {len(expected_spans_after_processing)} spans after processing, got {len(annotation_spans)}"
+
+    # Check each span's properties after processing
+    for i, expected_span in enumerate(expected_spans_after_processing):
+        actual_span = annotation_spans[i]
+
+        assert (
+            actual_span.entity_type == expected_span["entity_type"]
+        ), f"In {scenario}, span {i} entity_type expected {expected_span['entity_type']}, got {actual_span.entity_type}"
+
+        assert (
+            actual_span.entity_value == expected_span["entity_value"]
+        ), f"In {scenario}, span {i} entity_value expected {expected_span['entity_value']}, got {actual_span.entity_value}"
+
+        assert (
+            actual_span.start_position == expected_span["start_position"]
+        ), f"In {scenario}, span {i} start_position expected {expected_span['start_position']}, got {actual_span.start_position}"
+
+        assert (
+            actual_span.end_position == expected_span["end_position"]
+        ), f"In {scenario}, span {i} end_position expected {expected_span['end_position']}, got {actual_span.end_position}"
+
+        assert (
+            actual_span.normalized_tokens == expected_span["normalized_tokens"]
+        ), f"In {scenario}, span {i} normalized_tokens expected {expected_span['normalized_tokens']}, got {actual_span.normalized_tokens}"
+
+        assert (
+            actual_span.token_start == expected_span["token_start"]
+        ), f"In {scenario}, span {i} token_start expected {expected_span['token_start']}, got {actual_span.token_start}"
+
+        assert (
+            actual_span.token_end == expected_span["token_end"]
+        ), f"In {scenario}, span {i} token_end expected {expected_span['token_end']}, got {actual_span.token_end}"

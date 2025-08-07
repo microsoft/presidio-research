@@ -1,6 +1,6 @@
 import copy
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import pandas as pd
 import plotly.express as px
@@ -13,8 +13,8 @@ class Plotter:
     """
     A class for visualizing evaluation results of a PII detection model.
 
-    The `Plotter` class provides methods to generate various plots that help analyze 
-    the performance of a PII detection model evaluated using the `Evaluator` class. 
+    The `Plotter` class provides methods to generate various plots that help analyze
+    the performance of a PII detection model evaluated using the `Evaluator` class.
     These visualizations include per-entity scores, most common errors, and confusion matrices.
 
     Key Features:
@@ -25,11 +25,11 @@ class Plotter:
     Attributes:
         results (EvaluationResult): The evaluation results from the `Evaluator`.
         model_name (str): The name of the model, used in plot titles.
-        beta (float): The beta parameter for the F-beta score, controlling the 
+        beta (float): The beta parameter for the F-beta score, controlling the
                       weight of precision vs. recall.
         save_as (Optional[str]): The file format to save plots (e.g., "png", "svg").
                                  If specified, plots are saved in the given format.
-                                 It has to be specified if output_folder is passed 
+                                 It has to be specified if output_folder is passed
                                  as input to the plotting functions.
 
     Notes:
@@ -37,7 +37,6 @@ class Plotter:
           Plotly viewer, regardless of the `save_as` value.
         - The `output_folder` is created automatically if it does not exist.
     """
-
 
     def __init__(
         self,
@@ -49,13 +48,13 @@ class Plotter:
         self.results = results
         self.save_as = save_as
         self.model_name = model_name.replace("/", "-")
-        self.beta = beta      
+        self.beta = beta
 
-    def plot_scores(self, output_folder: Optional[Path] = None) -> None:
+    def plot_scores(self, output_folder: Optional[Union[Path, str]] = None) -> None:
         """
         Plots per-entity recall, precision, or F2 score for evaluated model.
         Parameters:
-            output_folder (Path): The folder where the plots will be saved. 
+            output_folder (Path): The folder where the plots will be saved.
         """
         scores = {}
 
@@ -89,10 +88,14 @@ class Plotter:
         precision_fig = self._plot_one_metric(df, metric="precision")
         figs = [beta_fig, recall_fig, precision_fig]
         fig_names = ["f_beta", "recall", "precision"]
-        
+
         for fig, file_name in zip(figs, fig_names):
             if output_folder is not None:
-                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"scores-{file_name}")
+                self.save_fig_to_file(
+                    fig=fig,
+                    output_folder=output_folder,
+                    file_name=f"scores-{file_name}",
+                )
                 fig.show()
             else:
                 fig.show()
@@ -150,7 +153,9 @@ class Plotter:
         )
         return fig
 
-    def plot_most_common_tokens(self, output_folder: Optional[Path] = None) -> None:
+    def plot_most_common_tokens(
+        self, output_folder: Optional[Union[Path, str]] = None
+    ) -> None:
         """Graph most common false positive and false negative tokens for each entity."""
         fps_frames = []
         fns_frames = []
@@ -206,7 +211,11 @@ class Plotter:
                 continue
 
             if output_folder is not None:
-                self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name=f"common-errors-{fig_name}")
+                self.save_fig_to_file(
+                    fig=fig,
+                    output_folder=output_folder,
+                    file_name=f"common-errors-{fig_name}",
+                )
                 fig.show()
             else:
                 fig.show()
@@ -264,7 +273,10 @@ class Plotter:
         return fg
 
     def plot_confusion_matrix(
-        self, entities: List[str], confmatrix: List[List[int]], output_folder: Optional[Path] = None
+        self,
+        entities: List[str],
+        confmatrix: List[List[int]],
+        output_folder: Optional[Union[Path, str]] = None,
     ) -> None:
         """
         Plot the confusion matrix for the evaluated model.
@@ -297,7 +309,9 @@ class Plotter:
         fig.update_layout(width=800, height=800)
 
         if output_folder is not None:
-            self.save_fig_to_file(fig=fig, output_folder=output_folder, file_name="confusion-matrix")
+            self.save_fig_to_file(
+                fig=fig, output_folder=output_folder, file_name="confusion-matrix"
+            )
             fig.show()
         else:
             fig.show()
@@ -305,7 +319,7 @@ class Plotter:
     def save_fig_to_file(
         self,
         fig: Figure,
-        output_folder: Path,
+        output_folder: Union[Path, str],
         file_name: str = "figure",
     ) -> None:
         """
@@ -315,6 +329,13 @@ class Plotter:
             output_folder (Path): The folder where the plot will be saved.
             file_name (str): The name of the file to save the plot as.
         """
+        if not output_folder:
+            raise ValueError("output_folder is missing, cannot save figure."
+                             "If you do not wish to save figures, "
+                             "configure the Plotter with `save_as = None`")
+
+        output_folder = Path(output_folder)
+
         output_folder.mkdir(parents=True, exist_ok=True)
         if self.save_as == "html":
             fig.write_html(

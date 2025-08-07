@@ -2,6 +2,7 @@ import warnings
 from collections import Counter
 from typing import Optional, List
 
+from presidio_evaluator import InputSample
 from presidio_evaluator.evaluation import BaseEvaluator, EvaluationResult
 
 
@@ -34,6 +35,14 @@ class TokenEvaluator(BaseEvaluator):
 
         :return: EvaluationResult with precision, recall and f measures
         """
+
+        for res in evaluation_results:
+            if not res.results:
+                # token evaluation works on the results object, so run the compare method if not done yet
+                input_sample = InputSample(full_text = res.text, tokens=res.tokens, tags=res.actual_tags)
+                results, errors = self.compare(input_sample=input_sample, prediction=res.predicted_tags)
+                res.results = results
+                res.errors = errors
 
         # aggregate results
         all_results = sum([er.results for er in evaluation_results], Counter())
