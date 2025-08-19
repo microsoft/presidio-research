@@ -32,6 +32,7 @@ flair = "^0.15.1"
 spacy_stanza = "^1.0.0"
 spacy_huggingface_pipelines = "^0.0.4"
 azure-ai-textanalytics = "^5.3.0"
+dspy = "^2.5.0"
 
 
 [tool.poetry.group.dev.dependencies]
