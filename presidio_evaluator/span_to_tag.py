@@ -44,23 +44,25 @@ def _get_detailed_tags_for_span(scheme: str, cur_tags: list[str]) -> list[str]:
     return return_tags
 
 
-def _sort_spans(start, end, tag, score):
+def _sort_spans(start, end, tag, score, span_id):
     if len(start) > 0:
         tpl = [
-            (a, b, c, d)
-            for a, b, c, d in sorted(
-                zip(start, end, tag, score, strict=False),
+            (a, b, c, d, e)
+            for a, b, c, d, e in sorted(
+                zip(start, end, tag, score, span_id, strict=False),
                 key=lambda pair: pair[0],
             )
         ]
-        start, end, tag, score = [[x[i] for x in tpl] for i in range(len(tpl[0]))]
-    return start, end, tag, score
+        start, end, tag, score, span_id = [
+            [x[i] for x in tpl] for i in range(len(tpl[0]))
+        ]
+    return start, end, tag, score, span_id
 
 
-def _handle_overlaps(start, end, tag, score):
-    start, end, tag, score = _sort_spans(start, end, tag, score)
+def _handle_overlaps(start, end, tag, score, span_id):
+    start, end, tag, score, span_id = _sort_spans(start, end, tag, score, span_id)
     if len(start) == 0:
-        return start, end, tag, score
+        return start, end, tag, score, span_id
     number_of_spans = len(start)
     i = 0
     while i < number_of_spans - 1:
@@ -78,11 +80,13 @@ def _handle_overlaps(start, end, tag, score):
                 # j's score is higher, break i
                 # If i finishes after j ended, split i
                 elif end[j] < end[i]:
-                    # create new span at the end
+                    # create new span at the end; the segment is still the same
+                    # input span, so it keeps i's identity
                     start.append(end[j] + 1)
                     end.append(end[i])
                     score.append(score[i])
                     tag.append(tag[i])
+                    span_id.append(span_id[i])
                     number_of_spans += 1
                     # truncate the current i to end at start(j)
                     end[i] = start[j] - 1
@@ -91,8 +95,8 @@ def _handle_overlaps(start, end, tag, score):
                     end[i] = start[j] - 1
 
         i += 1
-    start, end, tag, score = _sort_spans(start, end, tag, score)
-    return start, end, tag, score
+    start, end, tag, score, span_id = _sort_spans(start, end, tag, score, span_id)
+    return start, end, tag, score, span_id
 
 
 def span_to_tag(
@@ -104,7 +108,8 @@ def span_to_tag(
     scores: list[float] | None = None,
     tokens: Doc | None = None,
     token_model_version: str = "en_core_web_sm",  # noqa: S107
-) -> list[str]:
+    return_span_ids: bool = False,
+) -> list[str] | tuple[list[str], list[int | None]]:
     """
     Turns a list of start and end values with corresponding labels, into a NER
     tagging (BILUO,BIO/IOB)
@@ -116,19 +121,28 @@ def span_to_tag(
     :param tags: list of entity names
     :param scores: score of tag (confidence)
     :param token_model_version: model used for tokenization if no tokens provided
-    :return: list of strings, representing either BILUO or BIO for the input
+    :param return_span_ids: when True, also return one entry per token holding
+        the index of the input span that tagged it (None for O tokens). Ids
+        refer to the caller's span order; a span split by overlap resolution
+        keeps one id for all its segments.
+    :return: list of strings, representing either BILUO or BIO for the input;
+        with return_span_ids, a (tags, span_ids) tuple instead
     """
 
     if not scores:
         # assume all scores are of equal weight
         scores = [0.5 for start in starts]
 
-    starts, ends, tags, scores = _handle_overlaps(starts, ends, tags, scores)
+    span_ids = list(range(len(starts)))
+    starts, ends, tags, scores, span_ids = _handle_overlaps(
+        starts, ends, tags, scores, span_ids
+    )
 
     if not tokens:
         tokens = tokenize(text, token_model_version)
 
     io_tags = []
+    token_span_ids: list[int | None] = []
     for token in tokens:
         found = False
         for span_index in range(0, len(starts)):
@@ -149,15 +163,17 @@ def span_to_tag(
                 io_tags.append(tags[span_index])
                 found = True
             if found:
+                token_span_ids.append(span_ids[span_index])
                 break
 
         if not found:
             io_tags.append("O")
+            token_span_ids.append(None)
 
-    if scheme == "IO":
-        return io_tags
-    else:
-        return io_to_scheme(io_tags, scheme)
+    out_tags = io_tags if scheme == "IO" else io_to_scheme(io_tags, scheme)
+    if return_span_ids:
+        return out_tags, token_span_ids
+    return out_tags
 
 
 def io_to_scheme(io_tags: list[str], scheme: str) -> list[str]:

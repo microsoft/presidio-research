@@ -4,6 +4,12 @@ from typing import Literal
 import pandas as pd
 
 from presidio_evaluator.data_objects import Span
+from presidio_evaluator.entity_mapping.data_objects import (
+    ANNOTATION_MERGE_KEY,
+    ANNOTATION_SPAN_ID,
+    PREDICTION_MERGE_KEY,
+    PREDICTION_SPAN_ID,
+)
 from presidio_evaluator.evaluation import (
     BaseEvaluator,
     DeprecationError,
@@ -337,13 +343,6 @@ class SpanEvaluator(BaseEvaluator):
         returns None when neither is available, in which case callers compare
         the visible label alone.
         """
-        from presidio_evaluator.entity_mapping.data_objects import (  # noqa: PLC0415
-            ANNOTATION_MERGE_KEY,
-            ANNOTATION_SPAN_ID,
-            PREDICTION_MERGE_KEY,
-            PREDICTION_SPAN_ID,
-        )
-
         if column == "annotation":
             id_column, key_column = ANNOTATION_SPAN_ID, ANNOTATION_MERGE_KEY
         else:

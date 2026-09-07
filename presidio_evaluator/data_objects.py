@@ -258,13 +258,19 @@ class InputSample:
         self.start_indices = start_indices if start_indices else []
 
         if create_tags_from_span:
-            tokens, tags, start_indices = self.get_tags(scheme, token_model_version)
+            tokens, tags, start_indices, span_ids = self.get_tags(
+                scheme, token_model_version, return_span_ids=True
+            )
             self.tokens = tokens
             self.tags = tags
             self.start_indices = start_indices
+            self.span_ids = span_ids
         else:
             self.tokens = tokens
             self.tags = tags
+            # Per-token index into self.spans; unknown when tags were provided
+            # directly instead of being derived from the spans.
+            self.span_ids: list[int | None] = []
 
     def __repr__(self) -> str:
         return f"Full text: {self.full_text}\nSpans: {self.spans}\n"
@@ -288,19 +294,25 @@ class InputSample:
         self,
         scheme: str = "IOB",
         model_version: str = "en_core_web_sm",
-    ) -> tuple[Doc, list[str], list[int]]:
+        return_span_ids: bool = False,
+    ) -> (
+        tuple[Doc, list[str], list[int]]
+        | tuple[Doc, list[str], list[int], list[int | None]]
+    ):
         """Extract the tokens, tags, and start_indices from the spans.
 
         :param scheme: IO, BIO or BILUO
         :param model_version: The name of the spaCy model to use for tokenization
-        :return: tokens, tags, start_indices
+        :param return_span_ids: when True, also return the index into
+            ``self.spans`` of the span covering each token (None for O tokens)
+        :return: tokens, tags, start_indices [, span_ids]
         """
         start_positions = [span.start_position for span in self.spans]
         end_positions = [span.end_position for span in self.spans]
         tags = [span.entity_type for span in self.spans]
         tokens = tokenize(self.full_text, model_version)
 
-        labels = span_to_tag(
+        labels, span_ids = span_to_tag(
             scheme=scheme,
             text=self.full_text,
             tags=tags,
@@ -308,9 +320,12 @@ class InputSample:
             ends=end_positions,
             tokens=tokens,
             token_model_version=model_version,
+            return_span_ids=True,
         )
 
         start_indices = [token.idx for token in tokens]
+        if return_span_ids:
+            return tokens, labels, start_indices, span_ids
         return tokens, labels, start_indices
 
     def to_conll(
