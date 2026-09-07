@@ -995,14 +995,14 @@ class SpanEvaluator(BaseEvaluator):
                 spans,
             )
 
-        # Process type groups in priority order — above-threshold groups before
-        # below-threshold ones, the annotation's own type first within each
-        # tier — so the annotation's single confusion-matrix row cell is
-        # claimed by the strongest match (TP, then wrong entity, then missed)
-        # rather than by whichever group happens to come first.
+        # Strongest match first (TP, then wrong entity, then missed), so it
+        # claims the annotation's single confusion-matrix row cell.
+        def match_priority(item: tuple[str, float]) -> tuple[bool, bool]:
+            entity_type, iou = item
+            return (iou >= self.iou_threshold, entity_type == ann_type)
+
         for cumulative_type, iou_per_type in sorted(
-            cumulative_iou_by_type.items(),
-            key=lambda item: (item[1] < self.iou_threshold, item[0] != ann_type),
+            cumulative_iou_by_type.items(), key=match_priority, reverse=True
         ):
             # Check if there are spans of the same type as the annotation (Scenario 6)
             if ann_type == cumulative_type:

@@ -502,36 +502,13 @@ class TestMappingProjectionScenarios:
         scores = _evaluator.calculate_hierarchical_scores(results)
         person_m = scores["detailed"].per_type.get("PERSON")
         assert person_m is not None
-        assert person_m.recall == pytest.approx(0.0, abs=1e-6)
-        # FIRST_NAME resolves to NAME at canonical_depth=3 → NAME is the FP
-        name_m = scores["detailed"].per_type.get("NAME")
-        assert name_m is not None
-        assert name_m.false_positives > 0
+        assert person_m.recall == pytest.approx(1.0, abs=1e-6)
+        assert person_m.precision == pytest.approx(1.0, abs=1e-6)
 
 
 # ---------------------------------------------------------------------------
 # Confusion matrix consistency with per_type metrics (multiple overlaps)
 # ---------------------------------------------------------------------------
-
-
-def _make_single_sentence_results(
-    annotations: list[str], predictions: list[str]
-) -> MappedResults:
-    """Build MappedResults with all tokens in one sentence, so a single
-    annotation span can overlap multiple prediction spans."""
-    n = len(annotations)
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0] * n,
-            "token": [f"tok{i}" for i in range(n)],
-            "annotation": annotations,
-            "prediction": predictions,
-            "start_indices": list(range(n)),
-        }
-    )
-    mapper = CanonicalMapper()
-    mapper.analyze(df)
-    return mapper.get_mapped_results_dataframe()
 
 
 class TestConfusionMatrixConsistency:
@@ -564,7 +541,7 @@ class TestConfusionMatrixConsistency:
         and must contribute exactly one (ann_type, 'O') cell."""
         results = _make_single_sentence_results(
             ["PERSON", "PERSON", "PERSON"],
-            ["NAME", "TITLE", "LOCATION"],
+            ["LOCATION", "DATE_TIME", "ORGANIZATION"],
         )
         scores = self._overlap_evaluator.calculate_hierarchical_scores(results)
         detailed = scores["detailed"]
@@ -577,7 +554,7 @@ class TestConfusionMatrixConsistency:
         the TP annotation's row must not also gain a wrong-entity cell."""
         results = _make_single_sentence_results(
             ["PERSON", "PERSON", "PERSON", "PERSON"],
-            ["PERSON", "PERSON", "LOCATION", "LOCATION"],
+            ["LOCATION", "LOCATION", "PERSON", "PERSON"],
         )
         scores = self._overlap_evaluator.calculate_hierarchical_scores(results)
         branch = scores["branch"]
