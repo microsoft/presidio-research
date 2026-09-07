@@ -55,13 +55,26 @@ class BaseModel(ABC):
         Calls batch_predict() internally and assembles the result into a
         flat DataFrame.  No entity mapping is applied — that is the mapper's job.
 
+        When at least one sample carries gold spans, an extra
+        ``annotation_span_id`` column is attached: the index of the gold span
+        covering each token (None for ``O`` tokens, and for tokens of samples
+        without spans). Downstream span reconstruction uses it to recover exact
+        gold span boundaries instead of inferring them from label runs.
+
         :param dataset: List of InputSample objects (must have tokens and tags set).
-        :return: DataFrame with exactly 5 columns:
+        :return: DataFrame with columns:
             sentence_id, token, annotation, prediction, start_indices
+            [, annotation_span_id]
         """
+        from presidio_evaluator.entity_mapping.data_objects import (  # noqa: PLC0415
+            ANNOTATION_SPAN_ID,
+        )
+
         predictions = self.batch_predict(dataset)
+        has_spans = any(sample.spans for sample in dataset)
 
         rows: list[dict] = []
+        span_ids: list[int | None] = []
         for i, (sample, pred_tags) in enumerate(
             zip(dataset, predictions, strict=False)
         ):
@@ -69,6 +82,8 @@ class BaseModel(ABC):
             tokens = sample.tokens
             annotations = sample.tags
             start_indices = sample.start_indices
+            if has_spans:
+                span_ids.extend(self._annotation_span_ids(sample))
             for j in range(len(tokens)):
                 rows.append(
                     {
@@ -82,7 +97,7 @@ class BaseModel(ABC):
                     },
                 )
 
-        return pd.DataFrame(
+        df = pd.DataFrame(
             rows,
             columns=[
                 "sentence_id",
@@ -92,6 +107,49 @@ class BaseModel(ABC):
                 "start_indices",
             ],
         )
+        if has_spans:
+            # object dtype keeps ids as int/None; a numeric column would turn
+            # None into NaN, and NaN != NaN breaks equality-based grouping.
+            df[ANNOTATION_SPAN_ID] = pd.Series(span_ids, dtype="object")
+        return df
+
+    @staticmethod
+    def _annotation_span_ids(sample: InputSample) -> list[int | None]:
+        """Index of the gold span covering each token, None for O tokens.
+
+        Ids follow the labels in ``sample.tags``, which span_to_tag already
+        aligned to the tokens: a token labelled O gets None even if a span
+        overlaps it, and when several spans overlap a token the one whose
+        entity type matches the token's label wins, so a token's label and its
+        span id never disagree.
+        """
+        spans = sample.spans or []
+        tags = sample.tags
+        start_indices = sample.start_indices
+        ids: list[int | None] = []
+        for j, token in enumerate(sample.tokens):
+            label = tags[j] if j < len(tags) else "O"
+            start = start_indices[j] if j < len(start_indices) else None
+            if label == "O" or not spans or start is None:
+                ids.append(None)
+                continue
+            end = start + len(str(token))
+            base_label = (
+                label.split("-", 1)[1]
+                if label[:2] in {"B-", "I-", "L-", "U-"}
+                else label
+            )
+            overlapping = [
+                i
+                for i, span in enumerate(spans)
+                if span.start_position < end and start < span.end_position
+            ]
+            matching = [
+                i for i in overlapping if spans[i].entity_type == base_label
+            ]
+            candidates = matching or overlapping
+            ids.append(candidates[0] if candidates else None)
+        return ids
 
     def filter_tags_in_supported_entities(self, tags: list[str]) -> list[str]:
         """

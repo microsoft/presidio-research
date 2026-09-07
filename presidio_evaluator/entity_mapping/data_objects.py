@@ -83,6 +83,16 @@ class MappingIssue:
 ANNOTATION_MERGE_KEY = "annotation_merge_key"
 PREDICTION_MERGE_KEY = "prediction_merge_key"
 
+#: Columns carrying the index of the source span covering each token (None for
+#: ``O`` tokens). Unlike the merge keys above, which only distinguish entity
+#: *types*, these identify entity *instances*: two adjacent same-type entities
+#: carry different ids, so span reconstruction never needs to guess where one
+#: ends and the next begins. ``BaseModel.predict_dataset`` fills the annotation
+#: column from the gold spans; the prediction column is reserved for sources
+#: that know their prediction span boundaries.
+ANNOTATION_SPAN_ID = "annotation_span_id"
+PREDICTION_SPAN_ID = "prediction_span_id"
+
 
 @dataclass(frozen=True)
 class MappedResults:
