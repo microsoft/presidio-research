@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+- **Python 3.14 support** — `requires-python` is now `>=3.11,<3.15`, `uv.lock` has been regenerated for the wider range, and the locked `spacy` moves to 3.8.16, the first release that declares 3.14 support. CI runs the test suite on 3.11 through 3.14.
+
 ### Behavior Changes
 
 - **Predictions are projected to the deepest annotated ancestor during canonical mapping** — the gold vocabulary decides the granularity, per prediction. A `NAME` prediction is mapped to `PERSON` when the dataset annotates `PERSON`, and `DATE` is mapped to `DATE_TIME` when the dataset annotates `DATE_TIME`. A prediction with no annotated ancestor is left unchanged, so a coarser prediction is never pushed down onto a finer gold label and siblings are never conflated. Datasets that annotate several depths on one branch (e.g. `PERSON` and `TITLE` in `data/synth_dataset_v2.json`) need no mapping decision: `TITLE` predictions stay `TITLE` while `NAME` predictions become `PERSON`, so every annotated depth keeps its own metrics. Mixed annotation depths are reported as an INFO issue. Low-IoU errors are attributed to the projected scoring label.
