@@ -953,6 +953,25 @@ class CanonicalMapper:
             # detailed — hierarchy node at native depth
             return resolved
 
+        def _project_prediction(label: str) -> str:
+            """Project a prediction to the deepest gold label that covers it.
+
+            Walks the prediction's own ancestor path from deepest to shallowest
+            and returns the first label present in the annotation vocabulary.
+            A prediction with no annotated ancestor is left unchanged, so a
+            coarser prediction is never pushed down onto a finer gold label.
+            """
+            resolved = _resolve(label)
+            if resolved is None or resolved == "O":
+                return "O"
+            path = h_full.canonical_to_branch.get(resolved)
+            if not path:
+                return resolved
+            for ancestor in reversed(path):
+                if ancestor in annotation_vocabulary:
+                    return ancestor
+            return resolved
+
         # Merge keys: the finest-grained label available for each token, carried
         # alongside every level so that span merging can tell entities apart even
         # after their labels have been collapsed.
@@ -963,12 +982,17 @@ class CanonicalMapper:
         # gold spans and makes the levels incomparable, since each ends up scored
         # against a different ground truth.
         ann_merge_key = df["annotation"].map(lambda x: _level(x, "detailed"))
-        pred_merge_key = df["prediction"].map(lambda x: _level(x, "detailed"))
+        pred_merge_key = df["prediction"].map(_project_prediction)
 
         def _project(level: str) -> pd.DataFrame:
             out = df.copy()
             out["annotation"] = df["annotation"].map(lambda x: _level(x, level))
-            out["prediction"] = df["prediction"].map(lambda x: _level(x, level))
+            if level == "binary":
+                out["prediction"] = pred_merge_key.map(h_full.to_binary)
+            elif level == "branch":
+                out["prediction"] = pred_merge_key.map(h_full.to_branch)
+            else:
+                out["prediction"] = pred_merge_key
             out[ANNOTATION_MERGE_KEY] = ann_merge_key
             out[PREDICTION_MERGE_KEY] = pred_merge_key
             return out
