@@ -250,6 +250,31 @@ def test_manually_set_start_indices():
     assert start_indices == [0, 5, 9, 13, 17, 24]
 
 
+def test_create_tags_from_span_sets_span_ids():
+    """Two same-type entities keep distinct ids; O tokens get None."""
+    sample = InputSample(
+        full_text="Alex and Bob are friends.",
+        spans=[
+            Span(
+                entity_type="PERSON",
+                entity_value="Alex",
+                start_position=0,
+                end_position=4,
+            ),
+            Span(
+                entity_type="PERSON",
+                entity_value="Bob",
+                start_position=9,
+                end_position=12,
+            ),
+        ],
+        create_tags_from_span=True,
+    )
+
+    # Alex and Bob are friends .
+    assert sample.span_ids == [0, None, 1, None, None, None]
+
+
 def test_span_intersection(pair_of_spans):
     """Test that spans with different entity types do not intersect"""
     span1 = pair_of_spans[0]

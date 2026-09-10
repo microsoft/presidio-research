@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from presidio_evaluator import InputSample, io_to_scheme
+from presidio_evaluator.entity_mapping.data_objects import ANNOTATION_SPAN_ID
 
 
 class BaseModel(ABC):
@@ -55,9 +56,17 @@ class BaseModel(ABC):
         Calls batch_predict() internally and assembles the result into a
         flat DataFrame.  No entity mapping is applied — that is the mapper's job.
 
+        The ``annotation_span_id`` column carries the index of the gold span
+        covering each token, produced by ``span_to_tag`` when the sample's tags
+        were created from its spans (None for ``O`` tokens, and for samples
+        whose tags were provided directly). Downstream span reconstruction uses
+        it to recover exact gold span boundaries instead of inferring them from
+        label runs.
+
         :param dataset: List of InputSample objects (must have tokens and tags set).
-        :return: DataFrame with exactly 5 columns:
-            sentence_id, token, annotation, prediction, start_indices
+        :return: DataFrame with exactly 6 columns:
+            sentence_id, token, annotation, prediction, start_indices,
+            annotation_span_id
         """
         predictions = self.batch_predict(dataset)
 
@@ -69,6 +78,7 @@ class BaseModel(ABC):
             tokens = sample.tokens
             annotations = sample.tags
             start_indices = sample.start_indices
+            span_ids = getattr(sample, "span_ids", None) or []
             for j in range(len(tokens)):
                 rows.append(
                     {
@@ -79,10 +89,11 @@ class BaseModel(ABC):
                         "start_indices": start_indices[j]
                         if j < len(start_indices)
                         else 0,
+                        ANNOTATION_SPAN_ID: span_ids[j] if j < len(span_ids) else None,
                     },
                 )
 
-        return pd.DataFrame(
+        df = pd.DataFrame(
             rows,
             columns=[
                 "sentence_id",
@@ -90,8 +101,16 @@ class BaseModel(ABC):
                 "annotation",
                 "prediction",
                 "start_indices",
+                ANNOTATION_SPAN_ID,
             ],
         )
+        # object dtype keeps ids as int/None; a numeric column would turn
+        # None into NaN, and NaN != NaN breaks equality-based grouping.
+        df[ANNOTATION_SPAN_ID] = df[ANNOTATION_SPAN_ID].astype("object")
+        df[ANNOTATION_SPAN_ID] = df[ANNOTATION_SPAN_ID].where(
+            df[ANNOTATION_SPAN_ID].notna(), None
+        )
+        return df
 
     def filter_tags_in_supported_entities(self, tags: list[str]) -> list[str]:
         """

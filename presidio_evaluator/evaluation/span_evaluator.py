@@ -4,6 +4,12 @@ from typing import Literal
 import pandas as pd
 
 from presidio_evaluator.data_objects import Span
+from presidio_evaluator.entity_mapping.data_objects import (
+    ANNOTATION_MERGE_KEY,
+    ANNOTATION_SPAN_ID,
+    PREDICTION_MERGE_KEY,
+    PREDICTION_SPAN_ID,
+)
 from presidio_evaluator.evaluation import (
     BaseEvaluator,
     DeprecationError,
@@ -98,11 +104,12 @@ class SpanEvaluator(BaseEvaluator):
 
         :param spans: List of Span objects to potentially merge
         :param df: DataFrame containing the tokens and their positions
-        :param merge_keys: Optional per-span finest-grained labels. When given,
-            these decide whether two spans describe the same entity type, instead
-            of ``Span.entity_type``. This matters once labels have been collapsed:
-            at the binary level every span is ``"PII"``, so comparing
-            ``entity_type`` would merge a name, an age and an email into one span.
+        :param merge_keys: Optional per-span identity keys (gold span ids, or
+            finest-grained labels). When given, two spans merge only if their
+            keys match in addition to ``Span.entity_type``. This matters once
+            labels have been collapsed: at the binary level every span is
+            ``"PII"``, so comparing ``entity_type`` alone would merge a name,
+            an age and an email into one span.
         :return: List of merged Span objects
         """
         if not spans:
@@ -327,19 +334,21 @@ class SpanEvaluator(BaseEvaluator):
 
     @staticmethod
     def _merge_key_column(df: pd.DataFrame, column: str) -> str | None:
-        """Name of the merge-key column paired with a label column, if present.
+        """Name of the column deciding entity identity for a label column.
 
-        Returns None for DataFrames built without CanonicalMapper, in which case
-        callers fall back to comparing the visible label alone.
+        Prefers the span-id column (exact entity instances, attached by
+        ``BaseModel.predict_dataset`` from the gold spans) when it is present
+        and carries at least one value for this DataFrame; falls back to the
+        merge-key column (finest-grained label, attached by CanonicalMapper);
+        returns None when neither is available, in which case callers compare
+        the visible label alone.
         """
-        from presidio_evaluator.entity_mapping.data_objects import (  # noqa: PLC0415
-            ANNOTATION_MERGE_KEY,
-            PREDICTION_MERGE_KEY,
-        )
-
-        key_column = (
-            ANNOTATION_MERGE_KEY if column == "annotation" else PREDICTION_MERGE_KEY
-        )
+        if column == "annotation":
+            id_column, key_column = ANNOTATION_SPAN_ID, ANNOTATION_MERGE_KEY
+        else:
+            id_column, key_column = PREDICTION_SPAN_ID, PREDICTION_MERGE_KEY
+        if id_column in df.columns and df[id_column].notna().any():
+            return id_column
         return key_column if key_column in df.columns else None
 
     @staticmethod
@@ -348,24 +357,19 @@ class SpanEvaluator(BaseEvaluator):
         column: str,
         spans: list[Span],
     ) -> list[str] | None:
-        """Finest-grained label for each span, read from the merge-key column.
+        """Entity-identity key for each span, read from the identity column.
 
-        `CanonicalMapper` attaches these columns to every level so that merging
-        stays type-aware after labels have been collapsed. When they are absent
-        (a DataFrame built by hand, or an older caller) this returns None and
-        merging falls back to comparing the visible entity type.
+        The column is resolved by :meth:`_merge_key_column`: span ids where
+        available (exact instances, so two same-type neighbours never merge),
+        otherwise the finest-grained label attached by ``CanonicalMapper``.
+        When neither is present (a DataFrame built by hand, or an older caller)
+        this returns None and merging falls back to comparing the visible
+        entity type.
 
-        :return: one label per span, in the same order, or None.
+        :return: one key per span, in the same order, or None.
         """
-        from presidio_evaluator.entity_mapping.data_objects import (  # noqa: PLC0415
-            ANNOTATION_MERGE_KEY,
-            PREDICTION_MERGE_KEY,
-        )
-
-        key_column = (
-            ANNOTATION_MERGE_KEY if column == "annotation" else PREDICTION_MERGE_KEY
-        )
-        if key_column not in sentence_df.columns:
+        key_column = SpanEvaluator._merge_key_column(sentence_df, column)
+        if key_column is None:
             return None
 
         keys = []
@@ -691,12 +695,15 @@ class SpanEvaluator(BaseEvaluator):
         """
         Create spans from a DataFrame column.
 
-        Consecutive tokens form one span while they share a label. When a
-        merge-key column is present (attached by CanonicalMapper), a change of
-        merge key also ends the span even though the visible label is unchanged.
-        Without that, two different entities standing side by side with no token
-        between them - "Ana Ruiz 29" at the binary level, where both are "PII" -
-        would be read as a single entity and one gold span would disappear.
+        Consecutive tokens form one span while they share a label. When an
+        identity column is present (span ids attached by predict_dataset, or
+        merge keys attached by CanonicalMapper), a change of identity also ends
+        the span even though the visible label is unchanged. Without that, two
+        different entities standing side by side with no token between them -
+        "Ana Ruiz 29" at the binary level, where both are "PII" - would be read
+        as a single entity and one gold span would disappear. Span ids go one
+        step further than merge keys: they separate two adjacent entities of
+        the same type as well.
 
         :param df: DataFrame containing the spans.
         :param column: Name of the column to extract spans from.

@@ -70,6 +70,7 @@ def test_notebook(dataset: list[InputSample], analyzer_engine: AnalyzerEngine):
         "annotation",
         "prediction",
         "start_indices",
+        "annotation_span_id",
     ]
 
     # --- 6. Map entities ---
@@ -175,6 +176,7 @@ def test_full_pipeline_integration(
         "annotation",
         "prediction",
         "start_indices",
+        "annotation_span_id",
     ]
 
     # Step 2: map

@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from presidio_evaluator import InputSample
+from presidio_evaluator.entity_mapping.data_objects import ANNOTATION_SPAN_ID
 from tests.mocks import MockModel, MockTokensModel
 
 
@@ -51,7 +52,14 @@ def test_to_log(mock_model):
 
 # ── predict_dataset() tests ──────────────────────────────────────────────────
 
-EXPECTED_COLUMNS = ["sentence_id", "token", "annotation", "prediction", "start_indices"]
+EXPECTED_COLUMNS = [
+    "sentence_id",
+    "token",
+    "annotation",
+    "prediction",
+    "start_indices",
+    ANNOTATION_SPAN_ID,
+]
 
 
 def _make_sample(tokens, tags, start_indices, sample_id=None):
@@ -140,3 +148,55 @@ def test_predict_dataset_multi_sample():
 
     assert len(df) == 3  # 1 token + 2 tokens
     assert list(df["sentence_id"]) == [10, 11, 11]
+
+
+# ── annotation_span_id column ────────────────────────────────────────────────
+
+
+def _make_sample_with_span_ids(tokens, tags, start_indices, span_ids, sample_id=None):
+    """Sample whose tags were created from spans: span_to_tag set span_ids."""
+    sample = _make_sample(tokens, tags, start_indices, sample_id=sample_id)
+    sample.span_ids = span_ids
+    return sample
+
+
+def test_predict_dataset_attaches_annotation_span_ids():
+    """Each token carries the index of the gold span covering it, None for O."""
+    # "Ana Ruiz 29" — two touching entities, indistinguishable from labels alone
+    # at the binary level.
+    tokens = ["Ana", "Ruiz", "29", "here"]
+    tags = ["NAME", "NAME", "AGE", "O"]
+    start_indices = [0, 4, 9, 12]
+    span_ids = [0, 0, 1, None]
+
+    model = MockTokensModel(prediction=["O"] * 4)
+    sample = _make_sample_with_span_ids(
+        tokens, tags, start_indices, span_ids, sample_id=0
+    )
+
+    df = model.predict_dataset([sample])
+
+    assert list(df.columns) == EXPECTED_COLUMNS
+    assert list(df[ANNOTATION_SPAN_ID]) == [0, 0, 1, None]
+
+
+def test_predict_dataset_span_id_column_is_empty_without_span_ids():
+    """The schema is fixed: samples without span ids get an all-None column."""
+    model = MockTokensModel(prediction=["O"])
+    sample = _make_sample(["foo"], ["PERSON"], [0], sample_id=0)
+
+    df = model.predict_dataset([sample])
+
+    assert list(df.columns) == EXPECTED_COLUMNS
+    assert list(df[ANNOTATION_SPAN_ID]) == [None]
+
+
+def test_predict_dataset_span_ids_none_for_spanless_sample_in_mixed_dataset():
+    """A sample without span ids gets None when others in the dataset have them."""
+    with_ids = _make_sample_with_span_ids(["Bob"], ["PERSON"], [0], [0], sample_id=0)
+    without_ids = _make_sample(["Ann"], ["PERSON"], [0], sample_id=1)
+
+    model = MockTokensModel(prediction=["O"])
+    df = model.predict_dataset([with_ids, without_ids])
+
+    assert list(df[ANNOTATION_SPAN_ID]) == [0, None]

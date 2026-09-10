@@ -1884,3 +1884,93 @@ class TestBinaryLevelOverMerge:
             evaluator._merge_adjacent_spans(
                 [span, span], pd.DataFrame({"token": ["x", "y"]}), merge_keys=["A"]
             )
+
+
+class TestSpanIdColumn:
+    """Span ids carry exact gold entity instances into the evaluator.
+
+    predict_dataset attaches the index of the gold span covering each token.
+    Unlike merge keys, which only distinguish entity types, span ids separate
+    two adjacent entities of the same type, so gold spans are reconstructed
+    exactly instead of inferred from label runs.
+    """
+
+    @staticmethod
+    def _df(tokens, annotations, span_ids=None, merge_keys=None):
+        import pandas as pd
+
+        from presidio_evaluator.entity_mapping.data_objects import (
+            ANNOTATION_MERGE_KEY,
+            ANNOTATION_SPAN_ID,
+            PREDICTION_MERGE_KEY,
+        )
+
+        starts, pos = [], 0
+        for tok in tokens:
+            starts.append(pos)
+            pos += len(tok) + 1
+        data = {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotations,
+            "prediction": annotations,
+            "start_indices": starts,
+        }
+        df = pd.DataFrame(data)
+        if merge_keys is not None:
+            df[ANNOTATION_MERGE_KEY] = merge_keys
+            df[PREDICTION_MERGE_KEY] = merge_keys
+        if span_ids is not None:
+            df[ANNOTATION_SPAN_ID] = pd.Series(span_ids, dtype="object")
+        return df
+
+    def test_touching_same_type_entities_stay_separate(self):
+        """Two names back to back are two spans when their ids differ."""
+        tokens = ["Ana", "Ruiz", "Bob"]
+        labels = ["NAME", "NAME", "NAME"]
+        ids = [0, 0, 1]
+
+        evaluator = SpanEvaluator(iou_threshold=1.0)
+        spans, _ = evaluator._process_sentence_spans(self._df(tokens, labels, ids))
+        assert [s.entity_value for s in spans] == ["Ana Ruiz", "Bob"]
+
+    def test_skip_word_separated_same_type_entities_do_not_merge(self):
+        """Distinct same-type entities split by a skip word keep their ids."""
+        tokens = ["She", "visited", "Paris", ",", "London"]
+        labels = ["O", "O", "LOCATION", "O", "LOCATION"]
+        ids = [None, None, 0, None, 1]
+
+        evaluator = SpanEvaluator(iou_threshold=1.0)
+        spans, _ = evaluator._process_sentence_spans(self._df(tokens, labels, ids))
+        assert [s.entity_value for s in spans] == ["Paris", "London"]
+
+    def test_fragments_sharing_an_id_still_merge(self):
+        """One gold span split by a skip token is still one span."""
+        tokens = ["New", ",", "York"]
+        labels = ["LOCATION", "O", "LOCATION"]
+        ids = [0, None, 0]
+
+        evaluator = SpanEvaluator(iou_threshold=1.0)
+        spans, _ = evaluator._process_sentence_spans(self._df(tokens, labels, ids))
+        assert len(spans) == 1
+
+    def test_span_ids_win_at_binary_level(self):
+        """Ids separate touching entities even when every label is PII."""
+        tokens = ["Ana", "Ruiz", "29"]
+        binary = ["PII", "PII", "PII"]
+        ids = [0, 0, 1]
+
+        evaluator = SpanEvaluator(iou_threshold=1.0)
+        spans, _ = evaluator._process_sentence_spans(self._df(tokens, binary, ids))
+        assert [s.entity_value for s in spans] == ["Ana Ruiz", "29"]
+
+    def test_all_none_id_column_falls_back_to_merge_keys(self):
+        """An id column with no values must not disable the merge keys."""
+        tokens = ["Ana", "Ruiz", "29"]
+        binary = ["PII", "PII", "PII"]
+        keys = ["NAME", "NAME", "AGE"]
+
+        evaluator = SpanEvaluator(iou_threshold=1.0)
+        df = self._df(tokens, binary, span_ids=[None] * 3, merge_keys=keys)
+        spans, _ = evaluator._process_sentence_spans(df)
+        assert len(spans) == 2
