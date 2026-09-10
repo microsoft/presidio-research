@@ -32,9 +32,9 @@ The model emits thousands of fine-grained labels; the dataset uses ≤10 broad c
 
 **Real example (Notebook 5):** The OpenMed HuggingFace model predicts `PERSON`, `LOCATION`, `ORGANIZATION`, etc., while the synth dataset labels `city`, `country`, `street_address`, `state`, `county`, `coordinate`, `postcode` as separate entities.
 
-**Issue type produced:** `COLLISION_AMBIGUOUS` (WARNING) — blocking. When a depth-2 ancestor like `LOCATION` is seen in predictions but the canonical surface is at depth 3 (computed by majority vote from the dataset annotations), the mapper can't determine which depth-3 entity to project onto. The user must call `map({'LOCATION': 'LOC'})` (or another appropriate target) to resolve.
+**Issue type produced:** `COLLISION_SAME_BRANCH` (INFO) — non-blocking. Less-specific predictions such as `LOCATION` remain mismatches at the detailed level because the mapper never projects downward.
 
-**Projection rules in action:** If instead the dataset uses depth-2 labels and the canonical surface locks at depth 2, then fine-grained model labels like `STREET_ADDRESS` auto-collapse to `LOCATION` as `COLLISION_TRIVIAL` (INFO, non-blocking).
+**Projection rules in action:** If the dataset uses depth-2 labels, fine-grained model labels like `STREET_ADDRESS` auto-collapse to `LOCATION` — also reported as `COLLISION_SAME_BRANCH` (INFO, non-blocking).
 
 ---
 
@@ -111,8 +111,9 @@ The same string alias appears under multiple canonical entities in the hierarchy
 | `MRN` / `MEDICAL_RECORD_NUMBER` | `PHI → MRN` | alias of `PATIENT_ID` | Same concept, two canonical targets |
 
 **Issue types produced:**
-- `COLLISION_CROSS_BRANCH` (WARNING) — blocking. Raised when a label resolves to a canonical entity that has co-occurring labels on the same tokens mapping to a different hierarchy branch. Must be resolved with `map()` before extracting results.
-- `COLLISION_AMBIGUOUS` (WARNING) — blocking. Raised when a depth-2 ancestor maps to multiple depth-3 entities on the canonical surface (the top co-occurring candidate is shown in `overlap_counts`). Use `map({'LABEL': 'CANONICAL'})` to pick the right one.
+
+- `COLLISION_CROSS_BRANCH` (WARNING) — non-blocking; review before evaluation. Raised when a label resolves to a canonical entity that has co-occurring labels on the same tokens mapping to a different hierarchy branch. Use `map()` if the mismatch is a vocabulary difference rather than a genuine model error.
+- `COLLISION_SAME_BRANCH` (INFO) — non-blocking. More-specific predictions are projected up to the deepest annotated ancestor of their own label. Mixed annotation depths on a branch are reported for awareness and need no `map()` decision.
 
 ---
 
@@ -130,7 +131,8 @@ The model finds PII types the dataset creators never labeled — every detection
 
 **Real example (Notebook 5):** After mapping, several Presidio predictions had no dataset counterpart.
 
-**Issue type produced:** `PREDICTION_ONLY` (WARNING) — blocking. These labels inflate precision with false positives. You have three resolution options:
+**Issue type produced:** `PREDICTION_ONLY` (WARNING) — non-blocking; review before evaluation. These labels inflate precision with false positives. You have three resolution options:
+
 1. **Suppress** — `mapper.map({'CREDIT_CARD': None})` excludes the label from evaluation entirely
 2. **Remap** — `mapper.map({'CREDIT_CARD': 'FINANCIAL'})` counts detections against the `FINANCIAL` annotation set
 3. **Keep as FP** — if you want these counted as false positives deliberately, this isn't directly supported; suppression is the recommended path
@@ -166,7 +168,7 @@ The dataset and model operate at different hierarchy depths, producing ancestor�
 
 **Real example (Notebook 5):** Dataset labels `city`, `street_address`, `postcode` (depth 3), model predicts `LOCATION` (depth 2).
 
-**How the new API handles this:** The canonical depth is computed automatically by majority vote from the dataset annotations. If the dataset is predominantly depth-3, the canonical surface is depth-3 and depth-2 model predictions trigger `COLLISION_AMBIGUOUS` (WARNING). Resolve with `map({'LOCATION': 'LOC'})` to pick the right depth-3 target.
+**How the new API handles this:** The dataset uses depth-3 annotations, so the depth-2 `LOCATION` prediction is reported as `COLLISION_SAME_BRANCH` (INFO). It matches at the branch level but remains a mismatch at the detailed level because predictions are not projected downward.
 
 ---
 

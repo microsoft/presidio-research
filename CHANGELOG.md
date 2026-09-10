@@ -2,13 +2,42 @@
 
 ## Unreleased
 
-## Version 0.3.2
+### Features
+
+- **Python 3.14 support** — `requires-python` is now `>=3.11,<3.15`, `uv.lock` has been regenerated for the wider range, and the locked `spacy` moves to 3.8.16, the first release that declares 3.14 support. CI runs the test suite on 3.11 through 3.14.
 
 ### Behavior Changes
 
+- **Predictions are projected to the deepest annotated ancestor during canonical mapping** — the gold vocabulary decides the granularity, per prediction. A `NAME` prediction is mapped to `PERSON` when the dataset annotates `PERSON`, and `DATE` is mapped to `DATE_TIME` when the dataset annotates `DATE_TIME`. A prediction with no annotated ancestor is left unchanged, so a coarser prediction is never pushed down onto a finer gold label and siblings are never conflated. Datasets that annotate several depths on one branch (e.g. `PERSON` and `TITLE` in `data/synth_dataset_v2.json`) need no mapping decision: `TITLE` predictions stay `TITLE` while `NAME` predictions become `PERSON`, so every annotated depth keeps its own metrics. Mixed annotation depths are reported as an INFO issue. Low-IoU errors are attributed to the projected scoring label.
 - **Two-sided (asymmetric) span counting in `SpanEvaluator`** — recall is now counted per annotation and precision per prediction span, replacing per-annotation counting of predictions that could count one prediction span several times (once per annotation it overlapped) or count a group of spans as a single prediction. Every annotation gets exactly one verdict (`TP + FN == num_annotated`), and every prediction span enters `num_predicted` exactly once, as either credited or FP. Precision is now `(num_predicted - false_positives) / num_predicted`; `true_positives` counts covered annotations and may exceed the number of credited predictions (one wide span covering two annotations is two recall hits but one credited prediction), so `true_positives / num_predicted` is no longer a valid precision formula for downstream consumers. Practical effects: a group of same-type spans that jointly fail the combined-IoU test now counts one FP per span (previously one per group); a too-wide span missing several annotations counts one FP (previously one per missed annotation); a span that matches one annotation and merely brushes another is no longer punished twice (FN only, no extra FP). Fixes the old inconsistency where an annotation could be counted as both FN and TP, and `num_predicted` could drift above or below the actual number of predicted spans depending on gold layout.
 - **Single-span coverage uses exact pairwise IoU** — when exactly one prediction overlaps an annotation, coverage is measured with the exact pairwise `Span.iou`; the combined-IoU path (which slightly inflates values at span boundaries) is reserved for genuine multi-span coverage. Borderline single-span matches at a threshold boundary may flip compared to previous releases (e.g. IoU 0.4706 previously computed as 0.50 no longer passes τ=0.5).
 - **One confusion-matrix cell per span** — a wrong-type detection at IoU >= threshold is recorded as a single `(annotation type, predicted type)` cell representing both the gold and the prediction; neither is additionally written to the `"O"` row/column. Documented in `docs/span_matching_strategies.md`.
+
+### Bug Fixes
+
+- **Hierarchy projection now honours a custom hierarchy** — the full-depth view used for branch and detailed projection was built from a module-level default hierarchy, so a `CanonicalMapper` constructed with a custom `EntityHierarchy` projected against the built-in taxonomy instead of its own. The full-depth view is now derived from the mapper's configured hierarchy.
+
+## Version 0.3.2
+
+### Features
+
+- **Branch-level aliases** — non-leaf hierarchy nodes can now declare raw aliases via a reserved `_aliases` key (e.g. `"LOCATION": {"_aliases": ["LOC"], ...}`), mirroring the alias lists that leaf nodes already have. `add_alias()` on a branch node now records the alias instead of creating a spurious child leaf. The reserved key is skipped by every tree-walk, so it never becomes a canonical entity.
+
+### Breaking Changes
+
+- **`LOC`, `ORG` and `PER` are no longer canonical entities** — they were empty leaf nodes under `LOCATION`/`ORGANIZATION`/`PERSON` > `NAME` and are now branch-level aliases of `LOCATION`/`ORGANIZATION`/`PERSON`. Coarse dataset labels like TAB's `LOC`/`ORG`/`PER` therefore match a model's `LOCATION`/`ORGANIZATION`/`PERSON` at the exact (leaf) level, not only at the branch level. Concretely:
+  - `canonicalize("LOC")` returns `"LOCATION"` (was `"LOC"`), and likewise for `ORG` and `PER`.
+  - `LOC`/`ORG`/`PER` no longer appear in `all_canonical_entities` or `canonical_to_branch`.
+  - `get_depth("LOC")` returns `2` (was `3`), because `LOC` now denotes the depth-2 `LOCATION` branch. `get_depth("PER")` returns `2` (was `3`).
+  - `CanonicalMapper.map()` no longer accepts `LOC`/`ORG`/`PER` as resolution *targets*, since targets must be canonical entities. Such mappings are also no longer needed — the labels resolve on their own.
+  - `to_branch("LOC")` still returns `"LOCATION"`, unchanged; `to_branch("PER")` still returns `"PERSON"`.
+
+### Behavior Changes
+
+- **`to_branch()` and `get_depth()` now resolve raw aliases**, not just canonical names. Previously a raw alias (e.g. `COMPANYNAME`, `QQ`) was passed through unchanged by `to_branch` and raised in `get_depth`; both now resolve it first. Unknown labels are still returned as-is by `to_branch`.
+- **`add_alias()` accepts an alias as its subject**, so `add_alias("LOC", ...)` works as well as `add_alias("LOCATION", ...)`.
+- **`add_alias()` now raises `ValueError` instead of silently no-opping** when the alias is already claimed by a descendant of the target (e.g. adding `CITY` to the `LOCATION` branch, where `CITY` already resolves to `ADDRESS`). The hierarchy is left unmodified — an alias the target already owns is preserved. It also raises `KeyError` if the reserved `_aliases` key is passed as the entity name.
+- **A branch alias shadowed by one of its own descendants logs a warning at construction time**, so collisions declared statically in `definitions.py` are no longer silent.
 
 ### Bug Fixes
 

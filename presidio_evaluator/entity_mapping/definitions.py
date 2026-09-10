@@ -11,6 +11,7 @@
 HIERARCHY: dict = {
     "PII": {
         "PERSON": {
+            "_aliases": ["PER"],
             "NAME": {
                 "FIRST_NAME": [
                     "FIRSTNAME",
@@ -31,13 +32,13 @@ HIERARCHY: dict = {
                 "FULL_NAME": [
                     "FULLNAME",
                     "DOCTOR",
+                    "PATIENT",
                     "PATIENT_NAME",
                     "DOCTOR_NAME",
                     "HCW",
                     "NAME_MEDICAL_PROFESSIONAL",
                 ],
                 "MAIDEN_NAME": [],
-                "PER": [],
             },
             "PREFIX": [],
             "SUFFIX": [],
@@ -87,6 +88,7 @@ HIERARCHY: dict = {
             "SOCIAL_HANDLE": ["QQ"],  # QQ: Chinese messaging platform ID
         },
         "LOCATION": {
+            "_aliases": ["LOC"],
             "ADDRESS": {
                 "STREET_ADDRESS": [
                     "STREET",
@@ -129,10 +131,10 @@ HIERARCHY: dict = {
             ],
             "LOCATION_OTHER": ["LOCATION-OTHER", "ORDINALDIRECTION"],
             "GPE": ["GLOBAL_POLITICAL_ENTITY"],
-            "LOC": [],
             "GEO": [],
         },
         "ORGANIZATION": {
+            "_aliases": ["ORG"],
             "COMPANY": [
                 "COMPANYNAME",
                 "COMPANY_ID",
@@ -148,7 +150,6 @@ HIERARCHY: dict = {
                 "HOSPITAL_NAME",
             ],
             "OTHER_ORG": [],
-            "ORG": [],
         },
         "EMPLOYMENT": {
             "JOB_TITLE": [
@@ -361,7 +362,6 @@ HIERARCHY: dict = {
         },
         "PHI": {
             "PATIENT_ID": [
-                "PATIENT",
                 "MEDICALRECORD",
                 "MEDICAL_RECORD_NUMBER",
                 "MEDICAL_RECORD",

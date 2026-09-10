@@ -18,6 +18,7 @@ The core use case is **comparing multiple models against the same dataset**. The
 the evaluation contract; models are the variable.
 
 A flat `dict[str, str]` mapping is insufficient because:
+
 - Many labels are aliases for the same concept (`FIRST_NAME`, `NAME_GIVEN`, `GIVENNAME` → `NAME`). Maintaining a hand-crafted dict for hundreds of model vocabularies is burdensome.
 - Labels exist in a hierarchy — `NAME` is a sub-type of `PERSON`. A model predicting `PERSON` on a `NAME`-annotated token is partially correct, not wrong. A flat dict cannot express this.
 - Unresolved labels need to be surfaced and triaged before evaluation; a dict silently drops or mismaps them.
@@ -60,7 +61,7 @@ BIO/BIOES/BILOU prefixes are stripped transparently before lookup (`B-PERSON` �
 | **COLLISION_CROSS_BRANCH** | WARNING | A prediction label and annotation label co-occur on the same tokens but map to different hierarchy branches. This may be a **vocabulary mismatch** (e.g., the model calls it `ORG` while the dataset calls it `COMPANY`) that can be fixed with `map()`. Even when not remapped, it is surfaced so the user is aware of the mismatch when interpreting results. | Surfaced in audit table with token counts; does not block |
 | **PREDICTION_ONLY** | WARNING | Prediction entity in hierarchy but never annotated by the dataset | Surfaced in audit table; does not block |
 | **DATASET_ONLY** | WARNING | Annotation entity never predicted by the model (nor any descendant) | Surfaced in audit table; does not block |
-| **COLLISION_SAME_BRANCH** | INFO | A prediction label and annotation label co-occur on the same tokens and map to the **same hierarchy branch** but at different depths (e.g., model predicts `PERSON`, dataset annotates `NAME`). This is not a mapping problem — it is handled correctly by the hierarchical evaluation step (see ADR-003). | Shown inline in audit table for awareness; does not block |
+| **COLLISION_SAME_BRANCH** | INFO | Annotation and prediction labels use the **same hierarchy branch** at different depths. `CanonicalMapper` projects each prediction to the deepest annotated ancestor of its own label, so this is never a mapping decision — including when the annotations themselves mix depths on one branch. | Surfaced in audit table for awareness; does not block |
 
 Issues are ordered by severity (ERROR > WARNING > INFO), then by affected token count (descending).
 
@@ -76,6 +77,7 @@ By default, issues at WARNING level and above are surfaced. The user can control
 
 `get_mapped_results_dataframe()` raises `IncompleteMapping` only if `UNRESOLVED` issues remain.
 To resolve:
+
 - `mapper.map({"MY_LABEL": "CANONICAL"})` — map to a known hierarchy entity
 - `mapper.map({"MY_LABEL": None})` — suppress from evaluation entirely
 
