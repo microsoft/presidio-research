@@ -94,6 +94,28 @@ and a single prediction covering two annotations is two TPs but one prediction.
 - Treat every entity type as if it were a single PII type
 - Calculate global precision, recall, and F-score on PII/not PII values
 
+### Confusion Matrix and Error Records
+
+The confusion matrix (`EvaluationResult.results`) is annotation-centric:
+
+- Every annotation lands in exactly one cell: `(type, type)` when covered,
+  `(type, predicted type)` when a different type covers it at IoU ≥ threshold,
+  and `(type, "O")` when nothing does. Row totals therefore equal
+  `num_annotated` per type. At thresholds of 0.5 or below, two different types
+  can each reach the threshold on the same annotation, and it appears in both
+  cells.
+- The `"O"` row holds prediction spans that appear in no annotation cell: false
+  positives that overlap nothing, or overlap an annotation below the threshold.
+  A prediction already represented by a `(type, predicted type)` cell is not
+  added to the `"O"` row again.
+- Column totals are not the prediction ledger. One prediction that covers two
+  annotations appears in two cells while counting once in `num_predicted`. Use
+  `num_predicted` and `false_positives` for prediction-side totals.
+
+Confusion-matrix cells and `ModelError` records are written by the per-type
+pass only. The global PII pass updates the `pii_*` counters and nothing else,
+so `calculate_score_on_df(level="both")` records each error once.
+
 
 ## Evaluation Process
 

@@ -765,6 +765,11 @@ class SpanEvaluator(BaseEvaluator):
         :param prediction_spans: (list[Span]) Predicted spans of the same sentence.
         :param evaluation_result: (EvaluationResult) Accumulator updated in
             place — counts, confusion-matrix ``results`` and ``model_errors``.
+        Confusion-matrix cells (``results``) and ``ModelError`` records are
+        written only when ``per_type`` is True. The global PII pass
+        (``per_type=False``) updates the ``pii_*`` counters and nothing else,
+        so ``calculate_score_on_df(level="both")`` records each error once.
+
         :param per_type: (bool) If True, update ``per_type`` metrics per entity
             type; if False, update the global ``pii_*`` counters only.
         :return: (EvaluationResult) The same ``evaluation_result``, updated.
@@ -865,11 +870,14 @@ class SpanEvaluator(BaseEvaluator):
             if pred_key in successful_predictions:
                 continue
 
-            if per_type:
-                evaluation_result.per_type[pred_span.entity_type].false_positives += 1
-            else:
+            if not per_type:
+                # The global PII pass maintains the pii_* counters only; the
+                # confusion matrix and error records are written by the
+                # per-type pass, so a level="both" run records each error once.
                 evaluation_result.pii_false_positives += 1
+                continue
 
+            evaluation_result.per_type[pred_span.entity_type].false_positives += 1
             if pred_key not in wrong_entity_predictions:
                 evaluation_result.results[("O", pred_span.entity_type)] = (
                     evaluation_result.results.get(("O", pred_span.entity_type), 0) + 1

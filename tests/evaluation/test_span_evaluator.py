@@ -2064,3 +2064,159 @@ def test_two_sided_counting_semantics(
     # The two ledger invariants hold in every scenario.
     assert metrics.true_positives + metrics.false_negatives == metrics.num_annotated
     assert metrics.false_positives <= metrics.num_predicted
+
+
+def _single_sentence_df(tokens, annotation, prediction):
+    starts, pos = [], 0
+    for tok in tokens:
+        starts.append(pos)
+        pos += len(tok) + 1
+    return pd.DataFrame(
+        {
+            "sentence_id": [0] * len(tokens),
+            "token": tokens,
+            "annotation": annotation,
+            "prediction": prediction,
+            "start_indices": starts,
+        }
+    )
+
+
+def test_level_both_records_each_error_once():
+    """The global PII pass must not duplicate confusion cells or error records.
+
+    With the default level="both", the per-type pass and the PII pass write
+    into the same EvaluationResult. Only the per-type pass may touch
+    ``results`` and ``model_errors``; the PII pass owns the pii_* counters.
+    """
+    df = _single_sentence_df(["Alice", "Smith"], ["PII", "PII"], ["PII", "O"])
+    evaluator = SpanEvaluator(iou_threshold=0.9, char_based=True, skip_words=[])
+    result = evaluator.calculate_score_on_df(df)
+
+    metrics = result.per_type["PII"]
+    assert (
+        metrics.num_predicted,
+        metrics.true_positives,
+        metrics.false_positives,
+        metrics.false_negatives,
+    ) == (1, 0, 1, 1)
+    assert (
+        result.pii_predicted,
+        result.pii_true_positives,
+        result.pii_false_positives,
+        result.pii_false_negatives,
+    ) == (1, 0, 1, 1)
+    assert result.results[("O", "PII")] == 1
+    assert result.results[("PII", "O")] == 1
+    error_types = [error.error_type for error in result.model_errors]
+    assert error_types.count(ErrorType.FP) == 1
+    assert error_types.count(ErrorType.FN) == 1
+
+
+def test_global_pass_leaves_no_pii_traces_in_per_type_results():
+    """At entity level, results and errors carry real labels only.
+
+    The PII pass relabels everything to "PII" internally; that label must not
+    leak into the confusion matrix or the error list of a per-type run.
+    """
+    df = _single_sentence_df(
+        ["Alice", "Smith", "in", "Paris"],
+        ["PERSON", "PERSON", "O", "LOCATION"],
+        ["PERSON", "O", "O", "ORGANIZATION"],
+    )
+    evaluator = SpanEvaluator(iou_threshold=0.9, char_based=True, skip_words=[])
+    result = evaluator.calculate_score_on_df(df)
+
+    labels = {label for cell in result.results for label in cell}
+    labels |= {error.prediction for error in result.model_errors}
+    labels |= {error.annotation for error in result.model_errors}
+    assert "PII" not in labels
+
+    fp_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FP)
+    fn_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FN)
+    assert fp_records == sum(m.false_positives for m in result.per_type.values()) == 2
+    assert fn_records == sum(m.false_negatives for m in result.per_type.values()) == 2
+    # "Paris" is detected as ORGANIZATION: one wrong-entity cell, no "O" entry
+    assert result.results[("LOCATION", "ORGANIZATION")] == 1
+    assert result.results.get(("O", "ORGANIZATION"), 0) == 0
+    # PII pass: "Alice" misses "Alice Smith", "Paris" is found
+    assert (
+        result.pii_predicted,
+        result.pii_true_positives,
+        result.pii_false_positives,
+        result.pii_false_negatives,
+    ) == (2, 1, 1, 1)
+
+
+@pytest.mark.parametrize("tau", [0.5, 0.75, 0.9])
+def test_hierarchical_levels_share_one_ledger(tau):
+    """binary, branch and detailed results all obey the same counting contract.
+
+    For every level: tp + fn == num_annotated per type, one error record per
+    FP and per FN, every annotation in one confusion-matrix row cell, labels
+    restricted to the level's vocabulary, and pii_* counters identical across
+    levels and equal to the binary level's per-type "PII" counts.
+    """
+    from presidio_evaluator.entity_mapping import CanonicalMapper
+
+    tokens = ["Alice", "Smith", "met", "Bob", "in", "New", "York", "on",
+              "May", "5", "2020", "call", "555", "1234"]  # fmt: skip
+    annotation = ["PERSON", "PERSON", "O", "PERSON", "O", "LOCATION", "LOCATION",
+                  "O", "DATE_TIME", "DATE_TIME", "DATE_TIME", "O",
+                  "PHONE_NUMBER", "PHONE_NUMBER"]  # fmt: skip
+    prediction = ["PERSON", "O", "O", "LOCATION", "O", "LOCATION", "LOCATION",
+                  "O", "DATE_TIME", "O", "DATE_TIME", "O",
+                  "PHONE_NUMBER", "PHONE_NUMBER"]  # fmt: skip
+    df = _single_sentence_df(tokens, annotation, prediction)
+    mapper = CanonicalMapper()
+    mapper.analyze(df)
+    mapped = mapper.get_mapped_results_dataframe()
+
+    evaluator = SpanEvaluator(iou_threshold=tau, char_based=True, skip_words=[])
+    scores = evaluator.calculate_hierarchical_scores(mapped)
+
+    binary_pii = scores["binary"].per_type["PII"]
+    for level in ("binary", "branch", "detailed"):
+        result = scores[level]
+        vocabulary = set(mapped.get_level(level)["annotation"]) | set(
+            mapped.get_level(level)["prediction"]
+        )
+        for entity_type, m in result.per_type.items():
+            assert m.true_positives + m.false_negatives == m.num_annotated, level
+            assert 0 <= m.false_positives <= m.num_predicted, level
+            row_total = sum(
+                count
+                for (ann, _pred), count in result.results.items()
+                if ann == entity_type
+            )
+            if tau > 0.5:
+                assert row_total == m.num_annotated, (level, entity_type)
+
+        fp_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FP)
+        fn_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FN)
+        assert fp_records == sum(m.false_positives for m in result.per_type.values())
+        assert fn_records == sum(m.false_negatives for m in result.per_type.values())
+
+        labels = {label for cell in result.results for label in cell}
+        labels |= {e.prediction for e in result.model_errors}
+        labels |= {e.annotation for e in result.model_errors}
+        assert labels <= vocabulary | {"O"}, (level, labels - vocabulary)
+
+        assert (
+            result.pii_predicted,
+            result.pii_true_positives,
+            result.pii_false_positives,
+            result.pii_false_negatives,
+        ) == (
+            binary_pii.num_predicted,
+            binary_pii.true_positives,
+            binary_pii.false_positives,
+            binary_pii.false_negatives,
+        ), level
+
+    # Binary level: no wrong-entity cells are possible, so the confusion matrix
+    # is the ledger itself.
+    binary = scores["binary"]
+    assert binary.results[("PII", "PII")] == binary_pii.true_positives
+    assert binary.results[("PII", "O")] == binary_pii.false_negatives
+    assert binary.results[("O", "PII")] == binary_pii.false_positives
