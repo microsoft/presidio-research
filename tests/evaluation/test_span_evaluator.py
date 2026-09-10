@@ -2153,7 +2153,8 @@ def test_hierarchical_levels_share_one_ledger(tau):
     """binary, branch and detailed results all obey the same counting contract.
 
     For every level: tp + fn == num_annotated per type, one error record per
-    FP and per FN, every annotation in one confusion-matrix row cell, labels
+    FP and per FN, every annotation in exactly one confusion-matrix row cell
+    (also at threshold 0.5, where two types can tie on one annotation), labels
     restricted to the level's vocabulary, and pii_* counters identical across
     levels and equal to the binary level's per-type "PII" counts.
     """
@@ -2189,8 +2190,7 @@ def test_hierarchical_levels_share_one_ledger(tau):
                 for (ann, _pred), count in result.results.items()
                 if ann == entity_type
             )
-            if tau > 0.5:
-                assert row_total == m.num_annotated, (level, entity_type)
+            assert row_total == m.num_annotated, (level, entity_type)
 
         fp_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FP)
         fn_records = sum(1 for e in result.model_errors if e.error_type == ErrorType.FN)
@@ -2220,3 +2220,44 @@ def test_hierarchical_levels_share_one_ledger(tau):
     assert binary.results[("PII", "PII")] == binary_pii.true_positives
     assert binary.results[("PII", "O")] == binary_pii.false_negatives
     assert binary.results[("O", "PII")] == binary_pii.false_positives
+
+
+def test_annotation_row_is_claimed_by_strongest_match_at_tie():
+    """At a threshold two types can both reach, the row still has one cell.
+
+    Same type wins over a wrong type; among wrong types the highest IoU wins
+    (ties broken by name). Spans of the losing types are plain false positives
+    in the "O" row, with an FP record but no WrongEntity record.
+    """
+    evaluator = SpanEvaluator(iou_threshold=0.5, char_based=False, skip_words=[])
+
+    # PERSON gold of 4 tokens: LOCATION on the first half, PERSON on the second.
+    tp_df = _single_sentence_df(
+        ["a", "b", "c", "d"],
+        ["PERSON"] * 4,
+        ["LOCATION", "LOCATION", "PERSON", "PERSON"],
+    )
+    result = evaluator.calculate_score_on_df(tp_df, level="entity")
+    assert result.per_type["PERSON"].true_positives == 1
+    assert result.results[("PERSON", "PERSON")] == 1
+    assert result.results.get(("PERSON", "LOCATION"), 0) == 0
+    assert result.results[("O", "LOCATION")] == 1
+    assert result.per_type["LOCATION"].false_positives == 1
+    assert not [e for e in result.model_errors if e.error_type == ErrorType.WrongEntity]
+
+    # PERSON gold of 4 tokens: LOCATION and ORGANIZATION each cover half.
+    fn_df = _single_sentence_df(
+        ["a", "b", "c", "d"],
+        ["PERSON"] * 4,
+        ["ORGANIZATION", "ORGANIZATION", "LOCATION", "LOCATION"],
+    )
+    result = evaluator.calculate_score_on_df(fn_df, level="entity")
+    assert result.per_type["PERSON"].false_negatives == 1
+    row = {p: c for (a, p), c in result.results.items() if a == "PERSON" and c}
+    assert row == {"LOCATION": 1}  # equal IoU, alphabetical tie-break
+    assert result.results[("O", "ORGANIZATION")] == 1
+    assert result.results.get(("O", "LOCATION"), 0) == 0
+    wrong = [e for e in result.model_errors if e.error_type == ErrorType.WrongEntity]
+    assert [e.prediction for e in wrong] == ["LOCATION"]
+    fp_records = [e for e in result.model_errors if e.error_type == ErrorType.FP]
+    assert sorted(e.prediction for e in fp_records) == ["LOCATION", "ORGANIZATION"]

@@ -101,9 +101,10 @@ The confusion matrix (`EvaluationResult.results`) is annotation-centric:
 - Every annotation lands in exactly one cell: `(type, type)` when covered,
   `(type, predicted type)` when a different type covers it at IoU ≥ threshold,
   and `(type, "O")` when nothing does. Row totals therefore equal
-  `num_annotated` per type. At thresholds of 0.5 or below, two different types
-  can each reach the threshold on the same annotation, and it appears in both
-  cells.
+  `num_annotated` per type. When several types reach the threshold on the same
+  annotation (possible at thresholds of 0.5 or below), the annotation's own
+  type claims the cell; otherwise the wrong type with the highest IoU does.
+  Spans of the other types are false positives in the `"O"` row.
 - The `"O"` row holds prediction spans that appear in no annotation cell: false
   positives that overlap nothing, or overlap an annotation below the threshold.
   A prediction already represented by a `(type, predicted type)` cell is not

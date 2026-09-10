@@ -765,6 +765,12 @@ class SpanEvaluator(BaseEvaluator):
         :param prediction_spans: (list[Span]) Predicted spans of the same sentence.
         :param evaluation_result: (EvaluationResult) Accumulator updated in
             place — counts, confusion-matrix ``results`` and ``model_errors``.
+        Confusion matrix: every annotation is written to exactly one row cell.
+        A same-type match claims it as ``(type, type)``; otherwise the
+        strongest wrong type at IoU >= threshold claims it as
+        ``(type, wrong type)``; otherwise it is ``(type, "O")``. Prediction
+        spans represented by no annotation cell are counted in the ``"O"`` row.
+
         Confusion-matrix cells (``results``) and ``ModelError`` records are
         written only when ``per_type`` is True. The global PII pass
         (``per_type=False``) updates the ``pii_*`` counters and nothing else,
@@ -825,9 +831,19 @@ class SpanEvaluator(BaseEvaluator):
                     evaluation_result.pii_true_positives += 1
                 for pred_span in same_type_spans:
                     successful_predictions.add(self._span_key(pred_span))
+                # The TP cell claims the annotation's row; another type that
+                # also reached the threshold is only a false positive.
+                wrong_type_hits = []
             elif per_type:
                 evaluation_result.per_type[ann_type].false_negatives += 1
-                if not wrong_type_hits:
+                if wrong_type_hits:
+                    # One wrong-entity cell per annotation: the strongest wrong
+                    # type (highest IoU, then name) claims the row; the others
+                    # fall to the "O" row in the precision pass.
+                    wrong_type_hits = [
+                        min(wrong_type_hits, key=lambda hit: (-hit[2], hit[0]))
+                    ]
+                else:
                     evaluation_result.results[(ann_type, "O")] += 1
                 # Attach the closest evidence to the FN record: a same-type
                 # prediction below threshold, else any overlapping prediction.
