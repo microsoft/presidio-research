@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import pandas as pd
 
 from presidio_evaluator.entity_mapping.data_objects import (
+    ANNOTATION_MERGE_KEY,
+    PREDICTION_MERGE_KEY,
     IssueSeverity,
     IssueType,
     MappedResults,
@@ -970,23 +972,38 @@ class CanonicalMapper:
                     return ancestor
             return resolved
 
+        # Merge keys: the finest-grained label available for each token, carried
+        # alongside every level so that span merging can tell entities apart even
+        # after their labels have been collapsed.
+        #
+        # Without this, adjacent-span merging at the binary level compares
+        # "PII" to "PII" and unconditionally merges neighbours, so a name, an age
+        # and an email separated by commas become one span. That silently removes
+        # gold spans and makes the levels incomparable, since each ends up scored
+        # against a different ground truth.
+        ann_merge_key = df["annotation"].map(lambda x: _level(x, "detailed"))
+        pred_merge_key = df["prediction"].map(_project_prediction)
+
+        def _project(level: str) -> pd.DataFrame:
+            out = df.copy()
+            out["annotation"] = df["annotation"].map(lambda x: _level(x, level))
+            if level == "binary":
+                out["prediction"] = pred_merge_key.map(h_full.to_binary)
+            elif level == "branch":
+                out["prediction"] = pred_merge_key.map(h_full.to_branch)
+            else:
+                out["prediction"] = pred_merge_key
+            out[ANNOTATION_MERGE_KEY] = ann_merge_key
+            out[PREDICTION_MERGE_KEY] = pred_merge_key
+            return out
+
         original = df.copy()
+        original[ANNOTATION_MERGE_KEY] = ann_merge_key
+        original[PREDICTION_MERGE_KEY] = pred_merge_key
 
-        binary = df.copy()
-        binary["annotation"] = df["annotation"].map(lambda x: _level(x, "binary"))
-        binary["prediction"] = df["prediction"].map(
-            lambda x: h_full.to_binary(_project_prediction(x))
-        )
-
-        branch = df.copy()
-        branch["annotation"] = df["annotation"].map(lambda x: _level(x, "branch"))
-        branch["prediction"] = df["prediction"].map(
-            lambda x: h_full.to_branch(_project_prediction(x))
-        )
-
-        detailed = df.copy()
-        detailed["annotation"] = df["annotation"].map(lambda x: _level(x, "detailed"))
-        detailed["prediction"] = df["prediction"].map(_project_prediction)
+        binary = _project("binary")
+        branch = _project("branch")
+        detailed = _project("detailed")
 
         return MappedResults(
             original=original,
