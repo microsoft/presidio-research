@@ -16,7 +16,6 @@ from presidio_evaluator.evaluation import (
     ModelError,
 )
 from presidio_evaluator.models import BaseModel
-from presidio_evaluator.span_to_tag import ensure_span_ids
 
 #: Label column -> the span-id column that carries its entity instance ids.
 SPAN_ID_COLUMNS = {
@@ -419,6 +418,8 @@ class SpanEvaluator(BaseEvaluator):
                         annotations and predictions columns — as produced by
                         model.predict_dataset() and optionally processed by
                         CanonicalMapper.get_mapped_results_dataframe().
+                        Must also carry ``annotation_span_id`` and
+                        ``prediction_span_id``, which help define the span boundaries.
         :param level: Which metrics to compute. One of:
 
                     - ``"entity"`` — per-entity-type precision/recall/F only
@@ -433,7 +434,16 @@ class SpanEvaluator(BaseEvaluator):
             for every level. Span evaluation compares entity types exactly and
             has no generic-entity shortcut, so this parameter has no effect here.
         :return: EvaluationResult with the requested metrics populated.
+        :raises ValueError: if a span-id column is missing.
         """
+        missing = [c for c in SPAN_ID_COLUMNS.values() if c not in results_df.columns]
+        if missing:
+            raise ValueError(
+                f"results_df is missing span-id columns {missing}. Build it with "
+                "model.predict_dataset(), or pass it through "
+                "CanonicalMapper.get_mapped_results_dataframe(), which derives "
+                "them from the original labels."
+            )
         if level in ("entity", "both"):
             evaluation_result = self._run_score_pass(
                 per_type=True,
@@ -546,9 +556,6 @@ class SpanEvaluator(BaseEvaluator):
             label column and its span-id column.
         :param column: ``"annotation"`` or ``"prediction"``.
         :return: One Span per entity instance, in sentence order.
-        A frame without the id column (hand-built or loaded from disk) falls
-        back to ids derived from the label column's runs, which is what a
-        tag-only model would produce.
         """
         id_column = SPAN_ID_COLUMNS.get(column)
         if id_column is None:
@@ -556,8 +563,6 @@ class SpanEvaluator(BaseEvaluator):
                 f"Unsupported label column {column!r}; expected one of "
                 f"{sorted(SPAN_ID_COLUMNS)}"
             )
-        if id_column not in df.columns:
-            df = ensure_span_ids(df)
 
         spans: list[Span] = []
         run_id = None

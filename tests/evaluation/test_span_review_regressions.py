@@ -20,17 +20,13 @@ def test_arbitrary_label_columns_are_rejected(column):
         SpanEvaluator(skip_words=[])._create_spans(df, column)
 
 
-@pytest.mark.parametrize(
-    ("column", "id_column"),
-    [("annotation", ANNOTATION_SPAN_ID), ("prediction", PREDICTION_SPAN_ID)],
-)
-def test_missing_span_id_column_falls_back_to_label_runs(column, id_column):
-    df = make_df(["John", "32", "Ana"], ["NAME", "AGE", "NAME"], ["NAME"] * 3).drop(
+@pytest.mark.parametrize("id_column", [ANNOTATION_SPAN_ID, PREDICTION_SPAN_ID])
+def test_missing_span_id_column_raises(id_column):
+    df = make_df(["John", "32"], ["NAME", "AGE"], ["NAME", "AGE"]).drop(
         columns=[id_column]
     )
-    spans = SpanEvaluator(skip_words=[])._create_spans(df, column)
-    expected = 3 if column == "annotation" else 1
-    assert len(spans) == expected
+    with pytest.raises(ValueError, match=id_column):
+        SpanEvaluator().calculate_score_on_df(df)
 
 
 def test_mapper_derives_ids_from_finest_labels_when_missing():
@@ -46,6 +42,28 @@ def test_mapper_derives_ids_from_finest_labels_when_missing():
         df = mapped.get_level(level)
         assert df[ANNOTATION_SPAN_ID].tolist() == [0, 0, 1, None, 2]
         gold, predictions = SpanEvaluator()._process_sentence_spans(df)
+        assert len(gold) == len(predictions) == 3
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        ["NAME", "AGE", "EMAIL_ADDRESS"],
+        # FIRSTNAME and LASTNAME both resolve to NAME at the detailed level.
+        ["FIRSTNAME", "LASTNAME", "AGE"],
+    ],
+)
+def test_adjacent_spans_without_ids_stay_separate_at_every_level(labels):
+    raw = make_df(["John", "Smith", "32"], labels, labels).drop(
+        columns=[ANNOTATION_SPAN_ID, PREDICTION_SPAN_ID]
+    )
+    mapper = CanonicalMapper()
+    mapper.analyze(raw)
+    mapped = mapper.get_mapped_results_dataframe()
+    for level in ("binary", "branch", "detailed"):
+        gold, predictions = SpanEvaluator(skip_words=[])._process_sentence_spans(
+            mapped.get_level(level)
+        )
         assert len(gold) == len(predictions) == 3
 
 

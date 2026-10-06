@@ -909,7 +909,8 @@ class CanonicalMapper:
         at the corresponding level and all original non-label columns
         (including the ``annotation_span_id`` / ``prediction_span_id`` columns
         produced by ``BaseModel.predict_dataset``, which pass through untouched
-        so span boundaries survive coarse evaluation).
+        so span boundaries survive coarse evaluation). Missing span-id columns
+        are derived from the original labels, before any level is collapsed.
 
         - ``.original`` — raw input columns and values.
         - ``.binary``   — any non-O label → ``"PII"``; suppressed/O → ``"O"``.

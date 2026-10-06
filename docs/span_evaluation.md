@@ -7,41 +7,35 @@ matched, and evaluated, along with comparisons to other evaluation paradigms.
 
 ### Span Creation
 
-Spans are reconstructed from the per-token results DataFrame produced by
-`BaseModel.predict_dataset()`. Besides the label columns (`annotation`,
-`prediction`) that frame carries two **span-id** columns, `annotation_span_id`
-and `prediction_span_id`: the entity instance that covers each token, `None`
-for `O`. A span is a maximal run of tokens sharing an id. The basic properties
-of a span include:
+A span is one entity in the text, such as a name, a date or an email address, and
+may cover several tokens. Each sentence has two independent sets of spans: the
+annotated spans (the ground truth) and the predicted spans (what the model found).
+The two sets can differ in number, position and type, and may not overlap at all.
+
+Presidio Evaluator scores spans at three levels of detail:
+
+- **Binary**: is it PII or not.
+- **Branch**: a canonical entity such as person or location.
+- **Detailed**: a more granular entity type, if one exists in the dataset or is
+  produced by the model.
+
+Where each span starts and ends is decided once, from the original data before
+entity types are converted to any of these levels, and kept at every level.
+
+Each span has:
 
 - `entity_type`: The type of entity (e.g., PERSON, LOCATION)
 - `entity_value`: The actual text of the entity
 - `start_position` and `end_position`: Character-level boundaries
+- `annotation_span_id` / `prediction_span_id`: recorded on every token of the
+  span in the results data, so the evaluator knows which tokens belong to the same
+  entity.
 
-Ids come from the source, not from the labels:
-
-- **Gold**: `InputSample` records which span produced each token's tag
-  (`span_ids`) when tags are created from spans. Samples built from BIO/BILUO
-  tags recover the ids from the `B-`/`U-` prefixes; plain IO tags give label
-  runs, so two touching entities of the same type read as one.
-- **Predictions**: `BaseModel.batch_predict_spans()` returns the model's spans.
-  The Presidio wrappers return their `RecognizerResult`s directly; the default
-  implementation converts the tags from `batch_predict()` at that boundary,
-  with the same BIO-exact / IO-runs rule as above.
-
-Because `CanonicalMapper` only rewrites the label columns, the ids are identical
-at every mapping level and so are the spans. Two adjacent entities stay separate
-at the binary level even though both read `PII`, and even when they are of the
-same type (`"Paris , London"` is two spans). The ground truth therefore never
-depends on the level being scored.
-
-A DataFrame without the span-id columns (hand-built, loaded from disk, or from
-an older version) still evaluates: `ensure_span_ids()` derives the missing
-column from the label column's runs. `CanonicalMapper` does this from the
-original, finest labels before collapsing them, so touching entities of
-different types stay apart at every level. What a label run cannot tell is
-where two same-type neighbours split, so build the DataFrame with
-`predict_dataset()` whenever the source spans are available.
+!!! note
+    In most cases the dataset and the model mark where each entity begins and ends.
+    When they don't, two adjacent entities of the same type are read as one span.
+    For example, in "Invite Alice Bob", if both names are labeled `PERSON` and
+    nothing marks where one ends, they are evaluated as a single span, "Alice Bob".
 
 #### Span Normalization
 
@@ -56,12 +50,9 @@ smith") and by better handling of punctuation marks and skip words.
 
 #### Skip Words
 
-The `skip_words` parameter of `SpanEvaluator` lists tokens (punctuation, titles,
-stop words) that are dropped from a span's normalized form before IoU is
-computed, so `"Mr. John Smith"` and `"John Smith"` compare equal when `mr.` is
-a skip word. A span made only of skip words is dropped. Skip words never merge
-two spans: a span's boundaries are fixed by its id, and a skip token inside a
-source span (the comma in `"New, York"`) already carries that span's id.
+Skip words (punctuation, stop words) are ignored when comparing spans. A span made
+only of skip words is dropped. Skip words do not join separate spans: in
+`"Michael and Bob"`, with `and` as a skip word, `Michael` and `Bob` stay two spans.
 
 ## Span Matching Strategy
 
