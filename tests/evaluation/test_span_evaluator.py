@@ -2,13 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from presidio_evaluator import InputSample
 from presidio_evaluator.data_objects import Span
-from presidio_evaluator.entity_mapping.data_objects import (
-    ANNOTATION_SPAN_ID,
-    PREDICTION_SPAN_ID,
-)
+from presidio_evaluator.entity_mapping import CanonicalMapper
 from presidio_evaluator.evaluation import ErrorType, SpanEvaluator
 from tests.helpers import make_results_df, with_span_ids
+from tests.mocks import MockSpansModel
 
 
 @pytest.fixture
@@ -1836,111 +1835,100 @@ def test_multi_sentence_df_does_not_merge_separated_same_type_spans(span_evaluat
 
 
 class TestSpanIdentity:
-    """Span boundaries come from the span-id columns, never from label runs.
+    """Span boundaries come from the source spans, never from label runs.
 
-    Ids are produced at the source (gold spans, predicted spans) and pass
-    through every mapping level untouched, so the same spans are reconstructed
-    at binary, branch and detailed. Two adjacent entities stay separate even
-    when their labels are identical, and even when they are of the same type.
+    Each scenario runs a dataset sample through a model's ``predict_dataset``
+    and ``CanonicalMapper``, as a user would.
     """
 
     @staticmethod
-    def _df(tokens, labels, ann_ids, pred_ids=None):
-        starts, pos = [], 0
-        for tok in tokens:
-            starts.append(pos)
-            pos += len(tok) + 1
-        df = pd.DataFrame(
-            {
-                "sentence_id": [0] * len(tokens),
-                "token": tokens,
-                "annotation": labels,
-                "prediction": labels,
-                "start_indices": starts,
-            }
+    def _mapped(text, gold, predicted=None, mapping=None):
+        """Gold and predicted spans given as ``(value, entity_type)`` pairs."""
+
+        def spans(pairs):
+            return [
+                Span(
+                    entity_type=entity_type,
+                    entity_value=value,
+                    start_position=text.index(value),
+                    end_position=text.index(value) + len(value),
+                )
+                for value, entity_type in pairs
+            ]
+
+        sample = InputSample(
+            full_text=text, spans=spans(gold), create_tags_from_span=True
         )
-        df[ANNOTATION_SPAN_ID] = pd.Series(ann_ids, dtype="object")
-        df[PREDICTION_SPAN_ID] = pd.Series(
-            ann_ids if pred_ids is None else pred_ids, dtype="object"
-        )
-        return df
+        model = MockSpansModel([spans(gold if predicted is None else predicted)])
+        mapper = CanonicalMapper()
+        if mapping:
+            mapper.map(mapping)
+        mapper.analyze(model.predict_dataset([sample]))
+        return mapper.get_mapped_results_dataframe()
+
+    @staticmethod
+    def _values(df):
+        gold, predicted = SpanEvaluator()._process_sentence_spans(df)
+        return [s.entity_value for s in gold], [s.entity_value for s in predicted]
 
     def test_adjacent_different_entities_stay_separate_at_binary_level(self):
-        tokens = ["Contact", "John", "Smith", ",", "32", ",", "jane@x.com"]
-        binary = ["O", "PII", "PII", "O", "PII", "O", "PII"]
-        ids = [None, 0, 0, None, 1, None, 2]
-
-        spans, _ = SpanEvaluator()._process_sentence_spans(
-            self._df(tokens, binary, ids)
+        mapped = self._mapped(
+            "Contact John Smith, 32, jane@x.com",
+            [("John Smith", "NAME"), ("32", "AGE"), ("jane@x.com", "EMAIL_ADDRESS")],
         )
-        assert [s.entity_value for s in spans] == ["John Smith", "32", "jane@x.com"]
+        gold, _ = self._values(mapped.binary)
+        assert gold == ["John Smith", "32", "jane@x.com"]
 
     def test_touching_entities_stay_separate_even_with_the_same_type(self):
-        """No token in between and identical labels: only the id can split them."""
-        tokens = ["Ana", "Ruiz", "Bob"]
-        ids = [0, 0, 1]
-
-        for labels in (["NAME"] * 3, ["PII"] * 3):
-            spans, _ = SpanEvaluator()._process_sentence_spans(
-                self._df(tokens, labels, ids)
-            )
-            assert [s.entity_value for s in spans] == ["Ana Ruiz", "Bob"], labels
+        """No token in between and the same type: only the source span splits them."""
+        mapped = self._mapped(
+            "Invite Ana Ruiz Bob", [("Ana Ruiz", "NAME"), ("Bob", "NAME")]
+        )
+        for level in ("detailed", "binary"):
+            gold, _ = self._values(mapped.get_level(level))
+            assert gold == ["Ana Ruiz", "Bob"], level
 
     def test_skip_word_inside_a_span_stays_inside(self):
-        """A source span covering "New , York" is one id, so one span."""
-        tokens = ["Visiting", "New", ",", "York", "today"]
-        labels = ["O", "PII", "PII", "PII", "O"]
-        ids = [None, 0, 0, 0, None]
+        mapped = self._mapped("Visiting New, York today", [("New, York", "LOCATION")])
+        gold, _ = SpanEvaluator()._process_sentence_spans(mapped.detailed)
+        assert [s.entity_value for s in gold] == ["New , York"]
+        assert gold[0].normalized_tokens == ["new", "york"]
 
-        spans, _ = SpanEvaluator()._process_sentence_spans(
-            self._df(tokens, labels, ids)
+    def test_skip_word_between_two_spans_does_not_merge_them(self):
+        mapped = self._mapped(
+            "She visited Paris, London", [("Paris", "LOCATION"), ("London", "LOCATION")]
         )
-        assert [s.entity_value for s in spans] == ["New , York"]
-        assert spans[0].normalized_tokens == ["new", "york"]
-
-    def test_skip_word_between_two_ids_does_not_merge_them(self):
-        tokens = ["She", "visited", "Paris", ",", "London"]
-        labels = ["O", "O", "LOCATION", "O", "LOCATION"]
-        ids = [None, None, 0, None, 1]
-
-        spans, _ = SpanEvaluator()._process_sentence_spans(
-            self._df(tokens, labels, ids)
-        )
-        assert [s.entity_value for s in spans] == ["Paris", "London"]
+        gold, _ = self._values(mapped.detailed)
+        assert gold == ["Paris", "London"]
 
     def test_span_count_is_identical_across_levels(self):
-        tokens = ["Contact", "John", "Smith", ",", "32", ",", "jane@x.com"]
-        ids = [None, 0, 0, None, 1, None, 2]
-        levels = {
-            "detailed": ["O", "NAME", "NAME", "O", "AGE", "O", "EMAIL_ADDRESS"],
-            "branch": ["O", "PERSON", "PERSON", "O", "DEMOGRAPHIC", "O", "CONTACT"],
-            "binary": ["O", "PII", "PII", "O", "PII", "O", "PII"],
-        }
-
+        mapped = self._mapped(
+            "Contact John Smith, 32, jane@x.com",
+            [("John Smith", "NAME"), ("32", "AGE"), ("jane@x.com", "EMAIL_ADDRESS")],
+        )
         counts = {
-            name: len(
-                SpanEvaluator()._process_sentence_spans(self._df(tokens, labels, ids))[
-                    0
-                ]
-            )
-            for name, labels in levels.items()
+            level: len(self._values(mapped.get_level(level))[0])
+            for level in ("binary", "branch", "detailed")
         }
         assert set(counts.values()) == {3}, counts
 
-    def test_annotation_and_prediction_ids_are_independent(self):
-        """Equal id values on the two sides mean nothing."""
-        tokens = ["Ana", "Ruiz", "29"]
-        labels = ["PII"] * 3
-        gold, preds = SpanEvaluator()._process_sentence_spans(
-            self._df(tokens, labels, ann_ids=[0, 0, 1], pred_ids=[0, 1, 1])
+    def test_annotation_and_prediction_spans_are_independent(self):
+        mapped = self._mapped(
+            "Ana Ruiz 29",
+            gold=[("Ana Ruiz", "NAME"), ("29", "AGE")],
+            predicted=[("Ana", "NAME"), ("Ruiz 29", "AGE")],
         )
-        assert [s.entity_value for s in gold] == ["Ana Ruiz", "29"]
-        assert [s.entity_value for s in preds] == ["Ana", "Ruiz 29"]
+        gold, predicted = self._values(mapped.binary)
+        assert gold == ["Ana Ruiz", "29"]
+        assert predicted == ["Ana", "Ruiz 29"]
 
-    def test_label_o_with_an_id_is_not_a_span(self):
-        """The label column decides what is an entity; the id only groups."""
-        tokens = ["x", "y"]
-        spans, _ = SpanEvaluator()._process_sentence_spans(
-            self._df(tokens, ["O", "PII"], [0, 1])
+    def test_suppressed_prediction_label_is_not_a_span(self):
+        """A label suppressed by the mapper becomes O; its span id alone is no span."""
+        mapped = self._mapped(
+            "Ana 29",
+            gold=[("Ana", "NAME"), ("29", "AGE")],
+            predicted=[("Ana", "NAME"), ("29", "XYZZY_UNKNOWN_99")],
+            mapping={"XYZZY_UNKNOWN_99": None},
         )
-        assert [s.entity_value for s in spans] == ["y"]
+        _, predicted = self._values(mapped.detailed)
+        assert predicted == ["Ana"]

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from presidio_evaluator import InputSample, tags_to_span_ids
+from presidio_evaluator import InputSample, Span
 from presidio_evaluator.entity_mapping.data_objects import (
     ANNOTATION_SPAN_ID,
     PREDICTION_SPAN_ID,
@@ -130,23 +130,29 @@ def test_predict_dataset_multi_sample():
 # ── span-id columns ──────────────────────────────────────────────────────────
 
 
-def _make_sample_with_span_ids(tokens, tags, start_indices, span_ids, sample_id=None):
-    """Sample whose tags were created from spans: span_to_tag set span_ids."""
-    sample = _make_sample(tokens, tags, start_indices, sample_id=sample_id)
-    sample.span_ids = span_ids
-    return sample
+def _make_sample_from_spans(text, spans, sample_id=None):
+    """Dataset sample annotated with ``(value, entity_type)`` spans."""
+    return InputSample(
+        full_text=text,
+        spans=[
+            Span(
+                entity_type=entity_type,
+                entity_value=value,
+                start_position=text.index(value),
+                end_position=text.index(value) + len(value),
+            )
+            for value, entity_type in spans
+        ],
+        create_tags_from_span=True,
+        sample_id=sample_id,
+    )
 
 
 def test_predict_dataset_attaches_annotation_span_ids():
     """Each token carries the index of the gold span covering it, None for O."""
-    tokens = ["Ana", "Ruiz", "29", "here"]
-    tags = ["NAME", "NAME", "AGE", "O"]
-    start_indices = [0, 4, 9, 12]
-    span_ids = [0, 0, 1, None]
-
     model = MockTokensModel(prediction=["O"] * 4)
-    sample = _make_sample_with_span_ids(
-        tokens, tags, start_indices, span_ids, sample_id=0
+    sample = _make_sample_from_spans(
+        "Ana Ruiz 29 here", [("Ana Ruiz", "NAME"), ("29", "AGE")], sample_id=0
     )
 
     df = model.predict_dataset([sample])
@@ -183,8 +189,9 @@ def test_predict_dataset_prediction_span_ids_from_bio_tags():
 def test_predict_dataset_span_ids_from_directly_tagged_sample():
     """A sample built from tags gets label-run gold ids."""
     model = MockTokensModel(prediction=["O"])
-    sample = _make_sample(["foo"], ["PERSON"], [0], sample_id=0)
-    sample.span_ids = tags_to_span_ids(sample.tags)
+    sample = InputSample(
+        full_text="foo", tokens=["foo"], tags=["PERSON"], start_indices=[0]
+    )
 
     df = model.predict_dataset([sample])
 
@@ -194,7 +201,7 @@ def test_predict_dataset_span_ids_from_directly_tagged_sample():
 
 def test_predict_dataset_span_ids_none_for_idless_sample_in_mixed_dataset():
     """A sample without span ids gets None when others in the dataset have them."""
-    with_ids = _make_sample_with_span_ids(["Bob"], ["PERSON"], [0], [0], sample_id=0)
+    with_ids = _make_sample_from_spans("Bob", [("Bob", "PERSON")], sample_id=0)
     without_ids = _make_sample(["Ann"], ["PERSON"], [0], sample_id=1)
 
     model = MockTokensModel(prediction=["O"])
@@ -205,9 +212,7 @@ def test_predict_dataset_span_ids_none_for_idless_sample_in_mixed_dataset():
 
 def test_predict_dataset_span_ids_stay_ints():
     """int + None must not be coerced to float64 (0.0, NaN) on construction."""
-    tokens = ["Ana", "Ruiz", "x"]
-    tags = ["NAME", "NAME", "O"]
-    sample = _make_sample_with_span_ids(tokens, tags, [0, 4, 9], [0, 0, None])
+    sample = _make_sample_from_spans("Ana Ruiz x", [("Ana Ruiz", "NAME")])
     df = MockTokensModel(prediction=["NAME", "O", "O"]).predict_dataset([sample])
     for column in (ANNOTATION_SPAN_ID, PREDICTION_SPAN_ID):
         values = list(df[column])

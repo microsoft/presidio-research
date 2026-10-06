@@ -2,6 +2,7 @@ from .model_mock import (
     FiftyFiftyIdentityTokensMockModel,
     IdentityTokensMockModel,
     MockModel,
+    MockSpansModel,
     MockTokensModel,
 )
 
@@ -10,4 +11,5 @@ __all__ = [
     "FiftyFiftyIdentityTokensMockModel",
     "MockTokensModel",
     "MockModel",
+    "MockSpansModel",
 ]
