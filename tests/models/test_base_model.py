@@ -229,3 +229,13 @@ def test_tags_to_spans_uses_character_offsets():
         ("AGE", 11, 13),
     ]
     assert [s.entity_value for s in spans] == ["Ana Ruiz", "29"]
+
+
+def test_hyphenated_entity_names_are_not_split_as_scheme_prefixes():
+    sample = _make_sample(["Paris", "Acme"], ["O"] * 2, [0, 6])
+    sample.full_text = "Paris Acme"
+    model = MockTokensModel(prediction=["LOCATION-OTHER", "ORG-OTHER"])
+
+    [spans] = model.batch_predict_spans([sample])
+
+    assert [s.entity_type for s in spans] == ["LOCATION-OTHER", "ORG-OTHER"]

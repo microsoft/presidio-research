@@ -1,7 +1,11 @@
+import re
+
 import spacy
 from spacy.tokens import Doc
 
 loaded_spacy = {}
+
+_SCHEME_PREFIX_RE = re.compile(r"^([BIOELSU])-(.+)$", re.IGNORECASE)
 
 
 def get_spacy(loaded_spacy=loaded_spacy, model_version="en_core_web_sm"):
@@ -111,26 +115,12 @@ def span_to_tag(
     return_span_ids: bool = False,
     start_indices: list[int] | None = None,
 ) -> list[str] | tuple[list[str], list[int | None]]:
-    """
-    Turns a list of start and end values with corresponding labels, into a NER
-    tagging (BILUO,BIO/IOB)
-    :param scheme: labeling scheme, either BILUO, BIO/IOB or IO
-    :param text: input text
-    :param tokens: text tokenized to tokens: a spaCy Doc, or plain strings
-        together with ``start_indices``
-    :param starts: list of indices where entities in the text start
-    :param ends: list of indices where entities in the text end
-    :param tags: list of entity names
-    :param scores: score of tag (confidence)
-    :param token_model_version: model used for tokenization if no tokens provided
-    :param return_span_ids: when True, also return one entry per token holding
-        the index of the input span that tagged it (None for O tokens). Ids
-        refer to the caller's span order; a span split by overlap resolution
-        keeps one id for all its segments.
+    """Convert character spans to one tag per token in the IO, BIO or BILUO scheme.
+
+    :param return_span_ids: also return, per token, the index of the input span
+        that tagged it (None for O); a span split by an overlap keeps one id.
     :param start_indices: character offset of each token; required when
-        ``tokens`` are plain strings, ignored for a spaCy Doc
-    :return: list of strings, representing either BILUO or BIO for the input;
-        with return_span_ids, a (tags, span_ids) tuple instead
+        ``tokens`` are plain strings rather than a spaCy Doc.
     """
 
     if not scores:
@@ -187,19 +177,9 @@ def span_to_tag(
 
 
 def tags_to_span_ids(tags: list[str]) -> list[int | None]:
-    """Derive a per-token entity instance id from a tag sequence.
+    """Derive a per-token entity instance id (None for ``O``) from IO, BIO or BILUO tags.
 
-    A new instance starts on a ``B-`` or ``U-`` prefix, on a change of entity
-    type, or after an ``O`` token; ``I-``/``L-`` tokens continue the current
-    one. Ids are sequential from 0 and ``None`` for ``O``.
-
-    BIO/BILUO tags give exact instance boundaries. Plain IO tags carry no
-    boundary information, so two adjacent entities of the same type read as one
-    instance; callers that know their spans should use :func:`span_to_tag` with
-    ``return_span_ids=True`` instead.
-
-    :param tags: per-token tags in IO, BIO or BILUO scheme.
-    :return: one id per token.
+    IO tags carry no boundaries, so two adjacent entities of the same type share an id.
     """
     ids: list[int | None] = []
     current_id = -1
@@ -210,14 +190,22 @@ def tags_to_span_ids(tags: list[str]) -> list[int | None]:
             ids.append(None)
             current_type = None
             continue
-        prefix, sep, entity_type = tag.partition("-")
-        if not sep:
-            prefix, entity_type = "", tag
+        prefix, entity_type = split_scheme_prefix(tag)
         if prefix in ("B", "U") or entity_type != current_type:
             current_id += 1
         ids.append(current_id)
         current_type = entity_type
     return ids
+
+
+def split_scheme_prefix(tag: str) -> tuple[str, str]:
+    """Split ``B-PERSON`` into ``("B", "PERSON")``.
+
+    Only single-letter scheme prefixes count, so a hyphenated entity name such as
+    ``LOCATION-OTHER`` is returned whole as ``("", "LOCATION-OTHER")``.
+    """
+    m = _SCHEME_PREFIX_RE.match(tag)
+    return (m.group(1).upper(), m.group(2)) if m else ("", tag)
 
 
 def io_to_scheme(io_tags: list[str], scheme: str) -> list[str]:
@@ -250,42 +238,3 @@ def io_to_scheme(io_tags: list[str], scheme: str) -> list[str]:
             ),
         )
     return new_return_tags
-
-
-def ensure_span_ids(df):
-    """Return ``df`` with ``annotation_span_id`` / ``prediction_span_id`` present.
-
-    Frames built by :meth:`BaseModel.predict_dataset` already carry both
-    columns, taken from the source spans, and are returned unchanged. For a
-    frame that lacks one (hand-built, loaded from disk, produced by an older
-    version), the missing column is derived from the matching label column
-    with :func:`tags_to_span_ids`, per ``sentence_id`` when that column
-    exists. Derive before collapsing labels to a coarser level: ids taken from
-    the finest labels keep touching entities of different types apart, which
-    is all a label run can tell. Same-type neighbours still read as one.
-    """
-    import pandas as pd
-
-    from presidio_evaluator.entity_mapping.data_objects import (
-        ANNOTATION_SPAN_ID,
-        PREDICTION_SPAN_ID,
-    )
-
-    pairs = (("annotation", ANNOTATION_SPAN_ID), ("prediction", PREDICTION_SPAN_ID))
-    missing = [(c, i) for c, i in pairs if c in df.columns and i not in df.columns]
-    if not missing:
-        return df
-    df = df.copy()
-    groups = (
-        [g for _, g in df.groupby("sentence_id", sort=False)]
-        if "sentence_id" in df.columns
-        else [df]
-    )
-    for label_column, id_column in missing:
-        ids: list[int | None] = []
-        index: list = []
-        for group in groups:
-            ids += tags_to_span_ids(group[label_column].tolist())
-            index += group.index.tolist()
-        df[id_column] = pd.Series(ids, dtype="object", index=index).reindex(df.index)
-    return df

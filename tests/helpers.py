@@ -2,12 +2,12 @@
 
 import pandas as pd
 
-from presidio_evaluator import ensure_span_ids
+from presidio_evaluator.entity_mapping.mapper import _ensure_span_ids
 
 
 def with_span_ids(df: pd.DataFrame) -> pd.DataFrame:
-    """Attach span-id columns derived from label runs (see ensure_span_ids)."""
-    return ensure_span_ids(df)
+    """Attach span-id columns derived from label runs."""
+    return _ensure_span_ids(df)
 
 
 def make_results_df(tokens, annotations, predictions, sentence_id=0) -> pd.DataFrame:

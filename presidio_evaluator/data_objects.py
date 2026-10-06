@@ -272,9 +272,6 @@ class InputSample:
         else:
             self.tokens = tokens
             self.tags = tags
-            # Per-token entity instance id, recovered from the tags: exact for
-            # BIO/BILUO, label runs for plain IO (adjacent same-type entities
-            # then read as one instance).
             self.span_ids: list[int | None] = tags_to_span_ids(tags)
 
     def __repr__(self) -> str:

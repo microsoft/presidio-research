@@ -7,6 +7,7 @@ from presidio_evaluator.entity_mapping.data_objects import (
     ANNOTATION_SPAN_ID,
     PREDICTION_SPAN_ID,
 )
+from presidio_evaluator.span_to_tag import split_scheme_prefix
 
 #: Columns of the DataFrame returned by :meth:`BaseModel.predict_dataset`.
 RESULTS_COLUMNS = [
@@ -67,22 +68,10 @@ class BaseModel(ABC):
     def batch_predict_spans(
         self, dataset: list[InputSample], **kwargs
     ) -> list[list[Span]]:
-        """Predict entity spans for each sample.
+        """Predict entity spans per sample, in character offsets of ``sample.full_text``.
 
-        This is what :meth:`predict_dataset` consumes. Spans carry entity
-        instance identity, so the evaluator can tell where one predicted entity
-        ends and the next begins even after labels have been collapsed to a
-        coarser level.
-
-        The default converts the tags from :meth:`batch_predict` into spans at
-        this boundary: BIO/BILUO tags give exact boundaries, plain IO tags give
-        label runs (two adjacent predictions of the same type read as one).
-        Models that know their span boundaries, such as the Presidio wrappers,
-        override this to return them directly.
-
-        :param dataset: List of InputSample objects (must have tokens set).
-        :return: One list of Span per sample, in character offsets of
-            ``sample.full_text``.
+        The default derives spans from :meth:`batch_predict` tags, so tag-only models
+        get label-run boundaries; override to return the model's own spans.
         """
         return [
             self._tags_to_spans(sample, tags)
@@ -125,10 +114,10 @@ class BaseModel(ABC):
                 current.entity_value = sample.full_text[current.start_position : end]
                 current.end_position = end
             else:
-                _, sep, entity_type = str(tag).partition("-")
+                _, entity_type = split_scheme_prefix(str(tag))
                 spans.append(
                     Span(
-                        entity_type=entity_type if sep else str(tag),
+                        entity_type=entity_type,
                         entity_value=text,
                         start_position=start,
                         end_position=end,
@@ -137,22 +126,10 @@ class BaseModel(ABC):
         return spans
 
     def predict_dataset(self, dataset: list[InputSample]) -> pd.DataFrame:
-        """Predict entities for a dataset and return results as a DataFrame.
+        """Predict a dataset into a per-token results DataFrame with ``RESULTS_COLUMNS``.
 
-        Calls :meth:`batch_predict_spans` and flattens the spans to one IO tag
-        per token. No entity mapping is applied — that is the mapper's job.
-
-        Both sides carry an entity instance id per token: ``annotation_span_id``
-        from the sample's gold spans (or its BIO/BILUO tags) and
-        ``prediction_span_id`` from the predicted spans. ``O`` tokens have
-        ``None``. Ids are sequential per sentence and independent between the
-        two columns. Span evaluation reconstructs spans from these ids, never
-        from label runs.
-
-        :param dataset: List of InputSample objects (must have tokens and tags set).
-        :return: DataFrame with exactly the columns in ``RESULTS_COLUMNS``:
-            sentence_id, token, annotation, prediction, start_indices,
-            annotation_span_id, prediction_span_id
+        Labels are left unmapped; the span-id columns carry entity boundaries from the
+        source spans so span evaluation does not depend on label runs.
         """
         predictions = self.batch_predict_spans(dataset)
 

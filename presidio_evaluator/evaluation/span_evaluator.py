@@ -539,24 +539,7 @@ class SpanEvaluator(BaseEvaluator):
         return evaluation_result
 
     def _create_spans(self, df: pd.DataFrame, column: str) -> list[Span]:
-        """
-        Create spans from a label column using the matching span-id column.
-
-        A span is a maximal run of tokens sharing an entity instance id
-        (``annotation_span_id`` for ``annotation``, ``prediction_span_id`` for
-        ``prediction``); ``O`` tokens carry no id and end a run. Boundaries
-        therefore come from the source spans, never from label runs, so the
-        same spans are produced at every mapping level and two adjacent
-        entities stay separate even when their labels are identical.
-
-        Skip words inside a span are dropped from its normalized form; a span
-        made only of skip words is dropped entirely.
-
-        :param df: One sentence's rows with ``token``, ``start_indices``, the
-            label column and its span-id column.
-        :param column: ``"annotation"`` or ``"prediction"``.
-        :return: One Span per entity instance, in sentence order.
-        """
+        """A span is a maximal run of tokens sharing an id; ``O`` tokens end a run."""
         id_column = SPAN_ID_COLUMNS.get(column)
         if id_column is None:
             raise ValueError(

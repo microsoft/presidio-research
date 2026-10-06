@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import pandas as pd
 
 from presidio_evaluator.entity_mapping.data_objects import (
+    ANNOTATION_SPAN_ID,
+    PREDICTION_SPAN_ID,
     IssueSeverity,
     IssueType,
     MappedResults,
@@ -17,9 +19,37 @@ from presidio_evaluator.entity_mapping.data_objects import (
 )
 from presidio_evaluator.entity_mapping.definitions import EntityNotMappedError
 from presidio_evaluator.entity_mapping.hierarchy import EntityHierarchy
-from presidio_evaluator.span_to_tag import ensure_span_ids
+from presidio_evaluator.span_to_tag import tags_to_span_ids
 
 logger = logging.getLogger("presidio_evaluator.entity_mapping")
+
+
+def _ensure_span_ids(df: pd.DataFrame) -> pd.DataFrame:
+    """Add missing span-id columns, derived per sentence from the label runs.
+
+    Called on the original labels, before any level is collapsed, so adjacent
+    entities of different types keep separate ids.
+    """
+    pairs = (("annotation", ANNOTATION_SPAN_ID), ("prediction", PREDICTION_SPAN_ID))
+    missing = [(c, i) for c, i in pairs if c in df.columns and i not in df.columns]
+    if not missing:
+        return df
+    df = df.copy()
+    sentences = (
+        df.groupby("sentence_id", sort=False).indices.values()
+        if "sentence_id" in df.columns
+        else [range(len(df))]
+    )
+    for label_column, id_column in missing:
+        ids: list[int | None] = [None] * len(df)
+        for positions in sentences:
+            labels = df[label_column].iloc[positions].tolist()
+            for position, span_id in zip(
+                positions, tags_to_span_ids(labels), strict=True
+            ):
+                ids[position] = span_id
+        df[id_column] = pd.Series(ids, dtype="object", index=df.index)
+    return df
 
 
 def _get_renderer_class():  # noqa: ANN201
@@ -929,9 +959,7 @@ class CanonicalMapper:
         if blocking:
             raise IncompleteMapping(blocking)
 
-        # Span ids pass through every level. A frame without them gets ids
-        # derived from its finest labels here, before any collapsing.
-        df = ensure_span_ids(self._results_df)
+        df = _ensure_span_ids(self._results_df)
         h_full = self._full_hierarchy
 
         annotation_vocabulary = {
@@ -977,8 +1005,6 @@ class CanonicalMapper:
                     return ancestor
             return resolved
 
-        # Predictions are projected to the annotated vocabulary once, at the
-        # detailed level; binary and branch collapse that projected label.
         pred_detailed = df["prediction"].map(_project_prediction)
 
         def _project(level: str) -> pd.DataFrame:

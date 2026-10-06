@@ -20,16 +20,16 @@ Presidio Evaluator scores spans at three levels of detail:
   produced by the model.
 
 Where each span starts and ends is decided once, from the original data before
-entity types are converted to any of these levels, and kept at every level.
+entity types are converted to any of these levels, and kept at every level. The
+results data records it on every token, in the `annotation_span_id` and
+`prediction_span_id` columns, so the evaluator knows which tokens belong to the
+same entity.
 
 Each span has:
 
 - `entity_type`: The type of entity (e.g., PERSON, LOCATION)
 - `entity_value`: The actual text of the entity
 - `start_position` and `end_position`: Character-level boundaries
-- `annotation_span_id` / `prediction_span_id`: recorded on every token of the
-  span in the results data, so the evaluator knows which tokens belong to the same
-  entity.
 
 !!! note
     In most cases the dataset and the model mark where each entity begins and ends.
