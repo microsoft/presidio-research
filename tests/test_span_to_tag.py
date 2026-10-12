@@ -1,6 +1,7 @@
 import pytest
 
 from presidio_evaluator import io_to_scheme, span_to_tag
+from presidio_evaluator.span_to_tag import tags_to_span_ids
 
 BILUO_SCHEME = "BILUO"
 BIO_SCHEME = "BIO"
@@ -318,3 +319,16 @@ def test_span_to_tag_split_span_keeps_one_id():
 def test_span_to_tag_default_return_is_tags_only():
     tags = span_to_tag(IO_SCHEME, "I am Josh", [5], [9], ["NAME"])
     assert tags == ["O", "O", "NAME"]
+
+
+@pytest.mark.parametrize(
+    "tags, expected",
+    [
+        (["U-PER", "U-PER"], [0, 1]),
+        (["S-PER", "S-PER"], [0, 1]),
+        (["B-PER", "E-PER", "S-PER"], [0, 0, 1]),
+        (["LOCATION-OTHER", "LOCATION-OTHER", "ORG-OTHER"], [0, 0, 1]),
+    ],
+)
+def test_tags_to_span_ids_single_token_prefixes_start_new_span(tags, expected):
+    assert tags_to_span_ids(tags) == expected

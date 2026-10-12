@@ -177,7 +177,7 @@ def span_to_tag(
 
 
 def tags_to_span_ids(tags: list[str]) -> list[int | None]:
-    """Derive a per-token entity instance id (None for ``O``) from IO, BIO or BILUO tags.
+    """Derive a per-token entity instance id (None for ``O``) from IO, BIO, BILUO or BIOES tags.
 
     IO tags carry no boundaries, so two adjacent entities of the same type share an id.
     """
@@ -191,7 +191,7 @@ def tags_to_span_ids(tags: list[str]) -> list[int | None]:
             current_type = None
             continue
         prefix, entity_type = split_scheme_prefix(tag)
-        if prefix in ("B", "U") or entity_type != current_type:
+        if prefix in ("B", "U", "S") or entity_type != current_type:
             current_id += 1
         ids.append(current_id)
         current_type = entity_type
