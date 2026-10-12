@@ -1,4 +1,4 @@
-from presidio_evaluator import InputSample
+from presidio_evaluator import InputSample, Span
 from presidio_evaluator.models import BaseModel
 
 
@@ -30,6 +30,25 @@ class MockTokensModel(BaseModel):
 
     def batch_predict(self, dataset: list[InputSample], **kwargs) -> list[list[str]]:
         return [self.predict(sample, **kwargs) for sample in dataset]
+
+
+class MockSpansModel(BaseModel):
+    """Returns fixed predicted spans per sample, like the Presidio wrappers."""
+
+    def __init__(self, spans: list[list[Span]]):
+        super().__init__()
+        self.spans = spans
+
+    def predict(self, sample: InputSample, **kwargs) -> list[str]:
+        raise NotImplementedError
+
+    def batch_predict(self, dataset: list[InputSample], **kwargs) -> list[list[str]]:
+        raise NotImplementedError
+
+    def batch_predict_spans(
+        self, dataset: list[InputSample], **kwargs
+    ) -> list[list[Span]]:
+        return self.spans
 
 
 class IdentityTokensMockModel(BaseModel):

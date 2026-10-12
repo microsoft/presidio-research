@@ -7,13 +7,35 @@ matched, and evaluated, along with comparisons to other evaluation paradigms.
 
 ### Span Creation
 
-Spans are created from token-level annotations in the input data. Each span represents a continuous sequence of tokens
-with the same entity type annotation. The basic properties of a span include:
+A span is one entity in the text, such as a name, a date or an email address, and
+may cover several tokens. Each sentence has two independent sets of spans: the
+annotated spans (the ground truth) and the predicted spans (what the model found).
+The two sets can differ in number, position and type, and may not overlap at all.
+
+Presidio Evaluator scores spans at three levels of detail:
+
+- **Binary**: is it PII or not.
+- **Branch**: a canonical entity such as person or location.
+- **Detailed**: a more granular entity type, if one exists in the dataset or is
+  produced by the model.
+
+Where each span starts and ends is decided once, from the original data before
+entity types are converted to any of these levels, and kept at every level. The
+results data records it on every token, in the `annotation_span_id` and
+`prediction_span_id` columns, so the evaluator knows which tokens belong to the
+same entity.
+
+Each span has:
 
 - `entity_type`: The type of entity (e.g., PERSON, LOCATION)
 - `entity_value`: The actual text of the entity
 - `start_position` and `end_position`: Character-level boundaries
 
+!!! note
+    In most cases the dataset and the model mark where each entity begins and ends.
+    When they don't, two adjacent entities of the same type are read as one span.
+    For example, in "Invite Alice Bob", if both names are labeled `PERSON` and
+    nothing marks where one ends, they are evaluated as a single span, "Alice Bob".
 
 #### Span Normalization
 
@@ -26,42 +48,11 @@ For more advanced processing, spans also include normalized versions of the text
 Normalization helps with more consistent matching between variations of the same entity (e.g., "John Smith" vs "john
 smith") and by better handling of punctuation marks and skip words.
 
-### Span Merging
+#### Skip Words
 
-In some cases, multiple separate tokens may need to be merged into a single span:
-
-1. **Adjacent tokens of same type**: Consecutive tokens with the same entity type are merged into a single span
-2. **Skip words handling**: Certain configurable words (like punctuation marks or skip words) can be included in spans even if
-   they are annotated as non-entities, allowing for more natural entity boundaries
-
-Example of skip words:
-
-```
-Text: "University of Washington"
-Without skip words: [ORG, O, ORG]
-With "of" as skip word: [ORG, ORG, ORG] (treated as one span)
-```
-
-The `skip_words` parameter in the `SpanEvaluator` constructor determines which words can be skipped when merging
-adjacent spans of the same entity type.
-
-`CanonicalMapper` adds `annotation_merge_key` and `prediction_merge_key` to all
-four `MappedResults` DataFrames, including `.original`. The keys contain the
-detailed scoring labels (after prediction projection to the gold vocabulary).
-A change of key ends a token run even when the visible label is unchanged.
-Adjacent spans merge only when **both** their scored labels and merge keys agree.
-This keeps, for example, a name and an age separate when both are scored as `PII`.
-The original input columns and values are preserved in `.original`; its column
-set gains the two metadata columns.
-
-Without the paired metadata column, span creation and merging retain label-only
-behavior. Unrelated label columns such as `pred_a` never use `prediction_merge_key`.
-When metadata is present, an invalid sentence-relative `token_start` raises
-`ValueError` instead of silently disabling the keys.
-
-Merge keys are labels, not source span identities: distinct same-type entities
-such as `"Paris , London"` can still merge. Preserving source span identities
-through tokenization is a separate follow-up, not part of this fix.
+Skip words (punctuation, stop words) are ignored when comparing spans. A span made
+only of skip words is dropped. Skip words do not join separate spans: in
+`"Michael and Bob"`, with `and` as a skip word, `Michael` and `Bob` stay two spans.
 
 ## Span Matching Strategy
 
