@@ -2,8 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from presidio_evaluator import InputSample
 from presidio_evaluator.data_objects import Span
+from presidio_evaluator.entity_mapping import CanonicalMapper
 from presidio_evaluator.evaluation import ErrorType, SpanEvaluator
+from tests.helpers import make_results_df, with_span_ids
+from tests.mocks import MockSpansModel
 
 
 @pytest.fixture
@@ -174,7 +178,9 @@ def test_scenario_group1(
     )
 
     # Run evaluation
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
 
     # Check true positives, false positives, and false negatives
     total_tp = sum(pii_type.true_positives for pii_type in result.per_type.values())
@@ -321,7 +327,9 @@ def test_scenario_group2(
     )
 
     # Run evaluation
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
 
     # Check true positives, false positives, and false negatives
     total_tp = sum(pii_type.true_positives for pii_type in result.per_type.values())
@@ -377,8 +385,8 @@ def test_scenario_group2(
             np.nan,  # F1 score
             0,  # true positives
             0,  # false positives
-            1,  # false negatives
-            1,  # annotated PII spans
+            2,  # false negatives (two touching gold entities, two spans)
+            2,  # annotated PII spans
             0,  # predicted PII spans
         ),
         # One match out of two
@@ -452,14 +460,14 @@ def test_scenario_group2(
             ["O", "PERSON", "LOCATION", "O", "O"],
             ["The", "quick", "brown", "fox", "jumped"],
             [0, 4, 10, 16, 20],
-            0.0,  # precision (0 TP out of 1 predicted PII)
+            0.0,  # precision (0 TP out of 2 predicted PII)
             np.nan,  # recall (0 TP out of 0 annotated)
             np.nan,  # F1 score
             0,  # true positives
-            1,  # false positives (standalone predictions become one PII span)
+            2,  # false positives (two predicted entities, two PII spans)
             0,  # false negatives
             0,  # annotated PII spans
-            1,  # predicted PII spans (multiple entity types become single PII span)
+            2,  # predicted PII spans (identity survives the PII collapse)
         ),
     ],
 )
@@ -492,7 +500,9 @@ def test_global_metrics(
     )
 
     # Run evaluation
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="pii")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="pii"
+    )
 
     # Check global counts
     assert result.pii_annotated == expected_annotated, (
@@ -628,7 +638,9 @@ def test_combined_per_type_and_global_metrics(
     )
 
     # Run evaluation (both per-type and global)
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="both")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="both"
+    )
 
     # Check per-type metrics
     for entity_type, expected_metrics in expected_per_type_metrics.items():
@@ -1084,7 +1096,9 @@ def test_match_predictions_with_annotations_error_generation(
     )
 
     # Run evaluation
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
 
     # Check that expected error types are present
     error_types = [error.error_type for error in result.model_errors]
@@ -1144,7 +1158,7 @@ def test_match_predictions_with_annotations_error_generation(
     [
         # Adjacent spans that should be merged (same type)
         (
-            "Adjacent merging: Same type spans separated by skip words",
+            "Two instances: same type spans separated by a skip word stay separate",
             ["PERSON", "PERSON", "O", "PERSON", "PERSON"],
             ["John", "Smith", "and", "Jane", "Doe"],
             [0, 5, 11, 15, 20],
@@ -1152,13 +1166,22 @@ def test_match_predictions_with_annotations_error_generation(
             [
                 {
                     "entity_type": "PERSON",
-                    "entity_value": "John Smith Jane Doe",
+                    "entity_value": "John Smith",
                     "start_position": 0,
-                    "end_position": 23,
-                    "normalized_tokens": ["john", "smith", "jane", "doe"],
+                    "end_position": 10,
+                    "normalized_tokens": ["john", "smith"],
                     "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "PERSON",
+                    "entity_value": "Jane Doe",
+                    "start_position": 15,
+                    "end_position": 23,
+                    "normalized_tokens": ["jane", "doe"],
+                    "token_start": 3,
                     "token_end": 5,
-                }
+                },
             ],
         ),
         # Adjacent spans that should NOT be merged (different types)
@@ -1238,7 +1261,7 @@ def test_match_predictions_with_annotations_error_generation(
         ),
         # Complex merging with multiple skip words
         (
-            "Complex merging: Multiple spans with various skip word separators",
+            "Three instances: skip-word separators do not merge distinct entities",
             [
                 "ORGANIZATION",
                 "ORGANIZATION",
@@ -1254,19 +1277,31 @@ def test_match_predictions_with_annotations_error_generation(
             [
                 {
                     "entity_type": "ORGANIZATION",
-                    "entity_value": "Apple Inc. Google LLC Microsoft",
+                    "entity_value": "Apple Inc.",
                     "start_position": 0,
-                    "end_position": 42,
-                    "normalized_tokens": [
-                        "apple",
-                        "inc.",
-                        "google",
-                        "llc",
-                        "microsoft",
-                    ],
+                    "end_position": 10,
+                    "normalized_tokens": ["apple", "inc."],
                     "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Google LLC",
+                    "start_position": 16,
+                    "end_position": 27,
+                    "normalized_tokens": ["google", "llc"],
+                    "token_start": 3,
+                    "token_end": 5,
+                },
+                {
+                    "entity_type": "ORGANIZATION",
+                    "entity_value": "Microsoft",
+                    "start_position": 33,
+                    "end_position": 42,
+                    "normalized_tokens": ["microsoft"],
+                    "token_start": 6,
                     "token_end": 7,
-                }
+                },
             ],
         ),
         # Entity entirely composed of skip words (should be filtered out)
@@ -1337,7 +1372,7 @@ def test_match_predictions_with_annotations_error_generation(
         ),
         # Merging with consecutive skip words
         (
-            "Consecutive skip words merging: Multiple skip words between spans",
+            "Separate instances stay separate: skip words never bridge two spans",
             ["LOCATION", "LOCATION", "O", "O", "O", "LOCATION", "LOCATION"],
             ["New", "York", "and", "NY", "and", "United", "States"],
             [0, 4, 9, 11, 14, 16, 23],
@@ -1345,13 +1380,22 @@ def test_match_predictions_with_annotations_error_generation(
             [
                 {
                     "entity_type": "LOCATION",
-                    "entity_value": "New York United States",
+                    "entity_value": "New York",
                     "start_position": 0,
-                    "end_position": 29,
-                    "normalized_tokens": ["new", "york", "united", "states"],
+                    "end_position": 8,
+                    "normalized_tokens": ["new", "york"],
                     "token_start": 0,
+                    "token_end": 2,
+                },
+                {
+                    "entity_type": "LOCATION",
+                    "entity_value": "United States",
+                    "start_position": 16,
+                    "end_position": 29,
+                    "normalized_tokens": ["united", "states"],
+                    "token_start": 5,
                     "token_end": 7,
-                }
+                },
             ],
         ),
         # Case sensitivity in skip words
@@ -1412,15 +1456,13 @@ def test_span_creation_with_skip_words(
     expected_spans_after_processing,
 ):
     """
-    Test span creation and adjacent span merging functionality with skip words.
+    Test span creation and skip-word normalization.
 
     This test covers:
-    1. Basic span creation from token sequences
+    1. Basic span creation from token sequences (one span per instance id)
     2. Skip word normalization within entities
-    3. Adjacent span merging when separated by skip words
-    4. Prevention of merging when spans are different types or separated by non-skip words
-    5. Filtering out entities that are entirely composed of skip words
-    6. Complex scenarios with multiple entities and various skip word patterns
+    3. Skip words between two instances never merge them
+    4. Filtering out entities that are entirely composed of skip words
     """
     # Create evaluator with specific skip words
     span_evaluator = SpanEvaluator(
@@ -1437,10 +1479,8 @@ def test_span_creation_with_skip_words(
         }
     )
 
-    # Process spans (create spans then merge adjacent ones - this is what happens in evaluation)
-    annotation_spans = span_evaluator._create_spans(df=df, column="annotation")
-    annotation_spans = span_evaluator._merge_adjacent_spans(
-        spans=annotation_spans, df=df
+    annotation_spans = span_evaluator._create_spans(
+        df=with_span_ids(df), column="annotation"
     )
     # Check number of spans after processing
     assert len(annotation_spans) == len(expected_spans_after_processing), (
@@ -1536,7 +1576,9 @@ def test_model_error_start_end_positions(
         }
     )
 
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
 
     assert len(result.model_errors) == len(expected_errors), (
         f"In {scenario}, expected {len(expected_errors)} errors, got {len(result.model_errors)}"
@@ -1584,7 +1626,9 @@ def test_token_iou_same_word_different_position_is_zero(token_based_evaluator):
         }
     )
 
-    result = token_based_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = token_based_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
 
     person_metrics = result.per_type["PERSON"]
     assert person_metrics.true_positives == 0, (
@@ -1608,7 +1652,9 @@ def test_token_iou_shared_word_entities_do_not_overlap(token_based_evaluator):
         }
     )
 
-    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(df)
+    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(
+        with_span_ids(df)
+    )
     iou = token_based_evaluator.calculate_iou(
         ann_spans[0], pred_spans[0], char_based=False
     )
@@ -1616,7 +1662,9 @@ def test_token_iou_shared_word_entities_do_not_overlap(token_based_evaluator):
         f"Disjoint spans sharing the token 'rights' must have IoU 0, got {iou}"
     )
 
-    result = token_based_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = token_based_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
     org_metrics = result.per_type["ORGANIZATION"]
     assert org_metrics.true_positives == 0
     assert org_metrics.false_negatives == 1
@@ -1635,7 +1683,9 @@ def test_token_iou_duplicate_tokens_within_span(token_based_evaluator):
         }
     )
 
-    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(df)
+    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(
+        with_span_ids(df)
+    )
     iou = token_based_evaluator.calculate_iou(
         ann_spans[0], pred_spans[0], char_based=False
     )
@@ -1656,13 +1706,17 @@ def test_token_iou_exact_match_still_one(token_based_evaluator):
         }
     )
 
-    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(df)
+    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(
+        with_span_ids(df)
+    )
     iou = token_based_evaluator.calculate_iou(
         ann_spans[0], pred_spans[0], char_based=False
     )
     assert iou == 1.0
 
-    result = token_based_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = token_based_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
     assert result.per_type["PERSON"].true_positives == 1
 
 
@@ -1678,7 +1732,9 @@ def test_combined_token_iou_duplicate_tokens(token_based_evaluator):
             "start_indices": [0, 8, 12],
         }
     )
-    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(df)
+    ann_spans, pred_spans = token_based_evaluator._process_sentence_spans(
+        with_span_ids(df)
+    )
     assert len(pred_spans) == 2
 
     combined_iou = token_based_evaluator._calculate_combined_iou(
@@ -1719,19 +1775,14 @@ def test_token_iou_manual_spans_disjoint_positions():
 
 def test_combined_token_iou_positive_full_coverage(token_based_evaluator):
     """Two same-type predictions that together exactly cover the annotation give combined IoU 1.0."""
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0, 0, 0],
-            "token": ["New", "York", "Mets"],
-            "annotation": ["ORGANIZATION"] * 3,
-            "pred_a": ["ORGANIZATION", "O", "O"],
-            "pred_b": ["O", "ORGANIZATION", "ORGANIZATION"],
-            "start_indices": [0, 4, 9],
-        }
+    tokens = ["New", "York", "Mets"]
+    df_a = make_results_df(tokens, ["ORGANIZATION"] * 3, ["ORGANIZATION", "O", "O"])
+    df_b = make_results_df(
+        tokens, ["ORGANIZATION"] * 3, ["O", "ORGANIZATION", "ORGANIZATION"]
     )
-    ann_span = token_based_evaluator._create_spans(df, column="annotation")[0]
-    pred_1 = token_based_evaluator._create_spans(df, column="pred_a")[0]
-    pred_2 = token_based_evaluator._create_spans(df, column="pred_b")[0]
+    ann_span = token_based_evaluator._create_spans(df_a, column="annotation")[0]
+    pred_1 = token_based_evaluator._create_spans(df_a, column="prediction")[0]
+    pred_2 = token_based_evaluator._create_spans(df_b, column="prediction")[0]
 
     # Spans built from the DataFrame carry per-token indices (position-aware path)
     assert ann_span.normalized_start_indices is not None
@@ -1788,7 +1839,9 @@ def test_multi_sentence_df_does_not_merge_separated_same_type_spans(span_evaluat
     # Default global RangeIndex (0..11), exactly as predict_dataset returns it.
     df = pd.DataFrame(rows)
 
-    result = span_evaluator.calculate_score_on_df(results_df=df, level="entity")
+    result = span_evaluator.calculate_score_on_df(
+        results_df=with_span_ids(df), level="entity"
+    )
     person = result.per_type["PERSON"]
 
     # Two PERSON spans per sentence, two sentences: "visited Berlin with" is not
@@ -1873,20 +1926,7 @@ def test_single_prediction_overlapping_multiple_annotations_counted_once(
     once), "did I participate in any successful match?".
     """
     prediction = ["PERSON"] * len(tokens)
-    starts, pos = [], 0
-    for tok in tokens:
-        starts.append(pos)
-        pos += len(tok) + 1
-
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0] * len(tokens),
-            "token": tokens,
-            "annotation": annotation,
-            "prediction": prediction,
-            "start_indices": starts,
-        }
-    )
+    df = make_results_df(tokens, annotation, prediction)
 
     evaluator = SpanEvaluator(iou_threshold=tau, char_based=True, skip_words=None)
     result = evaluator.calculate_score_on_df(results_df=df, level="entity")
@@ -2029,20 +2069,7 @@ def test_two_sided_counting_semantics(
     is either credited (participated in a successful match) or an FP, so
     precision == (num_predicted - false_positives) / num_predicted.
     """
-    starts, pos = [], 0
-    for tok in tokens:
-        starts.append(pos)
-        pos += len(tok) + 1
-
-    df = pd.DataFrame(
-        {
-            "sentence_id": [0] * len(tokens),
-            "token": tokens,
-            "annotation": annotation,
-            "prediction": prediction,
-            "start_indices": starts,
-        }
-    )
+    df = make_results_df(tokens, annotation, prediction)
 
     evaluator = SpanEvaluator(iou_threshold=tau, char_based=True, skip_words=None)
     result = evaluator.calculate_score_on_df(results_df=df, level="entity")
@@ -2067,19 +2094,7 @@ def test_two_sided_counting_semantics(
 
 
 def _single_sentence_df(tokens, annotation, prediction):
-    starts, pos = [], 0
-    for tok in tokens:
-        starts.append(pos)
-        pos += len(tok) + 1
-    return pd.DataFrame(
-        {
-            "sentence_id": [0] * len(tokens),
-            "token": tokens,
-            "annotation": annotation,
-            "prediction": prediction,
-            "start_indices": starts,
-        }
-    )
+    return make_results_df(tokens, annotation, prediction)
 
 
 def test_level_both_records_each_error_once():
@@ -2263,106 +2278,101 @@ def test_annotation_row_is_claimed_by_strongest_match_at_tie():
     assert sorted(e.prediction for e in fp_records) == ["LOCATION", "ORGANIZATION"]
 
 
-class TestBinaryLevelOverMerge:
-    """Regression tests for the binary-level over-merge.
+class TestSpanIdentity:
+    """Span boundaries come from the source spans, never from label runs.
 
-    Merging compared entity types AFTER they had been collapsed, so at the
-    binary level - where every label is "PII" - the guard was vacuous and
-    unrelated neighbouring entities became one span. Gold spans then depended on
-    the granularity being scored, making the levels incomparable.
+    Each scenario runs a dataset sample through a model's ``predict_dataset``
+    and ``CanonicalMapper``, as a user would.
     """
 
     @staticmethod
-    def _df(tokens, annotations, merge_keys=None):
-        import pandas as pd
+    def _mapped(text, gold, predicted=None, mapping=None):
+        """Gold and predicted spans given as ``(value, entity_type)`` pairs."""
 
-        from presidio_evaluator.entity_mapping.data_objects import (
-            ANNOTATION_MERGE_KEY,
-            PREDICTION_MERGE_KEY,
+        def spans(pairs):
+            return [
+                Span(
+                    entity_type=entity_type,
+                    entity_value=value,
+                    start_position=text.index(value),
+                    end_position=text.index(value) + len(value),
+                )
+                for value, entity_type in pairs
+            ]
+
+        sample = InputSample(
+            full_text=text, spans=spans(gold), create_tags_from_span=True
         )
+        model = MockSpansModel([spans(gold if predicted is None else predicted)])
+        mapper = CanonicalMapper()
+        if mapping:
+            mapper.map(mapping)
+        mapper.analyze(model.predict_dataset([sample]))
+        return mapper.get_mapped_results_dataframe()
 
-        starts, pos = [], 0
-        for tok in tokens:
-            starts.append(pos)
-            pos += len(tok) + 1
-        data = {
-            "sentence_id": [0] * len(tokens),
-            "token": tokens,
-            "annotation": annotations,
-            "prediction": annotations,
-            "start_indices": starts,
-        }
-        if merge_keys is not None:
-            data[ANNOTATION_MERGE_KEY] = merge_keys
-            data[PREDICTION_MERGE_KEY] = merge_keys
-        return pd.DataFrame(data)
+    @staticmethod
+    def _values(df):
+        gold, predicted = SpanEvaluator()._process_sentence_spans(df)
+        return [s.entity_value for s in gold], [s.entity_value for s in predicted]
 
     def test_adjacent_different_entities_stay_separate_at_binary_level(self):
-        """Separated by punctuation: merging must not fire."""
-        tokens = ["Contact", "John", "Smith", ",", "32", ",", "jane@x.com"]
-        binary = ["O", "PII", "PII", "O", "PII", "O", "PII"]
-        keys = ["O", "NAME", "NAME", "O", "AGE", "O", "EMAIL_ADDRESS"]
+        mapped = self._mapped(
+            "Contact John Smith, 32, jane@x.com",
+            [("John Smith", "NAME"), ("32", "AGE"), ("jane@x.com", "EMAIL_ADDRESS")],
+        )
+        gold, _ = self._values(mapped.binary)
+        assert gold == ["John Smith", "32", "jane@x.com"]
 
-        evaluator = SpanEvaluator(iou_threshold=1.0)
-        spans, _ = evaluator._process_sentence_spans(self._df(tokens, binary, keys))
-        assert len(spans) == 3
+    def test_touching_entities_stay_separate_even_with_the_same_type(self):
+        """No token in between and the same type: only the source span splits them."""
+        mapped = self._mapped(
+            "Invite Ana Ruiz Bob", [("Ana Ruiz", "NAME"), ("Bob", "NAME")]
+        )
+        for level in ("detailed", "binary"):
+            gold, _ = self._values(mapped.get_level(level))
+            assert gold == ["Ana Ruiz", "Bob"], level
 
-    def test_touching_different_entities_stay_separate_at_binary_level(self):
-        """No token in between: span creation must break on the merge key."""
-        tokens = ["Ana", "Ruiz", "29"]
-        binary = ["PII", "PII", "PII"]
-        keys = ["NAME", "NAME", "AGE"]
+    def test_skip_word_inside_a_span_stays_inside(self):
+        mapped = self._mapped("Visiting New, York today", [("New, York", "LOCATION")])
+        gold, _ = SpanEvaluator()._process_sentence_spans(mapped.detailed)
+        assert [s.entity_value for s in gold] == ["New , York"]
+        assert gold[0].normalized_tokens == ["new", "york"]
 
-        evaluator = SpanEvaluator(iou_threshold=1.0)
-        spans, _ = evaluator._process_sentence_spans(self._df(tokens, binary, keys))
-        assert len(spans) == 2
-        assert [s.entity_value for s in spans] == ["Ana Ruiz", "29"]
-
-    def test_same_entity_fragments_still_merge(self):
-        """The feature's real purpose must survive."""
-        tokens = ["Visiting", "New", "York", "today"]
-        binary = ["O", "PII", "PII", "O"]
-        keys = ["O", "LOCATION", "LOCATION", "O"]
-
-        evaluator = SpanEvaluator(iou_threshold=1.0)
-        spans, _ = evaluator._process_sentence_spans(self._df(tokens, binary, keys))
-        assert len(spans) == 1
-        assert spans[0].entity_value == "New York"
+    def test_skip_word_between_two_spans_does_not_merge_them(self):
+        mapped = self._mapped(
+            "She visited Paris, London", [("Paris", "LOCATION"), ("London", "LOCATION")]
+        )
+        gold, _ = self._values(mapped.detailed)
+        assert gold == ["Paris", "London"]
 
     def test_span_count_is_identical_across_levels(self):
-        """The invariant: ground truth cannot depend on the level being scored."""
-        tokens = ["Contact", "John", "Smith", ",", "32", ",", "jane@x.com"]
-        keys = ["O", "NAME", "NAME", "O", "AGE", "O", "EMAIL_ADDRESS"]
-        levels = {
-            "detailed": keys,
-            "branch": ["O", "PERSON", "PERSON", "O", "DEMOGRAPHIC", "O", "CONTACT"],
-            "binary": ["O", "PII", "PII", "O", "PII", "O", "PII"],
-        }
-
-        evaluator = SpanEvaluator(iou_threshold=1.0)
+        mapped = self._mapped(
+            "Contact John Smith, 32, jane@x.com",
+            [("John Smith", "NAME"), ("32", "AGE"), ("jane@x.com", "EMAIL_ADDRESS")],
+        )
         counts = {
-            name: len(
-                evaluator._process_sentence_spans(self._df(tokens, labels, keys))[0]
-            )
-            for name, labels in levels.items()
+            level: len(self._values(mapped.get_level(level))[0])
+            for level in ("binary", "branch", "detailed")
         }
-        assert len(set(counts.values())) == 1, counts
+        assert set(counts.values()) == {3}, counts
 
-    def test_without_merge_keys_behaviour_is_unchanged(self):
-        """Back-compat: DataFrames built without CanonicalMapper still work."""
-        tokens = ["Visiting", "New", "York", "today"]
-        labels = ["O", "LOCATION", "LOCATION", "O"]
+    def test_annotation_and_prediction_spans_are_independent(self):
+        mapped = self._mapped(
+            "Ana Ruiz 29",
+            gold=[("Ana Ruiz", "NAME"), ("29", "AGE")],
+            predicted=[("Ana", "NAME"), ("Ruiz 29", "AGE")],
+        )
+        gold, predicted = self._values(mapped.binary)
+        assert gold == ["Ana Ruiz", "29"]
+        assert predicted == ["Ana", "Ruiz 29"]
 
-        evaluator = SpanEvaluator(iou_threshold=1.0)
-        spans, _ = evaluator._process_sentence_spans(self._df(tokens, labels))
-        assert len(spans) == 1
-
-    def test_merge_keys_length_is_validated(self):
-        import pandas as pd
-
-        evaluator = SpanEvaluator(iou_threshold=1.0)
-        span = Span("PII", "x", 0, 1, token_start=0, token_end=1)
-        with pytest.raises(ValueError, match="merge_keys has"):
-            evaluator._merge_adjacent_spans(
-                [span, span], pd.DataFrame({"token": ["x", "y"]}), merge_keys=["A"]
-            )
+    def test_suppressed_prediction_label_is_not_a_span(self):
+        """A label suppressed by the mapper becomes O; its span id alone is no span."""
+        mapped = self._mapped(
+            "Ana 29",
+            gold=[("Ana", "NAME"), ("29", "AGE")],
+            predicted=[("Ana", "NAME"), ("29", "XYZZY_UNKNOWN_99")],
+            mapping={"XYZZY_UNKNOWN_99": None},
+        )
+        _, predicted = self._values(mapped.detailed)
+        assert predicted == ["Ana"]

@@ -13,12 +13,12 @@ from presidio_evaluator.entity_mapping.definitions import (
     HIERARCHY,
     EntityNotMappedError,
 )
+from presidio_evaluator.span_to_tag import split_scheme_prefix
 
 # ---------------------------------------------------------------------------
-# BIO/BIOES/BILOU/BILUO prefix/suffix stripping
+# BIO/BIOES/BILOU/BILUO suffix stripping (prefixes: span_to_tag.split_scheme_prefix)
 # ---------------------------------------------------------------------------
 
-_BIO_PREFIX_RE = re.compile(r"^[BIOELSU]-(.+)$", re.IGNORECASE)
 _BIO_SUFFIX_RE = re.compile(r"^(.+)-[BIOELSU]$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
@@ -161,9 +161,9 @@ class EntityHierarchy:
     @staticmethod
     def _strip_bio(label: str) -> str:
         """Strip a single BIO/BIOES/BILOU/BILUO prefix or suffix (e.g. B-PERSON → PERSON)."""
-        m = _BIO_PREFIX_RE.match(label)
-        if m:
-            return m.group(1)
+        prefix, entity_type = split_scheme_prefix(label)
+        if prefix:
+            return entity_type
         m = _BIO_SUFFIX_RE.match(label)
         if m:
             return m.group(1)

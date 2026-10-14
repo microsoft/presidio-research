@@ -1,7 +1,11 @@
 import pandas as pd
 import pytest
 
-from presidio_evaluator import InputSample
+from presidio_evaluator import InputSample, Span
+from presidio_evaluator.entity_mapping.data_objects import (
+    ANNOTATION_SPAN_ID,
+    PREDICTION_SPAN_ID,
+)
 from tests.mocks import MockModel, MockTokensModel
 
 
@@ -15,33 +19,6 @@ def mock_model():
 # Entity mapping is now handled by the evaluator.
 
 
-@pytest.mark.parametrize(
-    "tags, expected_tags",
-    [
-        (["O", "O"], ["O", "O"]),
-        (["name", "O"], ["name", "O"]),
-        (["O", "credit_card"], ["O", "O"]),
-    ],
-)
-def test_filter_tags_in_supported_entities(mock_model, tags, expected_tags):
-    actual_tags = mock_model.filter_tags_in_supported_entities(tags=tags)
-    assert actual_tags == expected_tags
-
-
-@pytest.mark.parametrize(
-    "tags, expected_tags, scheme",
-    [
-        (["O", "O"], ["O", "O"], "BILUO"),
-        (["B-name", "I-name", "L-name"], ["B-name", "I-name", "I-name"], "BIO"),
-        (["B-name", "I-name", "I-name"], ["B-name", "I-name", "L-name"], "BILUO"),
-    ],
-)
-def test_to_scheme(mock_model, tags, expected_tags, scheme):
-    mock_model.labeling_scheme = scheme
-    actual_tags = mock_model.to_scheme(tags=tags)
-    assert actual_tags == expected_tags
-
-
 def test_to_log(mock_model):
     log_dict = mock_model.to_log()
 
@@ -51,7 +28,15 @@ def test_to_log(mock_model):
 
 # ── predict_dataset() tests ──────────────────────────────────────────────────
 
-EXPECTED_COLUMNS = ["sentence_id", "token", "annotation", "prediction", "start_indices"]
+EXPECTED_COLUMNS = [
+    "sentence_id",
+    "token",
+    "annotation",
+    "prediction",
+    "start_indices",
+    ANNOTATION_SPAN_ID,
+    PREDICTION_SPAN_ID,
+]
 
 
 def _make_sample(tokens, tags, start_indices, sample_id=None):
@@ -65,7 +50,7 @@ def _make_sample(tokens, tags, start_indices, sample_id=None):
 
 
 def test_predict_dataset_schema():
-    """predict_dataset() returns a DataFrame with exactly the 5 required columns."""
+    """predict_dataset() returns a DataFrame with exactly the 7 required columns."""
     tokens = ["Hello", "John"]
     tags = ["O", "PERSON"]
     predictions = ["O", "PERSON"]
@@ -140,3 +125,122 @@ def test_predict_dataset_multi_sample():
 
     assert len(df) == 3  # 1 token + 2 tokens
     assert list(df["sentence_id"]) == [10, 11, 11]
+
+
+# ── span-id columns ──────────────────────────────────────────────────────────
+
+
+def _make_sample_from_spans(text, spans, sample_id=None):
+    """Dataset sample annotated with ``(value, entity_type)`` spans."""
+    return InputSample(
+        full_text=text,
+        spans=[
+            Span(
+                entity_type=entity_type,
+                entity_value=value,
+                start_position=text.index(value),
+                end_position=text.index(value) + len(value),
+            )
+            for value, entity_type in spans
+        ],
+        create_tags_from_span=True,
+        sample_id=sample_id,
+    )
+
+
+def test_predict_dataset_attaches_annotation_span_ids():
+    """Each token carries the index of the gold span covering it, None for O."""
+    model = MockTokensModel(prediction=["O"] * 4)
+    sample = _make_sample_from_spans(
+        "Ana Ruiz 29 here", [("Ana Ruiz", "NAME"), ("29", "AGE")], sample_id=0
+    )
+
+    df = model.predict_dataset([sample])
+
+    assert list(df.columns) == EXPECTED_COLUMNS
+    assert list(df[ANNOTATION_SPAN_ID]) == [0, 0, 1, None]
+    assert list(df[PREDICTION_SPAN_ID]) == [None] * 4
+
+
+def test_predict_dataset_prediction_span_ids_from_io_tags():
+    """A tag-only model gets label-run ids: touching same-type spans read as one."""
+    tokens = ["Ana", "Ruiz", "29", "here"]
+    sample = _make_sample(tokens, ["O"] * 4, [0, 4, 9, 12], sample_id=0)
+    model = MockTokensModel(prediction=["NAME", "NAME", "AGE", "O"])
+
+    df = model.predict_dataset([sample])
+
+    assert list(df["prediction"]) == ["NAME", "NAME", "AGE", "O"]
+    assert list(df[PREDICTION_SPAN_ID]) == [0, 0, 1, None]
+
+
+def test_predict_dataset_prediction_span_ids_from_bio_tags():
+    """BIO prefixes give exact prediction boundaries; tags are flattened to IO."""
+    tokens = ["Ana", "Ruiz", "Bob"]
+    sample = _make_sample(tokens, ["O"] * 3, [0, 4, 9], sample_id=0)
+    model = MockTokensModel(prediction=["B-NAME", "I-NAME", "B-NAME"])
+
+    df = model.predict_dataset([sample])
+
+    assert list(df["prediction"]) == ["NAME", "NAME", "NAME"]
+    assert list(df[PREDICTION_SPAN_ID]) == [0, 0, 1]
+
+
+def test_predict_dataset_span_ids_from_directly_tagged_sample():
+    """A sample built from tags gets label-run gold ids."""
+    model = MockTokensModel(prediction=["O"])
+    sample = InputSample(
+        full_text="foo", tokens=["foo"], tags=["PERSON"], start_indices=[0]
+    )
+
+    df = model.predict_dataset([sample])
+
+    assert list(df.columns) == EXPECTED_COLUMNS
+    assert list(df[ANNOTATION_SPAN_ID]) == [0]
+
+
+def test_predict_dataset_span_ids_none_for_idless_sample_in_mixed_dataset():
+    """A sample without span ids gets None when others in the dataset have them."""
+    with_ids = _make_sample_from_spans("Bob", [("Bob", "PERSON")], sample_id=0)
+    without_ids = _make_sample(["Ann"], ["PERSON"], [0], sample_id=1)
+
+    model = MockTokensModel(prediction=["O"])
+    df = model.predict_dataset([with_ids, without_ids])
+
+    assert list(df[ANNOTATION_SPAN_ID]) == [0, None]
+
+
+def test_predict_dataset_span_ids_stay_ints():
+    """int + None must not be coerced to float64 (0.0, NaN) on construction."""
+    sample = _make_sample_from_spans("Ana Ruiz x", [("Ana Ruiz", "NAME")])
+    df = MockTokensModel(prediction=["NAME", "O", "O"]).predict_dataset([sample])
+    for column in (ANNOTATION_SPAN_ID, PREDICTION_SPAN_ID):
+        values = list(df[column])
+        assert all(type(v) is int for v in values if v is not None), column
+    assert list(df[ANNOTATION_SPAN_ID]) == [0, 0, None]
+    assert list(df[PREDICTION_SPAN_ID]) == [0, None, None]
+
+
+def test_tags_to_spans_uses_character_offsets():
+    """Default batch_predict_spans turns tag runs into character spans."""
+    sample = _make_sample(["Ana", "Ruiz", ",", "29"], ["O"] * 4, [0, 4, 9, 11])
+    sample.full_text = "Ana Ruiz , 29"
+    model = MockTokensModel(prediction=["NAME", "NAME", "O", "AGE"])
+
+    [spans] = model.batch_predict_spans([sample])
+
+    assert [(s.entity_type, s.start_position, s.end_position) for s in spans] == [
+        ("NAME", 0, 8),
+        ("AGE", 11, 13),
+    ]
+    assert [s.entity_value for s in spans] == ["Ana Ruiz", "29"]
+
+
+def test_hyphenated_entity_names_are_not_split_as_scheme_prefixes():
+    sample = _make_sample(["Paris", "Acme"], ["O"] * 2, [0, 6])
+    sample.full_text = "Paris Acme"
+    model = MockTokensModel(prediction=["LOCATION-OTHER", "ORG-OTHER"])
+
+    [spans] = model.batch_predict_spans([sample])
+
+    assert [s.entity_type for s in spans] == ["LOCATION-OTHER", "ORG-OTHER"]
