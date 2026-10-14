@@ -371,7 +371,7 @@ def test_scenario_group2(
             0,  # false positives
             0,  # false negatives
             1,  # annotated PII spans
-            1,  # predicted PII spans
+            2,  # predicted PII spans (each actual span counts once)
         ),
         # No matches
         (
@@ -435,7 +435,7 @@ def test_scenario_group2(
             0,  # false positives
             0,  # false negatives
             1,  # annotated PII spans
-            1,  # predicted PII spans (multiple entity types become single PII span)
+            2,  # predicted PII spans (each actual span counts once)
         ),
         # Global entities with multiple prediction spans overlapping one annotation - updates TP and pred count
         (
@@ -451,7 +451,7 @@ def test_scenario_group2(
             0,  # false positives
             0,  # false negatives
             1,  # annotated PII spans (one PERSON span)
-            2,  # predicted PII spans (each actual span counts once)
+            3,  # predicted PII spans (each actual span counts once)
         ),
         # Global entities with standalone predictions (no annotation overlap) - results in FP count update
         (

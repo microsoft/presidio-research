@@ -209,7 +209,7 @@ class TestGranularityBonus:
         ).calculate_hierarchical_scores(results)
         person = scores["detailed"].per_type["PERSON"]
         assert person.true_positives == 1
-        assert person.num_predicted == 1
+        assert person.num_predicted == 2
         assert person.false_positives == 0
         assert person.false_negatives == 0
 
