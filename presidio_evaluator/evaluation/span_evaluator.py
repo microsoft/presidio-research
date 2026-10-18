@@ -537,7 +537,7 @@ class SpanEvaluator(BaseEvaluator):
             evaluation_result,
             per_type,
         )
-        sentence_id = sentence_df["sentence_id"].iloc[0]
+        sentence_id = int(sentence_df["sentence_id"].iloc[0])
         for error in evaluation_result.model_errors[errors_before:]:
             error.sample_id = sentence_id
         return evaluation_result

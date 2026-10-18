@@ -250,3 +250,4 @@ def test_model_errors_carry_the_sentence_id():
     result = evaluator.calculate_score_on_df(df)
     errors = {e.error_type: e.sample_id for e in result.model_errors}
     assert errors == {ErrorType.FN: 7, ErrorType.FP: 9}
+    assert all(type(e.sample_id) is int for e in result.model_errors)
